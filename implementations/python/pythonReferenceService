@@ -1,0 +1,54 @@
+#!/bin/bash
+# Python Reference Service Wrapper
+# This wrapper script allows the process to be identified as 'pythonReferenceService'
+# instead of 'python3' in process monitoring tools.
+
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Activate mise to use project-managed Python
+if command -v mise &> /dev/null; then
+    eval "$(mise activate bash)"
+else
+    echo "ERROR: mise is not installed"
+    echo "Please run: ./setup-environment.sh"
+    exit 1
+fi
+
+# Verify Python and required packages are available
+if ! command -v python &> /dev/null; then
+    echo "ERROR: Python is not installed via mise"
+    echo "Please run: ./setup-environment.sh"
+    exit 1
+fi
+
+# Check if required packages are installed
+if ! python -c "import fastapi, uvicorn, psycopg, sqlalchemy, pika" 2>/dev/null; then
+    echo "ERROR: Required Python packages are not installed"
+    echo "Please run: ./setup-environment.sh"
+    echo "Or manually: python -m pip install -r $SCRIPT_DIR/requirements.txt"
+    exit 1
+fi
+
+# Change to the Python implementation directory
+cd "$SCRIPT_DIR"
+
+# Run the FastAPI application using mise's Python
+# We use a Python wrapper to set the process name (setproctitle)
+exec python -c "
+import sys
+import os
+
+# Try to set process title using setproctitle if available
+try:
+    import setproctitle
+    setproctitle.setproctitle('pythonReferenceService')
+except ImportError:
+    # setproctitle not available, continue anyway
+    # The process will show as 'python' but functionality works
+    pass
+
+# Import and run uvicorn
+import uvicorn
+uvicorn.run('main:app', host='0.0.0.0', port=8099)
+"

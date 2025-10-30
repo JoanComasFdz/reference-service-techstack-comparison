@@ -1,0 +1,20 @@
+{
+  "name": "bun-reference-service",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun run --watch index.ts",
+    "build": "bun build --compile --outfile=bunReferenceService ./index.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.18.0",
+    "amqplib": "^0.10.9",
+    "prisma": "^6.18.0"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.5",
+    "bun-types": "latest",
+    "typescript": "^5.9.3"
+  }
+}

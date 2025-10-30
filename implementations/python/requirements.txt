@@ -1,0 +1,9 @@
+fastapi==0.115.0
+uvicorn==0.31.0
+pika==1.3.2
+# Modern PostgreSQL driver with native Python 3.13 support
+# psycopg (v3) is the successor to psycopg2 - pure Python, no compilation needed
+psycopg[binary]>=3.2.0
+sqlalchemy>=2.0.0
+# setproctitle allows setting custom process names for monitoring
+setproctitle>=1.3.0

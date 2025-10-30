@@ -1,0 +1,30 @@
+server:
+  port: ${SERVER_PORT:8102}
+
+spring:
+  application:
+    name: java25SpringBootGraalReferenceService
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:admin}
+    listener:
+      simple:
+        prefetch: ${RABBITMQ_PREFETCH:50}
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:java25springbootgraal_db}
+    username: ${POSTGRES_USERNAME:admin}
+    password: ${POSTGRES_PASSWORD:admin}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+logging:
+  level:
+    com.joancomasfdz.performancetest: INFO
+    org.springframework.amqp: INFO
