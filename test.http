@@ -1,0 +1,17 @@
+### Test /kpi endpoint - Java Spring Boot (port 8080)
+GET http://localhost:8080/kpi
+Accept: application/json
+
+###
+
+### Test /kpi endpoint - Java Spring Boot GraalVM (port 8081)
+GET http://localhost:8081/kpi
+Accept: application/json
+
+###
+
+### Test /kpi endpoint - Java Quarkus GraalVM (port 8082)
+GET http://localhost:8082/kpi
+Accept: application/json
+
+###

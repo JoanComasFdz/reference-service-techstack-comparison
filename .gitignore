@@ -1,0 +1,165 @@
+# Test reports
+test-report-*.md
+
+# But allow test reports in results/ directory (official benchmarks)
+!results/**/test-report-*.md
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+**/python/**/build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Node.js / Bun / TypeScript
+node_modules/
+*.bun
+bun.lock
+package-lock.json
+*.tsbuildinfo
+/generated/
+prisma/migrations/dev.db*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# .NET / C#
+**/implementations/**/bin/
+**/implementations/**/obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+project.lock.json
+project.fragment.lock.json
+artifacts/
+**/Properties/launchSettings.json
+*.dbmdl
+*.jfm
+*.pfx
+*.publishsettings
+
+# Build results (.NET specific - in implementation directories)
+**/implementations/**/[Dd]ebug/
+**/implementations/**/[Rr]elease/
+**/implementations/**/x64/
+**/implementations/**/x86/
+**/implementations/**/[Aa]rm/
+**/implementations/**/[Aa]rm64/
+**/implementations/**/bld/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+*.nuget.props
+*.nuget.targets
+
+# Visual Studio
+.vs/
+.vsconfig
+*.rsuser
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+*.pidb
+*.svclog
+*.scc
+*.ncrunchsolution
+*.ncrunchproject
+*.ndproj
+*.sln.iml
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.iml
+.mvn/
+.classpath
+.project
+.settings/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+
+# Quarkus
+.quarkus/
+quarkus.log
+
+# Go
+vendor/
+go.work
+*.test
+*.out
+goReferenceService
+go-service
+
+# Rust
+**/rust/target/
+**/*.rs.bk
+*.pdb
+
+# Compiled service binaries
+*ReferenceService
+!implementations/python/pythonReferenceService
+!*.cs
+!*.java
+!*.go
+!*.rs
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Tester
+performance-tester/test-results/
+
+# Orchestration script outputs
+/test-results-*/
+
+# Logs directory (all log files)
+/logs/
+*.log
+
+# mise - generated files
+*.mise.toml.backup
+.mise.local.toml  # User-specific mise configuration overrides
+
+# Shell configuration backups
+shell_config_backup_*/
+
+# MCP configuration with secrets
+.mcp.json
+
+# Windows Zone.Identifier files
+*:Zone.Identifier

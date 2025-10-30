@@ -1,0 +1,106 @@
+# mise configuration for Reference Service Tech Stack Comparison
+# https://mise.jdx.dev/configuration.html
+
+[tools]
+# Java versions (both 21 and 25 needed for different implementations)
+# Note: Java is installed via install-graalvm.sh (GraalVM distributions)
+# GraalVM provides full JDK functionality + native-image capability
+# Default Java version is controlled via aliases below (graalvm-jdk-25.0.1)
+
+# Build tools
+maven = "3.9.11"
+
+# Go
+go = "1.23.12"
+
+# Rust
+rust = "stable"
+
+# .NET
+dotnet = "9.0.306"
+
+# Bun (TypeScript/JavaScript runtime)
+bun = "1.3.1"
+
+# Python (precompiled binaries for fast installation)
+python = "3.13.8"
+
+# k6 load testing tool (managed via system package manager, not mise)
+# Install separately: sudo snap install k6
+
+[env]
+# Java environment variables
+# JAVA_HOME will be set to the active Java version by mise
+# GRAALVM_HOME will be set by the GraalVM installation script when using GraalVM builds
+
+# .NET environment variables
+DOTNET_ROOT = "{{ env.HOME }}/.local/share/mise/installs/dotnet/9.0.306"
+DOTNET_CLI_TELEMETRY_OPTOUT = "1"
+
+# Go environment variables
+GOPATH = "{{ env.HOME }}/go"
+GOBIN = "{{ env.HOME }}/go/bin"
+
+# Rust environment variables
+# Note: mise's rust backend uses rustup under the hood
+# By setting CARGO_HOME and RUSTUP_HOME to mise's directory, all Rust files
+# are contained within mise's managed directory structure for clean uninstallation
+CARGO_HOME = "{{ env.HOME }}/.local/share/mise/installs/rust/cargo"
+RUSTUP_HOME = "{{ env.HOME }}/.local/share/mise/installs/rust/rustup"
+
+# Maven configuration
+MAVEN_OPTS = "-Xmx2g -XX:MaxMetaspaceSize=512m"
+
+[settings]
+# Use precompiled Python binaries (much faster than compiling from source)
+python_compile = false
+python_default_packages_file = "{{config_root}}/.default-python-packages"
+
+# Automatically install missing tools when entering directory
+auto_install = true
+
+# Use system SSL certificates
+http_timeout = "300"  # 5 minutes for slow connections
+
+# Verbose output for debugging
+verbose = false
+
+[alias.java.versions]
+# Convenient aliases for Java version switching
+# Using GraalVM distributions which provide full JDK + native-image capability
+21 = "graalvm-jdk-21.0.2"           # Java 21 via GraalVM
+25 = "graalvm-jdk-25.0.1"           # Java 25 via GraalVM (default)
+graalvm-21 = "graalvm-jdk-21.0.2"  # Explicit alias for backwards compatibility
+graalvm-25 = "graalvm-jdk-25.0.1"  # Explicit alias for backwards compatibility
+
+[tasks.verify]
+description = "Verify all tools are installed correctly"
+run = "./verify-environment.sh"
+
+[tasks.setup]
+description = "Setup complete environment (run this script)"
+run = "./setup-environment.sh"
+
+[tasks.test-builds]
+description = "Test all implementations build successfully"
+run = "./test-all-builds.sh"
+
+[tasks.test-all]
+description = "Run full test suite (10k events, 30s API load)"
+run = "./run-all-tests.sh --events 10000 --duration 30s"
+
+[tasks.test-quick]
+description = "Run quick test suite (100 events, 5s API load)"
+run = "./run-all-tests.sh --events 100 --duration 5s"
+
+[tasks.clean]
+description = "Clean all build artifacts"
+run = "./clean-binaries.sh"
+
+[tasks.infra-up]
+description = "Start Docker infrastructure (PostgreSQL, RabbitMQ)"
+run = "docker-compose up -d"
+
+[tasks.infra-down]
+description = "Stop Docker infrastructure"
+run = "docker-compose down"

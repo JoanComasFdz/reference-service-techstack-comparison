@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Project Metadata -->
+    <Version>1.0.0</Version>
+    <Authors>Example Authors</Authors>
+    <Description>A .NET 9 library for CloudEvents implementing the CloudEvents specification with extension attributes. Provides base event classes and domain-specific event types for instrument status tracking and KPI updates.</Description>
+    <Company>Example Company</Company>
+    <Product>Dotnet9.Events</Product>
+    <Copyright>Copyright (c) 2025 Example Company</Copyright>
+
+    <!-- Documentation Generation -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>
