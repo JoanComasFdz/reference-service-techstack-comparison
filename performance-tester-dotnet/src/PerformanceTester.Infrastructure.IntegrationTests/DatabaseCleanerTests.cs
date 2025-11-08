@@ -1,0 +1,62 @@
+using JoanComasFdz.AssertingThat;
+using PerformanceTester.Infrastructure.IntegrationTests.Infrastructure;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace PerformanceTester.Infrastructure.IntegrationTests;
+
+public sealed class DatabaseCleanerTests(ITestOutputHelper output) : IntegrationTest(output)
+{
+    [Fact]
+    public async Task ClearDatabaseAsync_WhenDatabaseHasData_ShouldTruncateAllTables()
+    {
+        // Arrange - Clean up any previous state, create a test table and insert data
+        var testDbName = $"test_infrastructure_db_{Guid.NewGuid():N}";
+        await System.PostgreSQL.DropTestDatabaseAsync(testDbName); // Ensure clean state
+        await System.PostgreSQL.CreateTestDatabaseAsync(testDbName);
+        await System.PostgreSQL.CreateTestTableWithDataAsync(testDbName, "test_table");
+
+        await Asserting.That(System.PostgreSQL).DatabaseTableHasRows(testDbName, "test_table");
+
+        // Act
+        await System.Infrastructure.Database.ClearDatabaseAsync(testDbName);
+
+        // Assert
+        await Asserting.That(System.PostgreSQL).DatabaseTableHasNoRows(testDbName, "test_table");
+
+        // Cleanup
+        await System.PostgreSQL.DropTestDatabaseAsync(testDbName);
+    }
+
+    [Fact]
+    public async Task ClearDatabaseAsync_WhenDatabaseIsEmpty_ShouldNotThrow()
+    {
+        // Arrange - Clean up any previous state
+        var testDbName = $"test_empty_db_{Guid.NewGuid():N}";
+        await System.PostgreSQL.DropTestDatabaseAsync(testDbName); // Ensure clean state
+        await System.PostgreSQL.CreateTestDatabaseAsync(testDbName);
+
+        // Act & Assert - should not throw
+        await System.Infrastructure.Database.ClearDatabaseAsync(testDbName);
+
+        // Cleanup
+        await System.PostgreSQL.DropTestDatabaseAsync(testDbName);
+    }
+
+    [Fact]
+    public void ClearDatabaseAsync_WhenDatabaseDoesNotExist_ShouldThrow()
+    {
+        // Arrange
+        const string nonExistentDb = "database_that_does_not_exist_12345";
+
+        // Act & Assert
+        Asserting.That(System.Infrastructure.Database).ClearDatabaseAsyncThrowsInvalidOperationForNonExistentDatabase(nonExistentDb);
+    }
+
+    [Fact]
+    public void ClearDatabaseAsync_WhenDatabaseNameIsNull_ShouldThrow()
+    {
+        // Act & Assert
+        Asserting.That(System.Infrastructure.Database).ClearDatabaseAsyncThrowsArgumentExceptionForNullDatabaseName();
+    }
+}

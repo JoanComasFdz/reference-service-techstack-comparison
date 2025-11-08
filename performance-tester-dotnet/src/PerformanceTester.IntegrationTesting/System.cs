@@ -19,6 +19,11 @@ public class System : IDisposable
     public RabbitMQ RabbitMQ { get; private set; } = null!;
 
     /// <summary>
+    /// Represents the OS process and port management part of the system.
+    /// </summary>
+    public OS OS { get; private set; } = null!;
+
+    /// <summary>
     /// Test output helper for logging (optional).
     /// </summary>
     protected ITestOutputHelper? Output { get; private set; }
@@ -34,6 +39,7 @@ public class System : IDisposable
     {
         PostgreSQL = new PostgreSQL(postgresConnectionString);
         RabbitMQ = new RabbitMQ(rabbitMqConnectionString, rabbitMqManagementPort);
+        OS = new OS();
         Output = output;
 
         InitializeSystem();
@@ -43,5 +49,7 @@ public class System : IDisposable
 
     public virtual void Dispose()
     {
+        OS?.Dispose();
+        RabbitMQ?.Dispose();
     }
 }
