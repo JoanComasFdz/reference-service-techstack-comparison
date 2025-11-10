@@ -12,6 +12,7 @@ namespace PerformanceTester.IntegrationTesting;
 public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDisposable
 {
     private readonly Lazy<HttpClient> _httpClient = new(CreateHttpClient);
+    
     private bool _disposed;
     /// <summary>
     /// The connection string used to connect to the RabbitMQ instance via AMQP.
