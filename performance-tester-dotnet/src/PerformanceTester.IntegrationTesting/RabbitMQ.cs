@@ -86,6 +86,81 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
     }
 
     /// <summary>
+    /// Purges all messages from the specified queue.
+    /// Silently ignores errors (useful for cleanup operations).
+    /// </summary>
+    /// <param name="queueName">The name of the queue to purge</param>
+    public async Task PurgeQueueAsync(string queueName)
+    {
+        try
+        {
+            var factory = new ConnectionFactory { Uri = new Uri(ConnectionString) };
+            await using var connection = await factory.CreateConnectionAsync();
+            await using var channel = await connection.CreateChannelAsync();
+
+            await channel.QueuePurgeAsync(queueName);
+        }
+        catch
+        {
+            // Ignore errors during cleanup
+        }
+    }
+
+    /// <summary>
+    /// Declares an exchange with the specified configuration.
+    /// Idempotent - safe to call multiple times.
+    /// </summary>
+    /// <param name="exchangeName">Name of the exchange</param>
+    /// <param name="exchangeType">Type of exchange (topic, direct, fanout, headers)</param>
+    /// <param name="durable">Whether the exchange survives broker restart</param>
+    public async Task DeclareExchangeAsync(string exchangeName, string exchangeType = "topic", bool durable = true)
+    {
+        var factory = new ConnectionFactory { Uri = new Uri(ConnectionString) };
+        await using var connection = await factory.CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+
+        await channel.ExchangeDeclareAsync(
+            exchange: exchangeName,
+            type: exchangeType,
+            durable: durable,
+            autoDelete: false,
+            arguments: null);
+    }
+
+    /// <summary>
+    /// Declares a queue and binds it to an exchange with the specified routing key.
+    /// </summary>
+    /// <param name="queueName">Name of the queue to declare</param>
+    /// <param name="exchangeName">Name of the exchange to bind to</param>
+    /// <param name="routingKey">Routing key for binding</param>
+    /// <param name="durable">Whether the queue survives broker restart</param>
+    public async Task DeclareAndBindQueueAsync(
+        string queueName,
+        string exchangeName,
+        string routingKey,
+        bool durable = true)
+    {
+        var factory = new ConnectionFactory { Uri = new Uri(ConnectionString) };
+        await using var connection = await factory.CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+
+        // Declare queue
+        await channel.QueueDeclareAsync(
+            queue: queueName,
+            durable: durable,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null);
+
+        // Bind queue to exchange
+        await channel.QueueBindAsync(
+            queue: queueName,
+            exchange: exchangeName,
+            routingKey: routingKey,
+            arguments: null);
+    }
+
+    /// <summary>
     /// Creates and configures an HttpClient for RabbitMQ Management API.
     /// </summary>
     private static HttpClient CreateHttpClient()

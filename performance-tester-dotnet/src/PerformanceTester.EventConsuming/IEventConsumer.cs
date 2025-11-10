@@ -1,0 +1,32 @@
+namespace PerformanceTester.EventConsuming;
+
+/// <summary>
+/// Service for consuming CloudEvents from RabbitMQ with event tracking and inactivity timeout.
+/// Implemented as a BackgroundService that runs continuously until stopped.
+/// </summary>
+public interface IEventConsumer
+{
+    /// <summary>
+    /// Starts tracking events until the expected count is reached or inactivity timeout expires.
+    /// This method returns a Task that completes when:
+    /// - Expected count is reached (success)
+    /// - Inactivity timeout expires (throws TimeoutException)
+    /// - Cancellation is requested (throws OperationCanceledException)
+    /// </summary>
+    /// <param name="expectedCount">Number of events to wait for.</param>
+    /// <param name="inactivityTimeout">Maximum time allowed since last event received (default: 120s).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Task that completes when expected count is reached or timeout expires.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Expected count is less than 1 or timeout is negative.</exception>
+    /// <exception cref="TimeoutException">Inactivity timeout expired (no events received for specified duration).</exception>
+    /// <exception cref="OperationCanceledException">Cancellation was requested.</exception>
+    /// <remarks>
+    /// IMPORTANT: Timeout resets on EVERY event received (inactivity timeout, not absolute timeout).
+    /// This is an improvement over the Python implementation which used absolute timeout.
+    /// Allows slow-but-progressing services to complete while detecting truly stuck services.
+    /// </remarks>
+    Task StartTrackingEventsAsync(
+        int expectedCount,
+        TimeSpan inactivityTimeout,
+        CancellationToken cancellationToken = default);
+}
