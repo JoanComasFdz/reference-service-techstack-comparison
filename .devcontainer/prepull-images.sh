@@ -19,5 +19,16 @@ docker pull rabbitmq:3-management
 
 echo ""
 echo "=========================================="
+echo "Pre-caching MCP server dependencies..."
+echo "=========================================="
+echo ""
+
+# Pre-cache serena MCP server (uvx downloads and caches on first run)
+echo "Caching serena MCP server..."
+uvx --from git+https://github.com/oraios/serena serena --help > /dev/null 2>&1 || echo "  (serena cached)"
+
+echo ""
+echo "=========================================="
 echo "✓ Docker images pre-pulled successfully"
+echo "✓ MCP servers pre-cached successfully"
 echo "=========================================="

@@ -1,23 +1,21 @@
 {
-  "name": "ClaudeCodeYolo",
+  "name": "reference-service-techstack-comparison",
   "build": {
     "dockerfile": "Dockerfile",
     "args": {
       "TZ": "${localEnv:TZ:America/Los_Angeles}",
-      "CLAUDE_CODE_VERSION": "latest",
       "GIT_DELTA_VERSION": "0.18.2",
       "ZSH_IN_DOCKER_VERSION": "1.2.0"
     }
   },
   "runArgs": [
-    "--name=ClaudeCodeYolo",
+    "--name=reference-service-techstack-comparison",
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW"
   ],
   "customizations": {
     "vscode": {
       "extensions": [
-        "anthropic.claude-code",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "ms-dotnettools.vscode-dotnet-runtime",
@@ -47,20 +45,21 @@
   "remoteUser": "node",
   "updateRemoteUserUID": true,
   "mounts": [
-    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    "source=reference-service-techstack-comparison-claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    "source=reference-service-techstack-comparison-claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
   ],
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    "CLAUDE_CODE_VERSION": "latest",
     "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
     "CONTEXT7_API_KEY": "${localEnv:CONTEXT7_API_KEY}",
     "EDITOR": "code --wait"
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "git config --global --add safe.directory /workspace && bash /workspace/.devcontainer/setup-superpowers.sh && bash /workspace/.devcontainer/prepull-images.sh",
+  "postCreateCommand": "git config --global --add safe.directory /workspace && bash /workspace/.devcontainer/setup-claudecode.sh && bash /workspace/.devcontainer/prepull-images.sh",
   "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/fix-docker-iptables.sh",
   "waitFor": "postStartCommand"
 }
