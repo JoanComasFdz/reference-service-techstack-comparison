@@ -60,6 +60,6 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   "postCreateCommand": "git config --global --add safe.directory /workspace && bash /workspace/.devcontainer/setup-claudecode.sh && bash /workspace/.devcontainer/prepull-images.sh",
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/fix-docker-iptables.sh",
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/fix-docker-iptables.sh && docker network connect performance-tester-testcontainers-network $(hostname) 2>/dev/null || true",
   "waitFor": "postStartCommand"
 }

@@ -24,7 +24,8 @@ namespace PerformanceTester.IntegrationTesting;
 ///
 /// Manual cleanup commands:
 ///   docker rm -f performance-tester-postgres performance-tester-rabbitmq
-///   docker network rm performance-tester-network
+///   docker network rm performance-tester-testcontainers-network
+///   docker volume rm performance-tester-postgres-testcontainers-data performance-tester-rabbitmq-testcontainers-data
 /// </summary>
 internal sealed class ContainerManager
 {
@@ -80,11 +81,11 @@ internal sealed class ContainerManager
     {
         try
         {
-            output?.WriteLine("Creating Docker network 'performance-tester-network'...");
+            output?.WriteLine("Creating Docker network 'performance-tester-testcontainers-network'...");
             // Create a shared Docker network to group containers together
             // This makes them appear as a group in Docker Desktop and allows container-to-container communication
             _network = new NetworkBuilder()
-                .WithName("performance-tester-network")
+                .WithName("performance-tester-testcontainers-network")
                 .WithReuse(true) // Reuse network across test runs
                 .WithCleanUp(false) // Never remove the network
                 .Build();
@@ -103,10 +104,11 @@ internal sealed class ContainerManager
                 .WithUsername("testuser")
                 .WithPassword("testpass")
                 .WithName("performance-tester-postgres") // Consistent name for reuse
-                .WithLabel("com.docker.compose.project", "performance-tester") // Group in Docker Desktop
+                .WithLabel("com.docker.compose.project", "performance-tester-testcontainers") // Group in Docker Desktop
                 .WithLabel("com.docker.compose.service", "postgres") // Service name for grouping
                 .WithNetwork(_network) // Add to shared network
                 .WithPortBinding(20000, 5432) // Fixed host port for reuse
+                .WithVolumeMount("performance-tester-postgres-testcontainers-data", "/var/lib/postgresql/data") // Named volume for data persistence
                 .WithReuse(true) // Keep container running and reuse it
                 .WithCleanUp(false) // Never remove the container
                 .Build();
@@ -119,11 +121,12 @@ internal sealed class ContainerManager
                 .WithUsername("testuser")
                 .WithPassword("testpass")
                 .WithName("performance-tester-rabbitmq") // Consistent name for reuse
-                .WithLabel("com.docker.compose.project", "performance-tester") // Group in Docker Desktop
+                .WithLabel("com.docker.compose.project", "performance-tester-testcontainers") // Group in Docker Desktop
                 .WithLabel("com.docker.compose.service", "rabbitmq") // Service name for grouping
                 .WithNetwork(_network) // Add to shared network
                 .WithPortBinding(20001, 5672)  // Fixed host port for AMQP
                 .WithPortBinding(20002, 15672) // Fixed host port for Management UI
+                .WithVolumeMount("performance-tester-rabbitmq-testcontainers-data", "/var/lib/rabbitmq") // Named volume for data persistence
                 .WithReuse(true) // Keep container running and reuse it
                 .WithCleanUp(false) // Never remove the container
                 .Build();

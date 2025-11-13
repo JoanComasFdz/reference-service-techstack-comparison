@@ -8,6 +8,8 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin
+    volumes:
+      - performancetest_rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
       test: rabbitmq-diagnostics -q ping
       interval: 10s
@@ -24,7 +26,7 @@ services:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - performancetest_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d performancetest_db"]
       interval: 10s
@@ -32,4 +34,5 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
+  performancetest_postgres_data:
+  performancetest_rabbitmq_data:

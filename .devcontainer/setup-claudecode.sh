@@ -338,18 +338,21 @@ else
     if [ -n "$CONTEXT7_KEY" ]; then
         echo "  → Registering Context7 with API key..."
         export CONTEXT7_API_KEY="$CONTEXT7_KEY"
-        claude mcp add context7 npx -- -y @upstash/context7-mcp 2>/dev/null
+        if claude mcp add context7 npx -- -y @upstash/context7-mcp 2>/dev/null; then
+            echo "  ✓ Context7 MCP server registered successfully!"
+        else
+            echo "  ✗ Failed to register Context7 MCP server"
+            echo "    You can register manually with: claude mcp add context7 npx -- -y @upstash/context7-mcp"
+        fi
     else
         echo "  → Registering Context7 without API key (you can add it later)..."
         echo "    To add key: export CONTEXT7_API_KEY=your_key or add to /workspace/.env"
-        claude mcp add context7 npx -- -y @upstash/context7-mcp 2>/dev/null
-    fi
-
-    if [ $? -eq 0 ]; then
-        echo "  ✓ Context7 MCP server registered successfully!"
-    else
-        echo "  ✗ Failed to register Context7 MCP server"
-        echo "    You can register manually with: claude mcp add context7 npx -- -y @upstash/context7-mcp"
+        if claude mcp add context7 npx -- -y @upstash/context7-mcp 2>/dev/null; then
+            echo "  ✓ Context7 MCP server registered successfully!"
+        else
+            echo "  ✗ Failed to register Context7 MCP server"
+            echo "    You can register manually with: claude mcp add context7 npx -- -y @upstash/context7-mcp"
+        fi
     fi
 fi
 
@@ -364,9 +367,7 @@ if is_mcp_registered "serena"; then
     echo "  ✓ Serena MCP server already registered"
 else
     echo "  → Registering Serena MCP server..."
-    claude mcp add serena uvx -- --from git+https://github.com/oraios/serena serena-mcp-server 2>/dev/null
-
-    if [ $? -eq 0 ]; then
+    if claude mcp add serena uvx -- --from git+https://github.com/oraios/serena serena-mcp-server 2>/dev/null; then
         echo "  ✓ Serena MCP server registered successfully!"
     else
         echo "  ✗ Failed to register Serena MCP server"
