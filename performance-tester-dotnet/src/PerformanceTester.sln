@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceTester.ApiLoadTe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceTester.ApiLoadTesting.IntegrationTests", "PerformanceTester.ApiLoadTesting.IntegrationTests\PerformanceTester.ApiLoadTesting.IntegrationTests.csproj", "{06DF6024-0D98-464E-9428-041D0C88D9EB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceTester.Common", "PerformanceTester.Common\PerformanceTester.Common.csproj", "{C464C1EB-38A7-4741-B0F2-39568AE1F17E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -209,6 +211,18 @@ Global
 		{06DF6024-0D98-464E-9428-041D0C88D9EB}.Release|x64.Build.0 = Release|Any CPU
 		{06DF6024-0D98-464E-9428-041D0C88D9EB}.Release|x86.ActiveCfg = Release|Any CPU
 		{06DF6024-0D98-464E-9428-041D0C88D9EB}.Release|x86.Build.0 = Release|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Debug|x64.Build.0 = Debug|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Debug|x86.Build.0 = Debug|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Release|x64.ActiveCfg = Release|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Release|x64.Build.0 = Release|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Release|x86.ActiveCfg = Release|Any CPU
+		{C464C1EB-38A7-4741-B0F2-39568AE1F17E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

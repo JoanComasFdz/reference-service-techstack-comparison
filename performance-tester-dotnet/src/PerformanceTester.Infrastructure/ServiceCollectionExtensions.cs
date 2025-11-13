@@ -1,6 +1,6 @@
-using System.Runtime.InteropServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Common;
 using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.ProcessFinding;
 using PerformanceTester.Infrastructure.RabbitMQ;
@@ -27,18 +27,20 @@ public static class ServiceCollectionExtensions
         int? rabbitMqManagementPort = null)
     {
         // Platform detection happens ONCE at startup, not per method call
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        var platformDetector = new OSPlatformDetector();
+        var platform = platformDetector.GetCurrentPlatform();
+
+        switch (platform)
         {
-            services.AddSingleton<IProcessFinder, LinuxProcessFinder>();
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            services.AddSingleton<IProcessFinder, WindowsProcessFinder>();
-        }
-        else
-        {
-            throw new PlatformNotSupportedException(
-                $"Platform {RuntimeInformation.OSDescription} is not supported. Only Linux and Windows are supported.");
+            case SupportedPlatform.Linux:
+                services.AddSingleton<IProcessFinder, LinuxProcessFinder>();
+                break;
+            case SupportedPlatform.Windows:
+                services.AddSingleton<IProcessFinder, WindowsProcessFinder>();
+                break;
+            default:
+                throw new PlatformNotSupportedException(
+                    $"Platform {platform} is not supported. Only Linux and Windows are supported.");
         }
 
         // ServiceDiscovery receives IProcessFinder via constructor injection
