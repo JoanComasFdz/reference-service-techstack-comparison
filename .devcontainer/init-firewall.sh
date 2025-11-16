@@ -66,41 +66,42 @@ while read -r cidr; do
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
 # Resolve and add other allowed domains
-for domain in \
-    "github.com" \
-    "registry.npmjs.org" \
-    "api.anthropic.com" \
-    "sentry.io" \
-    "statsig.anthropic.com" \
-    "statsig.com" \
-    "marketplace.visualstudio.com" \
-    "vscode.blob.core.windows.net" \
-    "update.code.visualstudio.com" \
-    "docs.microsoft.com" \
-    "learn.microsoft.com" \
-    "download.visualstudio.microsoft.com" \
-    "download.microsoft.com" \
-    "az764295.vo.msecnd.net" \
-    "vscode-download.azureedge.net" \
-    "vscodeextensiongallery.blob.core.windows.net" \
-    "vscodeextensions.blob.core.windows.net" \
-    "vscodehub.azureedge.net" \
-    "vsassets.io" \
-    "vsmarketplacebadges.dev" \
-    "api.nuget.org" \
-    "www.nuget.org" \
-    "nuget.org" \
-    "globalcdn.nuget.org" \
-    "context7.com" \
-    "mcp.context7.com" \
-    "pypi.org" \
-    "files.pythonhosted.org" \
-    "pypi.python.org" \
-    "registry-1.docker.io" \
-    "auth.docker.io" \
-    "registry.hub.docker.com" \
-    "production.cloudflare.docker.com" \
-    "index.docker.io"; do
+# For CDN-backed domains (NuGet, Docker, npm), resolve multiple times to capture more IPs
+cdn_domains="api.nuget.org www.nuget.org nuget.org globalcdn.nuget.org registry-1.docker.io auth.docker.io registry.hub.docker.com production.cloudflare.docker.com index.docker.io registry.npmjs.org"
+non_cdn_domains="github.com api.anthropic.com sentry.io statsig.anthropic.com statsig.com marketplace.visualstudio.com vscode.blob.core.windows.net update.code.visualstudio.com docs.microsoft.com learn.microsoft.com download.visualstudio.microsoft.com download.microsoft.com az764295.vo.msecnd.net vscode-download.azureedge.net vscodeextensiongallery.blob.core.windows.net vscodeextensions.blob.core.windows.net vscodehub.azureedge.net vsassets.io vsmarketplacebadges.dev context7.com mcp.context7.com pypi.org files.pythonhosted.org pypi.python.org"
+
+# Resolve CDN domains multiple times to capture more IP addresses
+echo "Resolving CDN domains (multiple queries to capture more IPs)..."
+for domain in $cdn_domains; do
+    echo "Resolving $domain (CDN - 5 queries)..."
+    all_ips=""
+    for i in {1..5}; do
+        ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
+        all_ips="$all_ips $ips"
+        [ $i -lt 5 ] && sleep 0.2  # Small delay between queries
+    done
+
+    # Deduplicate IPs
+    unique_ips=$(echo "$all_ips" | tr ' ' '\n' | sort -u | grep .)
+
+    if [ -z "$unique_ips" ]; then
+        echo "WARNING: Failed to resolve $domain, skipping..."
+        continue
+    fi
+
+    while read -r ip; do
+        if [[ ! "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "WARNING: Invalid IP from DNS for $domain: $ip, skipping..."
+            continue
+        fi
+        echo "Adding $ip for $domain"
+        ipset add allowed-domains "$ip" -exist
+    done < <(echo "$unique_ips")
+done
+
+# Resolve non-CDN domains once (they typically have stable IPs)
+echo "Resolving non-CDN domains..."
+for domain in $non_cdn_domains; do
     echo "Resolving $domain..."
     ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
     if [ -z "$ips" ]; then
