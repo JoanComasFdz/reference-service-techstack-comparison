@@ -46,9 +46,8 @@ using Microsoft.Extensions.Hosting;
 
 var builder = Host.CreateApplicationBuilder();
 
-// Register process monitoring for specific PID
+// Register process monitoring (process ID provided later via StartMonitoring)
 builder.Services.AddProcessMonitoring(
-    processId: 1234,
     samplingInterval: TimeSpan.FromMilliseconds(500)
 );
 
@@ -64,8 +63,15 @@ var host = builder.Build();
 ### Monitoring a Process
 
 ```csharp
-// Start BackgroundServices (monitoring begins automatically)
+// Get the process monitor
+var monitor = host.Services.GetRequiredService&lt;IProcessMonitor&gt;();
+
+// Start BackgroundService (waits for StartMonitoring call)
 await host.StartAsync(cancellationToken);
+
+// Start monitoring a specific process (discovered or known)
+int processId = 1234;  // From service discovery or known value
+monitor.StartMonitoring(processId);
 
 // Run your test workload here
 // Monitoring happens in background continuously
@@ -74,7 +80,6 @@ await host.StartAsync(cancellationToken);
 await host.StopAsync(cancellationToken);
 
 // Retrieve collected metrics
-var monitor = host.Services.GetRequiredService<IProcessMonitor>();
 var metrics = monitor.GetCollectedMetrics();
 
 Console.WriteLine($"Collected {metrics.Count} process metrics");
@@ -87,21 +92,41 @@ foreach (var metric in metrics)
 }
 ```
 
-### Finding Process ID
+### Complete Workflow with Service Discovery
 
-Use Infrastructure slice's IServiceDiscovery to find process by port:
+Use Infrastructure slice's IServiceDiscovery to find process by port, then start monitoring:
 
 ```csharp
+using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Infrastructure;
+using Microsoft.Extensions.Hosting;
 
+// 1. Setup DI (no process ID needed yet)
+var builder = Host.CreateApplicationBuilder();
+builder.Services.AddProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(500));
+builder.Services.AddInfrastructure(postgresConnectionString, rabbitMqConnectionString);
+var host = builder.Build();
+
+// 2. Start services
+await host.StartAsync();
+
+// 3. Discover process ID via service discovery
 var serviceDiscovery = host.Services.GetRequiredService<IServiceDiscovery>();
 var processId = await serviceDiscovery.FindServiceProcessIdAsync(
     port: 8094,
     timeout: TimeSpan.FromSeconds(30),
     cancellationToken);
 
-// Then monitor that process
-builder.Services.AddProcessMonitoring(processId);
+// 4. Start monitoring the discovered process
+var monitor = host.Services.GetRequiredService<IProcessMonitor>();
+monitor.StartMonitoring(processId);
+
+// 5. Run test workload
+// ...
+
+// 6. Stop and retrieve metrics
+await host.StopAsync();
+var metrics = monitor.GetCollectedMetrics();
 ```
 
 ## Integration Testing

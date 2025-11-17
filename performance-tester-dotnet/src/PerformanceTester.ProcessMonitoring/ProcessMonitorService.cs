@@ -9,29 +9,43 @@ namespace PerformanceTester.ProcessMonitoring;
 /// BackgroundService that monitors process resource usage and stores metrics in memory.
 /// Samples CPU, memory, and thread count at regular intervals using PeriodicTimer.
 /// Implements IProcessMonitor to provide access to collected metrics.
+/// Supports deferred start pattern - process ID is provided via StartMonitoring() after service starts.
 /// </summary>
 internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
 {
-    private readonly int _processId;
     private readonly TimeSpan _samplingInterval;
     private readonly ILogger<ProcessMonitorService> _logger;
     private readonly ConcurrentBag<ProcessMetrics> _collectedMetrics = new();
+    private readonly TaskCompletionSource<int> _processIdSource = new();
 
-    public int ProcessId => _processId;
+    private int? _processId;
+
+    /// <inheritdoc />
+    public int? ProcessId => _processId;
 
     public ProcessMonitorService(
-        int processId,
         TimeSpan samplingInterval,
         ILogger<ProcessMonitorService> logger)
     {
-        if (processId <= 0)
-            throw new ArgumentOutOfRangeException(nameof(processId), processId, "Process ID must be positive");
         if (samplingInterval <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(samplingInterval), samplingInterval, "Sampling interval must be positive");
 
-        _processId = processId;
         _samplingInterval = samplingInterval;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    /// <inheritdoc />
+    public void StartMonitoring(int processId)
+    {
+        if (processId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(processId), processId, "Process ID must be positive");
+
+        if (_processId.HasValue)
+            throw new InvalidOperationException($"Monitoring has already been started for process {_processId.Value}");
+
+        _processId = processId;
+        _processIdSource.TrySetResult(processId);
+        _logger.LogInformation("StartMonitoring called for PID {ProcessId}", processId);
     }
 
     /// <inheritdoc />
@@ -47,21 +61,35 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
 
         try
         {
+            _logger.LogInformation("ProcessMonitor BackgroundService started, waiting for StartMonitoring() call...");
+
+            // Wait for StartMonitoring() to be called with process ID
+            int processId;
+            try
+            {
+                processId = await _processIdSource.Task.WaitAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("ProcessMonitor stopped before StartMonitoring() was called");
+                return;
+            }
+
             _logger.LogInformation("ProcessMonitor starting for PID {ProcessId}, sampling every {IntervalMs}ms",
-                _processId,
+                processId,
                 _samplingInterval.TotalMilliseconds);
 
             // Get process handle
             try
             {
-                process = Process.GetProcessById(_processId);
+                process = Process.GetProcessById(processId);
                 _logger.LogInformation("✓ Monitoring process: {ProcessName} (PID: {ProcessId})",
                     process.ProcessName,
-                    _processId);
+                    processId);
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "❌ Process {ProcessId} not found", _processId);
+                _logger.LogError(ex, "❌ Process {ProcessId} not found", processId);
                 return;
             }
 
@@ -79,7 +107,7 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
                     // Check if process still exists
                     if (process.HasExited)
                     {
-                        _logger.LogWarning("⚠️ Process {ProcessId} has exited", _processId);
+                        _logger.LogWarning("⚠️ Process {ProcessId} has exited", processId);
                         break;
                     }
 
@@ -93,7 +121,7 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
 
                     var metrics = new ProcessMetrics(
                         Timestamp: DateTimeOffset.UtcNow,
-                        ProcessId: _processId,
+                        ProcessId: processId,
                         ProcessName: process.ProcessName,
                         CpuPercent: Math.Round(cpuPercent, 2),
                         MemoryMB: Math.Round(memoryMB, 2),
@@ -105,12 +133,12 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
                 catch (InvalidOperationException)
                 {
                     // Process no longer exists (HasExited threw)
-                    _logger.LogWarning("⚠️ Process {ProcessId} terminated during sampling", _processId);
+                    _logger.LogWarning("⚠️ Process {ProcessId} terminated during sampling", processId);
                     break;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "❌ Error sampling process {ProcessId}", _processId);
+                    _logger.LogError(ex, "❌ Error sampling process {ProcessId}", processId);
                 }
             }
 

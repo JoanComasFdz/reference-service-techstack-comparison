@@ -87,8 +87,8 @@ public static class ProcessMonitoringAssertions
     }
 
     /// <summary>
-    /// Asserts that CreateProcessMonitoring throws ArgumentOutOfRangeException for invalid process ID.
-    /// Tests the production DI registration validation (ServiceCollectionExtensions.AddProcessMonitoring).
+    /// Asserts that StartMonitoring throws ArgumentOutOfRangeException for invalid process ID.
+    /// Tests the production validation (IProcessMonitor.StartMonitoring).
     /// </summary>
     /// <param name="assertingThat">The asserting instance.</param>
     /// <param name="invalidProcessId">The invalid process ID that should trigger the exception.</param>
@@ -97,12 +97,14 @@ public static class ProcessMonitoringAssertions
         this AssertingThat<ProcessMonitoringSystem> assertingThat,
         int invalidProcessId)
     {
-        // Test production validation by calling CreateProcessMonitoring with invalid ID
-        // The exception comes from ServiceCollectionExtensions.AddProcessMonitoring() validation
-        // which is called by ProcessMonitoring facade constructor -> builder.Services.AddProcessMonitoring()
+        // Setup: Create ProcessMonitoring facade (no process ID required now)
+        assertingThat.InstanceToAssert.CreateProcessMonitoring();
+
+        // Test production validation by calling StartMonitoring with invalid ID
+        // The exception comes from ProcessMonitorService.StartMonitoring() validation
         Assert.Throws<ArgumentOutOfRangeException>(() =>
         {
-            assertingThat.InstanceToAssert.CreateProcessMonitoring(invalidProcessId);
+            assertingThat.InstanceToAssert.ProcessMonitoring.StartMonitoring(invalidProcessId);
         });
 
         return assertingThat;

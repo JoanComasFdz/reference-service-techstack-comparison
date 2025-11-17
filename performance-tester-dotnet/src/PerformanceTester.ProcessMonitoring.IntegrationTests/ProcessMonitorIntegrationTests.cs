@@ -17,10 +17,13 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
     {
         // Arrange - Monitor current test process
         var currentProcessId = Environment.ProcessId;
-        System.CreateProcessMonitoring(currentProcessId, samplingInterval: TimeSpan.FromMilliseconds(100));
+        System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(100));
 
         // Start BackgroundServices
         await System.ProcessMonitoring.StartAsync();
+
+        // Start monitoring the current process
+        System.ProcessMonitoring.StartMonitoring(currentProcessId);
 
         // Act - Let it monitor for 1 second
         await Task.Delay(TimeSpan.FromSeconds(1));
@@ -37,10 +40,13 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
     {
         // Arrange - Fast sampling to collect many samples quickly
         var currentProcessId = Environment.ProcessId;
-        System.CreateProcessMonitoring(currentProcessId, samplingInterval: TimeSpan.FromMilliseconds(50));
+        System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(50));
 
-        // Start monitoring
+        // Start BackgroundService
         await System.ProcessMonitoring.StartAsync();
+
+        // Start monitoring the current process
+        System.ProcessMonitoring.StartMonitoring(currentProcessId);
 
         // Act - Monitor for 500ms (should get ~10 samples)
         await Task.Delay(TimeSpan.FromMilliseconds(500));
@@ -57,9 +63,10 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
     {
         // Arrange
         var currentProcessId = Environment.ProcessId;
-        System.CreateProcessMonitoring(currentProcessId, samplingInterval: TimeSpan.FromMilliseconds(100));
+        System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(100));
 
         await System.ProcessMonitoring.StartAsync();
+        System.ProcessMonitoring.StartMonitoring(currentProcessId);
 
         // Act - Monitor and generate some load
         await Task.Delay(TimeSpan.FromMilliseconds(500));
@@ -83,9 +90,10 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
     {
         // Arrange
         var currentProcessId = Environment.ProcessId;
-        System.CreateProcessMonitoring(currentProcessId, samplingInterval: TimeSpan.FromMilliseconds(100));
+        System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(100));
 
         await System.ProcessMonitoring.StartAsync();
+        System.ProcessMonitoring.StartMonitoring(currentProcessId);
 
         // Act
         await Task.Delay(TimeSpan.FromSeconds(1));

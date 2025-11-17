@@ -23,20 +23,25 @@ public sealed class ProcessMonitoringSystem : IntegrationTesting.System
     public ProcessMonitoring ProcessMonitoring { get; private set; } = null!;
 
     /// <summary>
-    /// Creates ProcessMonitoring facade with specified process ID and sampling interval.
+    /// Creates ProcessMonitoring facade with specified sampling interval.
     /// Call this in test Arrange phase with test-specific parameters.
+    /// Process ID is provided later via StartMonitoring() method.
     /// </summary>
-    /// <param name="processId">Process ID to monitor (typically Environment.ProcessId for self-monitoring).</param>
     /// <param name="samplingInterval">Sampling interval for metrics collection (default: 500ms).</param>
     /// <remarks>
     /// This method must be called per-test because each test needs:
     /// - Different sampling intervals to test various scenarios
     /// - Fresh metrics collection with no shared state
     /// - Clean BackgroundService lifecycle (Start/Stop per test)
+    ///
+    /// Process ID is not provided here because it uses the deferred start pattern.
+    /// After calling CreateProcessMonitoring(), tests must:
+    /// 1. await System.ProcessMonitoring.StartAsync()
+    /// 2. System.ProcessMonitoring.StartMonitoring(processId)
     /// </remarks>
-    public void CreateProcessMonitoring(int processId, TimeSpan? samplingInterval = null)
+    public void CreateProcessMonitoring(TimeSpan? samplingInterval = null)
     {
-        ProcessMonitoring = new ProcessMonitoring(processId, samplingInterval, base.Output);
+        ProcessMonitoring = new ProcessMonitoring(samplingInterval, base.Output);
     }
 
     public override void Dispose()

@@ -21,7 +21,6 @@ public sealed class ProcessMonitoring : IAsyncDisposable
     public IProcessMonitor Monitor { get; private set; } = null!;
 
     public ProcessMonitoring(
-        int processId,
         TimeSpan? samplingInterval = null,
         ITestOutputHelper? output = null)
     {
@@ -38,7 +37,7 @@ public sealed class ProcessMonitoring : IAsyncDisposable
         }
 
         // Register ProcessMonitoring production services (includes BackgroundServices)
-        builder.Services.AddProcessMonitoring(processId, samplingInterval);
+        builder.Services.AddProcessMonitoring(samplingInterval);
 
         // Configure HostOptions for graceful shutdown
         builder.Services.Configure<HostOptions>(options =>
@@ -53,13 +52,23 @@ public sealed class ProcessMonitoring : IAsyncDisposable
     }
 
     /// <summary>
-    /// Starts all BackgroundServices (ProcessMonitorService, MetricsCollectorService).
-    /// Must be called before monitoring begins.
+    /// Starts all BackgroundServices (ProcessMonitorService).
+    /// BackgroundService will wait for StartMonitoring() to be called before beginning monitoring.
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (_host == null) throw new InvalidOperationException("Host not initialized");
         await _host.StartAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Starts monitoring the specified process.
+    /// Must be called after StartAsync() and before monitoring can begin.
+    /// </summary>
+    /// <param name="processId">Process ID to monitor.</param>
+    public void StartMonitoring(int processId)
+    {
+        Monitor.StartMonitoring(processId);
     }
 
     /// <summary>

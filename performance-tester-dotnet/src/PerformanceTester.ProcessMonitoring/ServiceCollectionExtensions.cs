@@ -13,7 +13,6 @@ public static class ServiceCollectionExtensions
     /// Registers ProcessMonitorService as both BackgroundService and IProcessMonitor.
     /// </summary>
     /// <param name="services">The service collection.</param>
-    /// <param name="processId">Process ID to monitor.</param>
     /// <param name="samplingInterval">Sampling interval (default: 500ms).</param>
     /// <returns>The service collection for chaining.</returns>
     /// <remarks>
@@ -22,16 +21,23 @@ public static class ServiceCollectionExtensions
     /// - As IHostedService - IHost calls Start/StopAsync lifecycle methods
     /// - As IProcessMonitor - Provides public API for retrieving collected metrics
     ///
-    /// BackgroundService will start automatically when IHost.StartAsync() is called.
+    /// BackgroundService will start automatically when IHost.StartAsync() is called,
+    /// but will wait for IProcessMonitor.StartMonitoring(processId) to be called before
+    /// beginning process monitoring. This deferred start pattern is necessary for orchestration
+    /// scenarios where the process ID is not known at DI registration time.
+    ///
+    /// Usage:
+    /// 1. builder.Services.AddProcessMonitoring();
+    /// 2. var host = builder.Build();
+    /// 3. await host.StartAsync();  // BackgroundService starts but waits
+    /// 4. var monitor = host.Services.GetRequiredService&lt;IProcessMonitor&gt;();
+    /// 5. monitor.StartMonitoring(processId);  // Now monitoring begins
     /// </remarks>
     public static IServiceCollection AddProcessMonitoring(
         this IServiceCollection services,
-        int processId,
         TimeSpan? samplingInterval = null)
     {
         if (services == null) throw new ArgumentNullException(nameof(services));
-        if (processId <= 0)
-            throw new ArgumentOutOfRangeException(nameof(processId), processId, "Process ID must be positive");
 
         var interval = samplingInterval ?? TimeSpan.FromMilliseconds(500);
 
@@ -39,7 +45,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ProcessMonitorService>(sp =>
         {
             var logger = sp.GetRequiredService<ILogger<ProcessMonitorService>>();
-            return new ProcessMonitorService(processId, interval, logger);
+            return new ProcessMonitorService(interval, logger);
         });
 
         // Register as IHostedService (BackgroundService lifecycle)
