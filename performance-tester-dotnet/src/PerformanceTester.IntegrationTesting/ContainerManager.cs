@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Networks;
 using Npgsql;
@@ -141,9 +142,16 @@ internal sealed class ContainerManager
             output?.WriteLine("✓ Containers started");
 
             // Store connection strings and ports
-            PostgresConnectionString = _postgresContainer.GetConnectionString();
-            RabbitMqConnectionString = _rabbitMqContainer.GetConnectionString();
-            RabbitMqManagementPort = 20002; // Fixed host port for Management UI (see line 112)
+            // In devcontainer environments, use container IPs and internal ports instead of host-mapped ports
+            // The devcontainer is connected to the same Docker network as the test containers
+            PostgresConnectionString = GetConnectionString(_postgresContainer);
+            RabbitMqConnectionString = GetConnectionString(_rabbitMqContainer);
+
+            // Set Management API port based on environment
+            var isDevContainer = Environment.GetEnvironmentVariable("DEVCONTAINER") == "true";
+            RabbitMqManagementPort = isDevContainer
+                ? 15672  // Internal Management API port (for devcontainer)
+                : 20002; // Host-mapped port (for non-devcontainer, see line 129)
 
             output?.WriteLine($"PostgreSQL: {PostgresConnectionString}");
             output?.WriteLine($"RabbitMQ: {RabbitMqConnectionString}");
@@ -235,5 +243,49 @@ internal sealed class ContainerManager
 
         throw new TimeoutException(
             "RabbitMQ container did not become ready within 30 seconds");
+    }
+
+    /// <summary>
+    /// Gets the connection string for a PostgreSQL container.
+    /// In devcontainer environments, uses container IP and internal port instead of host-mapped ports.
+    /// </summary>
+    private static string GetConnectionString(PostgreSqlContainer container)
+    {
+        var isDevContainer = Environment.GetEnvironmentVariable("DEVCONTAINER") == "true";
+
+        if (!isDevContainer)
+        {
+            // Not in devcontainer: use default connection string (localhost with mapped ports)
+            return container.GetConnectionString();
+        }
+
+        // In devcontainer: Use container IP and internal port (5432)
+        // The devcontainer is connected to the same Docker network as the test containers
+        var containerIp = container.IpAddress;
+        var internalPort = 5432;
+
+        return $"Host={containerIp};Port={internalPort};Database=testdb;Username=testuser;Password=testpass";
+    }
+
+    /// <summary>
+    /// Gets the connection string for a RabbitMQ container.
+    /// In devcontainer environments, uses container IP and internal port instead of host-mapped ports.
+    /// </summary>
+    private static string GetConnectionString(RabbitMqContainer container)
+    {
+        var isDevContainer = Environment.GetEnvironmentVariable("DEVCONTAINER") == "true";
+
+        if (!isDevContainer)
+        {
+            // Not in devcontainer: use default connection string (localhost with mapped ports)
+            return container.GetConnectionString();
+        }
+
+        // In devcontainer: Use container IP and internal port (5672)
+        // The devcontainer is connected to the same Docker network as the test containers
+        var containerIp = container.IpAddress;
+        var internalPort = 5672;
+
+        return $"amqp://testuser:testpass@{containerIp}:{internalPort}/";
     }
 }

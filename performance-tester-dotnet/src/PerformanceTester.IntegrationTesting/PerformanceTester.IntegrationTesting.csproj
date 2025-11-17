@@ -18,6 +18,17 @@
     <PackageReference Include="RabbitMQ.Client" Version="7.0.0" />
   </ItemGroup>
 
+  <!--
+    IMPORTANT: This is the ONLY InternalsVisibleTo in the entire solution.
+
+    Why this exception exists:
+    - IntegrationTesting.Tests verifies the infrastructure implementation itself
+    - Tests ContainerManager singleton pattern and EnsureStartedAsync idempotency
+    - Requires access to internal ContainerManager.Instance and methods
+
+    All OTHER integration test projects (EventPublishing, EventConsuming, etc.)
+    MUST only use public APIs. They should NOT add InternalsVisibleTo.
+  -->
   <ItemGroup>
     <InternalsVisibleTo Include="PerformanceTester.IntegrationTesting.Tests" />
   </ItemGroup>

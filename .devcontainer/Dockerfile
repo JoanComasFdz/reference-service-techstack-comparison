@@ -3,6 +3,9 @@ FROM node:20
 ARG TZ
 ENV TZ="$TZ"
 
+# Upgrade npm to latest stable version
+RUN npm install -g npm@latest
+
 # Install basic development tools and iptables/ipset
 RUN apt-get update && apt-get install -y --no-install-recommends \
   less \
