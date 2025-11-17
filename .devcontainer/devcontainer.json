@@ -20,7 +20,8 @@
         "esbenp.prettier-vscode",
         "ms-dotnettools.vscode-dotnet-runtime",
         "ms-dotnettools.csharp",
-        "ms-dotnettools.csdevkit"
+        "ms-dotnettools.csdevkit",
+        "bierner.markdown-mermaid"
       ],
       "settings": {
         "editor.formatOnSave": true,
