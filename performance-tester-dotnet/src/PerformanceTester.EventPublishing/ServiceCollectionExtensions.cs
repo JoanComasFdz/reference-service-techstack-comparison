@@ -15,18 +15,18 @@ public static class ServiceCollectionExtensions
     /// <param name="rabbitMqConnectionString">RabbitMQ connection string (format: amqp://user:password@host:port).</param>
     /// <returns>The service collection for chaining.</returns>
     /// <remarks>
-    /// Important: RabbitMqPublisher requires explicit connection initialization.
-    /// After resolving IEventPublisher from the container, retrieve the internal
-    /// RabbitMqPublisher and call ConnectAsync() before publishing events.
+    /// Important: IEventPublisher requires explicit connection initialization.
+    /// After resolving IEventPublisher from the container, call ConnectAsync()
+    /// before publishing events, and DisconnectAsync() for graceful shutdown.
     ///
     /// Example usage:
     /// <code>
     /// var host = builder.Build();
-    /// var publisher = host.Services.GetRequiredService&lt;RabbitMqPublisher&gt;();
-    /// await publisher.ConnectAsync(cancellationToken);
+    /// var publisher = host.Services.GetRequiredService&lt;IEventPublisher&gt;();
     ///
-    /// var eventPublisher = host.Services.GetRequiredService&lt;IEventPublisher&gt;();
-    /// await eventPublisher.PublishEventsAsync(1000, cancellationToken);
+    /// await publisher.ConnectAsync(cancellationToken);
+    /// await publisher.PublishEventsAsync(1000, cancellationToken);
+    /// await publisher.DisconnectAsync(cancellationToken);
     /// </code>
     /// </remarks>
     public static IServiceCollection AddEventPublishing(

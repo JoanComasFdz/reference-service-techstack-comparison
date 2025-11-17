@@ -13,7 +13,7 @@ namespace PerformanceTester.EventPublishing;
 /// Uses single persistent connection (expensive) with per-operation channels (cheap).
 /// Call ConnectAsync() before publishing, DisconnectAsync() for graceful shutdown.
 /// </summary>
-public sealed class RabbitMqPublisher : IAsyncDisposable
+internal sealed class RabbitMqPublisher : IAsyncDisposable
 {
     private const string ExchangeName = "referenceservice.comparison";
     private const string RoutingKey = "instrument.status.changed";

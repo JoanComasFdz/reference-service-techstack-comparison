@@ -46,11 +46,17 @@ var host = builder.Build();
 ```csharp
 var publisher = host.Services.GetRequiredService<IEventPublisher>();
 
+// Connect to RabbitMQ (must be called before publishing)
+await publisher.ConnectAsync();
+
 // Publish 1000 events as fast as possible
 var metrics = await publisher.PublishEventsAsync(count: 1000);
 
 Console.WriteLine($"Published {metrics.EventCount} events in {metrics.Duration.TotalSeconds:F2}s");
 Console.WriteLine($"Throughput: {metrics.EventsPerSecond:F2} events/sec");
+
+// Gracefully disconnect when done
+await publisher.DisconnectAsync();
 ```
 
 ## Integration Testing

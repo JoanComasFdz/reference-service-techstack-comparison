@@ -24,6 +24,18 @@ internal sealed class EventPublisher : IEventPublisher
     }
 
     /// <inheritdoc />
+    public async Task ConnectAsync(CancellationToken cancellationToken = default)
+    {
+        await _publisher.ConnectAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
+    {
+        await _publisher.DisconnectAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<PublishMetrics> PublishEventsAsync(int count, CancellationToken cancellationToken = default)
     {
         if (count < 1)

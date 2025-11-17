@@ -14,7 +14,6 @@ namespace PerformanceTester.EventPublishing.IntegrationTests.Infrastructure;
 public sealed class EventPublishing : IAsyncDisposable
 {
     private IHost? _host;
-    private RabbitMqPublisher? _rabbitMqPublisher;
 
     /// <summary>
     /// Event publisher for publishing CloudEvents to RabbitMQ.
@@ -44,17 +43,16 @@ public sealed class EventPublishing : IAsyncDisposable
 
         // Resolve services from DI container
         Publisher = _host.Services.GetRequiredService<IEventPublisher>();
-        _rabbitMqPublisher = _host.Services.GetRequiredService<RabbitMqPublisher>();
 
-        // Explicitly connect to RabbitMQ (synchronous wait is acceptable in test setup)
-        _rabbitMqPublisher.ConnectAsync().GetAwaiter().GetResult();
+        // Explicitly connect to RabbitMQ using public API (synchronous wait is acceptable in test setup)
+        Publisher.ConnectAsync().GetAwaiter().GetResult();
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (_rabbitMqPublisher != null)
+        if (Publisher != null)
         {
-            await _rabbitMqPublisher.DisconnectAsync();
+            await Publisher.DisconnectAsync();
         }
         _host?.Dispose();
     }
