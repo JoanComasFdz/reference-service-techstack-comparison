@@ -91,4 +91,21 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
         Assert.True(queueInfo.MessageCount >= eventCount,
             $"Expected at least {eventCount} messages in queue, but found {queueInfo.MessageCount}");
     }
+
+    [Fact]
+    public async Task PublishEventsAsync_WhenCancelled_ShouldThrowOperationCanceledException()
+    {
+        // Arrange
+        const int largeEventCount = 10000; // Large count to ensure cancellation happens during publishing
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromMilliseconds(100)); // Cancel after 100ms
+
+        // Act & Assert
+        // Verify that cancellation is NOT wrapped in InvalidOperationException
+        // Use ThrowsAnyAsync to accept OperationCanceledException or derived types (e.g., TaskCanceledException)
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await System.EventPublishing.Publisher.PublishEventsAsync(largeEventCount, cts.Token);
+        });
+    }
 }

@@ -78,6 +78,12 @@ internal sealed class EventPublisher : IEventPublisher
                 Duration: stopwatch.Elapsed,
                 EventsPerSecond: eventsPerSecond);
         }
+        catch (OperationCanceledException)
+        {
+            stopwatch.Stop();
+            _logger.LogWarning("Event publishing cancelled after {Duration:F2}s", stopwatch.Elapsed.TotalSeconds);
+            throw; // Re-throw without wrapping - cancellation is normal control flow
+        }
         catch (Exception ex)
         {
             stopwatch.Stop();
