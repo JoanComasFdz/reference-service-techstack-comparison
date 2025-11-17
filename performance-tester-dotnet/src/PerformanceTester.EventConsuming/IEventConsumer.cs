@@ -7,6 +7,21 @@ namespace PerformanceTester.EventConsuming;
 public interface IEventConsumer
 {
     /// <summary>
+    /// Establishes connection to RabbitMQ and starts consuming events.
+    /// Must be called before StartTrackingEventsAsync.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="InvalidOperationException">Connection failed or already connected.</exception>
+    Task ConnectAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gracefully disconnects from RabbitMQ.
+    /// Safe to call multiple times.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task DisconnectAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Starts tracking events until the expected count is reached or inactivity timeout expires.
     /// This method returns a Task that completes when:
     /// - Expected count is reached (success)

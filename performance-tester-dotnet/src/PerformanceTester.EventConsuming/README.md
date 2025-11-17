@@ -7,6 +7,7 @@ RabbitMQ CloudEvents consumption with throughput tracking and inactivity timeout
 ### Event Consumption
 - CloudEvents v1.0 deserialization via official `CloudNative.CloudEvents` library
 - BackgroundService pattern for continuous consumption
+- Explicit connection control via `ConnectAsync()` and `DisconnectAsync()` methods
 - Manual ACK after processing (ensures message safety)
 - Prefetch count: 50 (configurable via constant)
 - Queue: "performancetesterdotnet" (configurable via DI)
@@ -23,8 +24,8 @@ RabbitMQ CloudEvents consumption with throughput tracking and inactivity timeout
 - Samples every 500ms based on events received in time window
 - Thread-safe recording via `ThroughputTracker`
 - Two-tier architecture:
-  - `EventConsumerService` writes to `Channel<ThroughputSample>`
-  - `MetricsCollectorService` reads from channel and stores in `ConcurrentBag<ThroughputSample>`
+  - `EventConsumerService` writes to `Channel<EventThroughputSample>`
+  - `MetricsCollectorService` reads from channel and stores in `ConcurrentBag<EventThroughputSample>`
 - Orchestrator retrieves samples via `IMetricsCollector.GetThroughputSamples()` after test completion
 
 ### BackgroundService Lifecycle
@@ -67,11 +68,14 @@ var host = builder.Build();
 ### Consuming Events
 
 ```csharp
-// Start BackgroundServices
-await host.StartAsync(cancellationToken);
-
 // Get consumer from DI
 var consumer = host.Services.GetRequiredService<IEventConsumer>();
+
+// Explicitly connect to RabbitMQ and start consuming
+await consumer.ConnectAsync(cancellationToken);
+
+// Start BackgroundServices (if using BackgroundService pattern)
+await host.StartAsync(cancellationToken);
 
 // Start tracking events (returns awaitable Task)
 var trackingTask = consumer.StartTrackingEventsAsync(
@@ -97,7 +101,16 @@ foreach (var sample in samples)
 {
     Console.WriteLine($"{sample.Timestamp:HH:mm:ss} - {sample.ThroughputEventsPerSecond:F2} events/sec (total: {sample.CumulativeEventCount})");
 }
+
+// Gracefully disconnect from RabbitMQ
+await consumer.DisconnectAsync(cancellationToken);
 ```
+
+**Note:** The consumer can work in two modes:
+1. **Explicit connection:** Call `ConnectAsync()` before `StartAsync()` for explicit control
+2. **Automatic connection:** `ConnectAsync()` is called automatically in `ExecuteAsync()` if not already connected (BackgroundService pattern)
+
+For integration testing and orchestration, explicit connection is recommended for better control over lifecycle.
 
 ## Integration Testing
 
@@ -126,7 +139,7 @@ Tests validate:
 ## Architecture
 
 ### Vertical Slice Architecture (VSA)
-- EventConsuming slice owns ThroughputSample model (producer-owned contract)
+- EventConsuming slice owns EventThroughputSample model (producer-owned contract)
 - Exposes two interfaces: `IEventConsumer`, `IMetricsCollector`
 - No dependencies on other project slices (only external NuGet packages)
 
@@ -172,7 +185,7 @@ Key improvements over Python:
 - **BackgroundService pattern** (managed lifecycle) vs. daemon thread
 - **TaskCompletionSource signaling** (non-blocking) vs. polling with sleep
 - **Channel-based metrics collection** (producer-consumer) vs. shared list with lock
-- **Strongly-typed ThroughputSample** (record) vs. dict
+- **Strongly-typed EventThroughputSample** (record) vs. dict
 
 ## License
 

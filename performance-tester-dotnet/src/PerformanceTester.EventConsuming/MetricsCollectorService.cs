@@ -6,17 +6,17 @@ using System.Threading.Channels;
 namespace PerformanceTester.EventConsuming;
 
 /// <summary>
-/// BackgroundService that reads ThroughputSample data from Channel and stores in ConcurrentBag.
+/// BackgroundService that reads EventThroughputSample data from Channel and stores in ConcurrentBag.
 /// Implements IMetricsCollector interface for orchestrator to retrieve samples after test completion.
 /// </summary>
 internal sealed class MetricsCollectorService : BackgroundService, IMetricsCollector
 {
-    private readonly Channel<ThroughputSample> _throughputChannel;
+    private readonly Channel<EventThroughputSample> _throughputChannel;
     private readonly ILogger<MetricsCollectorService> _logger;
-    private readonly ConcurrentBag<ThroughputSample> _samples = new();
+    private readonly ConcurrentBag<EventThroughputSample> _samples = new();
 
     public MetricsCollectorService(
-        Channel<ThroughputSample> throughputChannel,
+        Channel<EventThroughputSample> throughputChannel,
         ILogger<MetricsCollectorService> logger)
     {
         _throughputChannel = throughputChannel ?? throw new ArgumentNullException(nameof(throughputChannel));
@@ -24,7 +24,7 @@ internal sealed class MetricsCollectorService : BackgroundService, IMetricsColle
     }
 
     /// <inheritdoc />
-    public IReadOnlyCollection<ThroughputSample> GetThroughputSamples()
+    public IReadOnlyCollection<EventThroughputSample> GetThroughputSamples()
     {
         return _samples.ToArray();
     }

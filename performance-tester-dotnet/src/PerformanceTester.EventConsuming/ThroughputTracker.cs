@@ -27,8 +27,8 @@ internal sealed class ThroughputTracker
     /// Records that an event was received and calculates throughput sample if interval elapsed.
     /// Thread-safe - can be called from consumer callback.
     /// </summary>
-    /// <returns>ThroughputSample if sampling interval elapsed, otherwise null.</returns>
-    public ThroughputSample? RecordEvent()
+    /// <returns>EventThroughputSample if sampling interval elapsed, otherwise null.</returns>
+    public EventThroughputSample? RecordEvent()
     {
         lock (_lock)
         {
@@ -46,7 +46,7 @@ internal sealed class ThroughputTracker
             var eventsInPeriod = _totalEventCount - _lastSampleCount;
             var eventsPerSecond = eventsInPeriod / elapsed.TotalSeconds;
 
-            var sample = new ThroughputSample(
+            var sample = new EventThroughputSample(
                 Timestamp: now,
                 ThroughputEventsPerSecond: eventsPerSecond,
                 CumulativeEventCount: _totalEventCount);

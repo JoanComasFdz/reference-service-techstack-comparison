@@ -11,7 +11,7 @@ namespace PerformanceTester.EventConsuming;
 /// <summary>
 /// BackgroundService that consumes CloudEvents from RabbitMQ and tracks throughput.
 /// Implements IEventConsumer interface for orchestrator control.
-/// Writes ThroughputSample data to Channel for MetricsCollectorService.
+/// Writes EventThroughputSample data to Channel for MetricsCollectorService.
 /// </summary>
 internal sealed class EventConsumerService : BackgroundService, IEventConsumer
 {
@@ -24,7 +24,7 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
     private readonly ILogger<EventConsumerService> _logger;
     private readonly CloudEventFormatter _formatter;
     private readonly ThroughputTracker _throughputTracker;
-    private readonly Channel<ThroughputSample> _throughputChannel;
+    private readonly Channel<EventThroughputSample> _throughputChannel;
 
     // Event tracking state
     private int _receivedEventCount;
@@ -38,11 +38,13 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
     // RabbitMQ connection state
     private IConnection? _connection;
     private IChannel? _channel;
+    private bool _isConnected;
+    private readonly SemaphoreSlim _connectionLock = new(1, 1);
 
     public EventConsumerService(
         string connectionString,
         string queueName,
-        Channel<ThroughputSample> throughputChannel,
+        Channel<EventThroughputSample> throughputChannel,
         ILogger<EventConsumerService> logger)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
@@ -51,6 +53,150 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _formatter = new JsonEventFormatter();
         _throughputTracker = new ThroughputTracker();
+    }
+
+    /// <inheritdoc />
+    public async Task ConnectAsync(CancellationToken cancellationToken = default)
+    {
+        await _connectionLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_isConnected)
+            {
+                throw new InvalidOperationException("Already connected to RabbitMQ");
+            }
+
+            _logger.LogInformation("EventConsumer connecting to RabbitMQ...");
+
+            // Create connection
+            var factory = new ConnectionFactory { Uri = new Uri(_connectionString) };
+            _connection = await factory.CreateConnectionAsync(cancellationToken);
+            _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+            _logger.LogInformation("✓ Connected to RabbitMQ");
+
+            // Declare exchange
+            await _channel.ExchangeDeclareAsync(
+                exchange: ExchangeName,
+                type: "topic",
+                durable: true,
+                autoDelete: false,
+                arguments: null,
+                cancellationToken: cancellationToken);
+
+            // Declare queue
+            await _channel.QueueDeclareAsync(
+                queue: _queueName,
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null,
+                cancellationToken: cancellationToken);
+
+            // Bind queue to exchange
+            await _channel.QueueBindAsync(
+                queue: _queueName,
+                exchange: ExchangeName,
+                routingKey: RoutingKey,
+                arguments: null,
+                cancellationToken: cancellationToken);
+
+            _logger.LogInformation("✓ Queue '{QueueName}' bound to exchange '{ExchangeName}' with routing key '{RoutingKey}'",
+                _queueName,
+                ExchangeName,
+                RoutingKey);
+
+            // Set prefetch count
+            await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: PrefetchCount, global: false, cancellationToken: cancellationToken);
+
+            // Create async consumer
+            var consumer = new AsyncEventingBasicConsumer(_channel);
+            consumer.ReceivedAsync += OnMessageReceivedAsync;
+
+            // Start consuming
+            await _channel.BasicConsumeAsync(
+                queue: _queueName,
+                autoAck: false,
+                consumer: consumer,
+                cancellationToken: cancellationToken);
+
+            _logger.LogInformation("✓ Consumer started, listening for events...");
+
+            _isConnected = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Failed to connect to RabbitMQ");
+
+            // Cleanup on failure
+            if (_channel != null)
+            {
+                await _channel.CloseAsync();
+                _channel.Dispose();
+                _channel = null;
+            }
+            if (_connection != null)
+            {
+                await _connection.CloseAsync();
+                _connection.Dispose();
+                _connection = null;
+            }
+
+            throw new InvalidOperationException("Failed to connect to RabbitMQ", ex);
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
+    {
+        await _connectionLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!_isConnected)
+            {
+                _logger.LogDebug("Not connected, disconnect is no-op");
+                return;
+            }
+
+            _logger.LogInformation("EventConsumer disconnecting from RabbitMQ...");
+
+            // Complete throughput channel to signal MetricsCollectorService
+            _throughputChannel.Writer.Complete();
+            _logger.LogInformation("✓ Throughput channel completed");
+
+            // Cleanup tracking state
+            ResetTrackingState();
+
+            // Cleanup resources
+            if (_channel != null)
+            {
+                await _channel.CloseAsync();
+                _channel.Dispose();
+                _channel = null;
+            }
+            if (_connection != null)
+            {
+                await _connection.CloseAsync();
+                _connection.Dispose();
+                _connection = null;
+            }
+
+            _isConnected = false;
+            _logger.LogInformation("✓ EventConsumer disconnected");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Error during disconnect");
+            throw;
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
     }
 
     /// <inheritdoc />
@@ -125,59 +271,11 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
         {
             _logger.LogInformation("EventConsumer starting...");
 
-            // Create connection
-            var factory = new ConnectionFactory { Uri = new Uri(_connectionString) };
-            _connection = await factory.CreateConnectionAsync(stoppingToken);
-            _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
-
-            _logger.LogInformation("✓ Connected to RabbitMQ");
-
-            // Declare exchange
-            await _channel.ExchangeDeclareAsync(
-                exchange: ExchangeName,
-                type: "topic",
-                durable: true,
-                autoDelete: false,
-                arguments: null,
-                cancellationToken: stoppingToken);
-
-            // Declare queue
-            await _channel.QueueDeclareAsync(
-                queue: _queueName,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: null,
-                cancellationToken: stoppingToken);
-
-            // Bind queue to exchange
-            await _channel.QueueBindAsync(
-                queue: _queueName,
-                exchange: ExchangeName,
-                routingKey: RoutingKey,
-                arguments: null,
-                cancellationToken: stoppingToken);
-
-            _logger.LogInformation("✓ Queue '{QueueName}' bound to exchange '{ExchangeName}' with routing key '{RoutingKey}'",
-                _queueName,
-                ExchangeName,
-                RoutingKey);
-
-            // Set prefetch count
-            await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: PrefetchCount, global: false, cancellationToken: stoppingToken);
-
-            // Create async consumer
-            var consumer = new AsyncEventingBasicConsumer(_channel);
-            consumer.ReceivedAsync += OnMessageReceivedAsync;
-
-            // Start consuming
-            await _channel.BasicConsumeAsync(
-                queue: _queueName,
-                autoAck: false,
-                consumer: consumer,
-                cancellationToken: stoppingToken);
-
-            _logger.LogInformation("✓ Consumer started, listening for events...");
+            // Connect if not already connected (supports both explicit ConnectAsync and BackgroundService patterns)
+            if (!_isConnected)
+            {
+                await ConnectAsync(stoppingToken);
+            }
 
             // Keep running until cancellation
             await Task.Delay(Timeout.Infinite, stoppingToken);
@@ -193,26 +291,8 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
         }
         finally
         {
-            // Complete throughput channel to signal MetricsCollectorService
-            _throughputChannel.Writer.Complete();
-            _logger.LogInformation("✓ Throughput channel completed");
-
-            // Cleanup tracking state
-            ResetTrackingState();
-
-            // Cleanup resources
-            if (_channel != null)
-            {
-                await _channel.CloseAsync();
-                _channel.Dispose();
-            }
-            if (_connection != null)
-            {
-                await _connection.CloseAsync();
-                _connection.Dispose();
-            }
-
-            _logger.LogInformation("✓ EventConsumer stopped");
+            // Disconnect and cleanup
+            await DisconnectAsync();
         }
     }
 

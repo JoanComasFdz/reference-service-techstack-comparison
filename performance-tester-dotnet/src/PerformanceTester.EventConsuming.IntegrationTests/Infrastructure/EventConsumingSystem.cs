@@ -64,10 +64,9 @@ public sealed class EventConsumingSystem : IntegrationTesting.System
 
         // Resolve services from DI container
         this.EventPublisher = _eventPublisherHost.Services.GetRequiredService<IEventPublisher>();
-        var rabbitMqPublisher = _eventPublisherHost.Services.GetRequiredService<RabbitMqPublisher>();
 
-        // Connect to RabbitMQ (synchronously for initialization)
-        rabbitMqPublisher.ConnectAsync().GetAwaiter().GetResult();
+        // Connect to RabbitMQ using public API (synchronously for initialization)
+        this.EventPublisher.ConnectAsync().GetAwaiter().GetResult();
     }
 
     public override void Dispose()

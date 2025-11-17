@@ -19,7 +19,7 @@ public static class ServiceCollectionExtensions
     /// <returns>The service collection for chaining.</returns>
     /// <remarks>
     /// This method registers:
-    /// - Channel&lt;ThroughputSample&gt; (singleton) - Communication between EventConsumer and MetricsCollector
+    /// - Channel&lt;EventThroughputSample&gt; (singleton) - Communication between EventConsumer and MetricsCollector
     /// - EventConsumerService (BackgroundService + IEventConsumer)
     /// - MetricsCollectorService (BackgroundService + IMetricsCollector)
     ///
@@ -37,7 +37,7 @@ public static class ServiceCollectionExtensions
             throw new ArgumentException("Queue name cannot be null or empty", nameof(queueName));
 
         // Register channel for throughput samples (singleton - shared between services)
-        services.AddSingleton(Channel.CreateUnbounded<ThroughputSample>(new UnboundedChannelOptions
+        services.AddSingleton(Channel.CreateUnbounded<EventThroughputSample>(new UnboundedChannelOptions
         {
             SingleReader = true,
             SingleWriter = true
@@ -46,7 +46,7 @@ public static class ServiceCollectionExtensions
         // Register EventConsumerService as both HostedService and IEventConsumer
         services.AddSingleton<EventConsumerService>(sp =>
         {
-            var channel = sp.GetRequiredService<Channel<ThroughputSample>>();
+            var channel = sp.GetRequiredService<Channel<EventThroughputSample>>();
             var logger = sp.GetRequiredService<ILogger<EventConsumerService>>();
             return new EventConsumerService(rabbitMqConnectionString, queueName, channel, logger);
         });
