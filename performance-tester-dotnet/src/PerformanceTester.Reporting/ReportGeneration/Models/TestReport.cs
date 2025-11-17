@@ -47,13 +47,13 @@ public sealed record TestReport
     /// Event throughput samples collected during Phase 2 (consume).
     /// Sampling interval: 100ms.
     /// </summary>
-    public IReadOnlyList<ThroughputSample> EventsThroughputSamples { get; init; } = Array.Empty<ThroughputSample>();
+    public IReadOnlyList<ThroughputMetricSample> EventsThroughputSamples { get; init; } = Array.Empty<ThroughputMetricSample>();
 
     /// <summary>
     /// API throughput samples collected during Phase 3 (API load test).
     /// Sampling interval: 100ms.
     /// </summary>
-    public IReadOnlyList<ThroughputSample> ApiThroughputSamples { get; init; } = Array.Empty<ThroughputSample>();
+    public IReadOnlyList<ThroughputMetricSample> ApiThroughputSamples { get; init; } = Array.Empty<ThroughputMetricSample>();
 
     /// <summary>
     /// Process resource samples for the monitored service.

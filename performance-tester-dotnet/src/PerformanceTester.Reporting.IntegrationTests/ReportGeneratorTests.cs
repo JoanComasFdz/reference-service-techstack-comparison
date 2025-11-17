@@ -270,7 +270,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         var testReport = new TestReportBuilder()
             .WithTestDate(testDate)
             .WithSystemInfo(SystemInfoBuilder.CreateIntelI9())
-            .WithEventsThroughputSamples(ThroughputSampleBuilder.CreateWithKnownStatistics(testDate))
+            .WithEventsThroughputSamples(ThroughputMetricSampleBuilder.CreateWithKnownStatistics(testDate))
             .Build();
 
         try
@@ -309,7 +309,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         var testReport = new TestReportBuilder()
             .WithTestDate(testDate)
             .WithSystemInfo(SystemInfoBuilder.CreateIntelI9())
-            .WithEventsThroughputSamples(ThroughputSampleBuilder.CreateWithZeros(testDate))
+            .WithEventsThroughputSamples(ThroughputMetricSampleBuilder.CreateWithZeros(testDate))
             .Build();
 
         try

@@ -1,14 +1,15 @@
 namespace PerformanceTester.Reporting;
 
 /// <summary>
-/// Represents a single throughput measurement sample (input data from Phase 2).
-/// Used for events throughput and API throughput monitoring.
+/// Represents a single throughput metric sample (normalized data for reporting).
+/// Used for both events throughput and API throughput in test reports.
 /// </summary>
 /// <remarks>
-/// This is the input model that will be collected by Phase 2 monitoring slices.
-/// The ReportGenerator transforms this into ThroughputSampleJson for report output.
+/// This is the normalized reporting model that aggregates throughput data from various sources.
+/// The ReportGenerator transforms source-specific samples (EventThroughputSample, ApiThroughputSample)
+/// into this common format for report output and comparison.
 /// </remarks>
-public sealed record ThroughputSample
+public sealed record ThroughputMetricSample
 {
     /// <summary>
     /// Sample timestamp (UTC).

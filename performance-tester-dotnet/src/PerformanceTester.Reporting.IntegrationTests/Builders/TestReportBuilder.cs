@@ -21,8 +21,8 @@ public class TestReportBuilder
     private TestResults? _results;
     private TestConfiguration? _configuration;
     private SystemInfo? _systemInfo;
-    private IReadOnlyList<ThroughputSample>? _eventsThroughputSamples;
-    private IReadOnlyList<ThroughputSample>? _apiThroughputSamples;
+    private IReadOnlyList<ThroughputMetricSample>? _eventsThroughputSamples;
+    private IReadOnlyList<ThroughputMetricSample>? _apiThroughputSamples;
     private IReadOnlyList<ProcessResourceSample>? _processResourceSamples;
     private IReadOnlyList<ContainerResourceSample>? _systemResourceSamples;
     private IReadOnlyList<ContainerResourceSample>? _rabbitmqResourceSamples;
@@ -96,13 +96,13 @@ public class TestReportBuilder
         return this;
     }
 
-    public TestReportBuilder WithEventsThroughputSamples(IReadOnlyList<ThroughputSample> samples)
+    public TestReportBuilder WithEventsThroughputSamples(IReadOnlyList<ThroughputMetricSample> samples)
     {
         _eventsThroughputSamples = samples;
         return this;
     }
 
-    public TestReportBuilder WithApiThroughputSamples(IReadOnlyList<ThroughputSample> samples)
+    public TestReportBuilder WithApiThroughputSamples(IReadOnlyList<ThroughputMetricSample> samples)
     {
         _apiThroughputSamples = samples;
         return this;
@@ -143,8 +143,8 @@ public class TestReportBuilder
     public TestReport Build()
     {
         // Use custom samples if provided, otherwise generate defaults
-        var eventsSamples = _eventsThroughputSamples ?? ThroughputSampleBuilder.Create(_testDate, _eventsThroughput, _eventsCv);
-        var apiSamples = _apiThroughputSamples ?? ThroughputSampleBuilder.Create(_testDate.AddSeconds(30), _apiThroughput, _apiCv);
+        var eventsSamples = _eventsThroughputSamples ?? ThroughputMetricSampleBuilder.Create(_testDate, _eventsThroughput, _eventsCv);
+        var apiSamples = _apiThroughputSamples ?? ThroughputMetricSampleBuilder.Create(_testDate.AddSeconds(30), _apiThroughput, _apiCv);
         var processSamples = _processResourceSamples ?? ResourceSampleBuilder.CreateProcess(_testDate, _avgCpu, _avgMemory);
         var systemSamples = _systemResourceSamples ?? ResourceSampleBuilder.CreateContainer(_testDate, count: 5);
         var rabbitmqSamples = _rabbitmqResourceSamples ?? systemSamples;
@@ -222,9 +222,9 @@ public class TestReportBuilder
 /// <summary>
 /// Builder for throughput samples with statistical properties.
 /// </summary>
-internal static class ThroughputSampleBuilder
+internal static class ThroughputMetricSampleBuilder
 {
-    public static IReadOnlyList<ThroughputSample> Create(
+    public static IReadOnlyList<ThroughputMetricSample> Create(
         DateTime baseTime,
         double targetAverage,
         double targetCv)
@@ -242,10 +242,10 @@ internal static class ThroughputSampleBuilder
         var currentAvg = rawValues.Average();
         var adjustment = targetAverage - currentAvg;
 
-        var samples = new List<ThroughputSample>();
+        var samples = new List<ThroughputMetricSample>();
         for (int i = 0; i < rawValues.Count; i++)
         {
-            samples.Add(new ThroughputSample
+            samples.Add(new ThroughputMetricSample
             {
                 Timestamp = baseTime.AddSeconds(i * 0.1),
                 ElapsedSeconds = i * 0.1,
@@ -260,16 +260,16 @@ internal static class ThroughputSampleBuilder
     /// <summary>
     /// Creates simple throughput samples with linear progression for deterministic testing.
     /// </summary>
-    public static IReadOnlyList<ThroughputSample> CreateSimple(
+    public static IReadOnlyList<ThroughputMetricSample> CreateSimple(
         DateTime baseTime,
         int count,
         double startRate = 100.0,
         double rateIncrement = 10.0)
     {
-        var samples = new List<ThroughputSample>();
+        var samples = new List<ThroughputMetricSample>();
         for (int i = 0; i < count; i++)
         {
-            samples.Add(new ThroughputSample
+            samples.Add(new ThroughputMetricSample
             {
                 Timestamp = baseTime.AddSeconds(i * 0.1),
                 ElapsedSeconds = i * 0.1,
@@ -284,9 +284,9 @@ internal static class ThroughputSampleBuilder
     /// Creates throughput samples with known statistics for testing calculations.
     /// Average: 100.00, Peak: 150.00, Min: 50.00
     /// </summary>
-    public static IReadOnlyList<ThroughputSample> CreateWithKnownStatistics(DateTime baseTime)
+    public static IReadOnlyList<ThroughputMetricSample> CreateWithKnownStatistics(DateTime baseTime)
     {
-        return new List<ThroughputSample>
+        return new List<ThroughputMetricSample>
         {
             new() { Timestamp = baseTime, ElapsedSeconds = 0.1, Rate = 100.0, CumulativeCount = 10 },
             new() { Timestamp = baseTime.AddSeconds(0.1), ElapsedSeconds = 0.2, Rate = 150.0, CumulativeCount = 25 },
@@ -300,9 +300,9 @@ internal static class ThroughputSampleBuilder
     /// Creates throughput samples with zeros interspersed for testing min calculation.
     /// Min should exclude zeros and return 50.0
     /// </summary>
-    public static IReadOnlyList<ThroughputSample> CreateWithZeros(DateTime baseTime)
+    public static IReadOnlyList<ThroughputMetricSample> CreateWithZeros(DateTime baseTime)
     {
-        return new List<ThroughputSample>
+        return new List<ThroughputMetricSample>
         {
             new() { Timestamp = baseTime, ElapsedSeconds = 0.1, Rate = 100.0, CumulativeCount = 10 },
             new() { Timestamp = baseTime.AddSeconds(0.1), ElapsedSeconds = 0.2, Rate = 150.0, CumulativeCount = 25 },
