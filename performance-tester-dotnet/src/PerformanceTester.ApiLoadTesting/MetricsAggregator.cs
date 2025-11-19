@@ -12,12 +12,6 @@ internal sealed class MetricsAggregator
     private int _totalRequests;
     private int _failedRequests;
     private readonly List<double> _requestDurations = new();
-    private readonly DateTime _testStartTime;
-
-    public MetricsAggregator()
-    {
-        _testStartTime = DateTime.UtcNow;
-    }
 
     /// <summary>
     /// Processes a single k6 metric.
@@ -53,7 +47,7 @@ internal sealed class MetricsAggregator
 
                 var sample = new ApiThroughputSample(
                     Timestamp: new DateTimeOffset(utcTime, TimeSpan.Zero),
-                    RequestsPerSecond: _totalRequests / (DateTime.UtcNow - _testStartTime).TotalSeconds,
+                    RequestsPerSecond: 0,  // Calculated in final result based on actual test duration
                     CumulativeRequestCount: _totalRequests,
                     ActiveVirtualUsers: (int)metric.Data.Value);
                 _throughputSamples.Add(sample);
@@ -64,20 +58,19 @@ internal sealed class MetricsAggregator
     /// <summary>
     /// Computes final aggregated result.
     /// </summary>
-    public ApiLoadTestResult ComputeResult()
+    /// <param name="actualDuration">The actual duration of the test (from k6 execution start to end).</param>
+    public ApiLoadTestResult ComputeResult(TimeSpan actualDuration)
     {
-        var testEndTime = DateTime.UtcNow;
-        var duration = testEndTime - _testStartTime;
         var avgDuration = _requestDurations.Count > 0 ? _requestDurations.Average() : 0;
         var p95Duration = CalculatePercentile(_requestDurations, 0.95);
         var p99Duration = CalculatePercentile(_requestDurations, 0.99);
-        var requestsPerSecond = duration.TotalSeconds > 0
-            ? _totalRequests / duration.TotalSeconds
+        var requestsPerSecond = actualDuration.TotalSeconds > 0
+            ? _totalRequests / actualDuration.TotalSeconds
             : 0;
 
         return new ApiLoadTestResult(
             TotalRequests: _totalRequests,
-            TotalDuration: duration,
+            TotalDuration: actualDuration,
             FailedRequests: _failedRequests,
             AverageRequestDurationMs: Math.Round(avgDuration, 2),
             P95RequestDurationMs: Math.Round(p95Duration, 2),

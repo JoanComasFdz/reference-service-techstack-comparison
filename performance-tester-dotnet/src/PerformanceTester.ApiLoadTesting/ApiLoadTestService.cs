@@ -51,7 +51,10 @@ internal sealed class ApiLoadTestService : IApiLoadTester
         {
             // Execute k6 and get metrics
             var executor = new K6Executor(_logger);
+            var testStartTime = DateTime.UtcNow;
             var metrics = await executor.ExecuteAsync(scriptPath, cancellationToken);
+            var testEndTime = DateTime.UtcNow;
+            var actualDuration = testEndTime - testStartTime;
 
             _logger.LogInformation("✓ k6 execution completed, processing {Count} metrics", metrics.Count);
 
@@ -62,7 +65,7 @@ internal sealed class ApiLoadTestService : IApiLoadTester
                 aggregator.ProcessMetric(metric);
             }
 
-            var result = aggregator.ComputeResult();
+            var result = aggregator.ComputeResult(actualDuration);
 
             _logger.LogInformation("✓ Test completed: {TotalRequests} requests, {FailedRequests} failed",
                 result.TotalRequests, result.FailedRequests);
