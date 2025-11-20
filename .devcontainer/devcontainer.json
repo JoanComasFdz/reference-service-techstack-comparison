@@ -62,7 +62,7 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "git config --global --add safe.directory /workspace && bash /workspace/.devcontainer/setup-claudecode.sh && bash /workspace/.devcontainer/install-k6.sh && bash /workspace/.devcontainer/prepull-images.sh && echo 'export DEVCONTAINER=true' >> /home/node/.zshrc && echo 'export DEVCONTAINER=true' >> /home/node/.bashrc",
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/fix-docker-iptables.sh && docker network connect performance-tester-testcontainers-network reference-service-techstack-comparison 2>/dev/null || true",
+  "postCreateCommand": "bash /workspace/.devcontainer/postcreate-wrapper.sh",
+  "postStartCommand": "bash /workspace/.devcontainer/poststart-wrapper.sh",
   "waitFor": "postStartCommand"
 }

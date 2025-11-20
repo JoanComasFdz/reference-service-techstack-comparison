@@ -70,6 +70,11 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 cdn_domains="api.nuget.org www.nuget.org nuget.org globalcdn.nuget.org registry-1.docker.io auth.docker.io registry.hub.docker.com production.cloudflare.docker.com index.docker.io registry.npmjs.org"
 non_cdn_domains="github.com api.anthropic.com sentry.io statsig.anthropic.com statsig.com marketplace.visualstudio.com vscode.blob.core.windows.net update.code.visualstudio.com docs.microsoft.com learn.microsoft.com download.visualstudio.microsoft.com download.microsoft.com az764295.vo.msecnd.net vscode-download.azureedge.net vscodeextensiongallery.blob.core.windows.net vscodeextensions.blob.core.windows.net vscodehub.azureedge.net vsassets.io vsmarketplacebadges.dev context7.com mcp.context7.com pypi.org files.pythonhosted.org pypi.python.org"
 
+# Save original IFS and temporarily reset for domain iteration
+# (IFS=$'\n\t' prevents word splitting on spaces)
+ORIGINAL_IFS="$IFS"
+IFS=$' \t\n'
+
 # Resolve CDN domains multiple times to capture more IP addresses
 echo "Resolving CDN domains (multiple queries to capture more IPs)..."
 for domain in $cdn_domains; do
@@ -82,7 +87,7 @@ for domain in $cdn_domains; do
     done
 
     # Deduplicate IPs
-    unique_ips=$(echo "$all_ips" | tr ' ' '\n' | sort -u | grep .)
+    unique_ips=$(echo "$all_ips" | tr ' ' '\n' | sort -u | grep . || true)
 
     if [ -z "$unique_ips" ]; then
         echo "WARNING: Failed to resolve $domain, skipping..."
@@ -118,6 +123,9 @@ for domain in $non_cdn_domains; do
         ipset add allowed-domains "$ip" -exist
     done < <(echo "$ips")
 done
+
+# Restore original IFS
+IFS="$ORIGINAL_IFS"
 
 # Add known IPs that may not resolve via DNS (Azure CDN, Microsoft services)
 echo "Adding known Microsoft/Azure CDN IPs..."
