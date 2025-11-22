@@ -9,9 +9,9 @@ public sealed class InfrastructureSystem : IntegrationTesting.System
 {
     public Infrastructure Infrastructure { get; private set; } = null!;
 
-    protected override void InitializeSystem()
+    protected override async Task InitializeSystemAsync()
     {
-        base.InitializeSystem();
+        await base.InitializeSystemAsync();
         this.Infrastructure = new Infrastructure(
             base.PostgreSQL.ConnectionString,
             base.RabbitMQ.ConnectionString,

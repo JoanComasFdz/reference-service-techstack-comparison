@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PerformanceTester.Infrastructure\PerformanceTester.Infrastructure.csproj" />
+    <ProjectReference Include="..\PerformanceTester.EventPublishing\PerformanceTester.EventPublishing.csproj" />
+    <ProjectReference Include="..\PerformanceTester.EventConsuming\PerformanceTester.EventConsuming.csproj" />
+    <ProjectReference Include="..\PerformanceTester.ProcessMonitoring\PerformanceTester.ProcessMonitoring.csproj" />
+    <ProjectReference Include="..\PerformanceTester.DockerMonitoring\PerformanceTester.DockerMonitoring.csproj" />
+    <ProjectReference Include="..\PerformanceTester.ApiLoadTesting\PerformanceTester.ApiLoadTesting.csproj" />
+    <ProjectReference Include="..\PerformanceTester.Reporting\PerformanceTester.Reporting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog" Version="4.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>

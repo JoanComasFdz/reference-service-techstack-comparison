@@ -18,9 +18,9 @@ public sealed class ApiLoadTestingSystem : IntegrationTesting.System
     /// Initializes ApiLoadTesting facade.
     /// Called automatically by xUnit before each test.
     /// </summary>
-    protected override void InitializeSystem()
+    protected override async Task InitializeSystemAsync()
     {
-        base.InitializeSystem();
+        await base.InitializeSystemAsync();
         ApiLoadTesting = new ApiLoadTesting(base.Output);
     }
 

@@ -25,4 +25,13 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Show detailed test output by default -->
+    <VSTestVerbosity>normal</VSTestVerbosity>
+  </PropertyGroup>
+
 </Project>

@@ -19,9 +19,9 @@ public sealed class ReportingSystem : IntegrationTesting.System
     /// </summary>
     public FileSystem FileSystem { get; private set; } = null!;
 
-    protected override void InitializeSystem()
+    protected override async Task InitializeSystemAsync()
     {
-        base.InitializeSystem();
+        await base.InitializeSystemAsync();
 
         // Initialize Reporting facade (includes all DI setup)
         Reporting = new Reporting(base.Output);

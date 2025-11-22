@@ -161,6 +161,67 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
     }
 
     /// <summary>
+    /// Closes all open RabbitMQ connections via the Management API.
+    /// This is useful for cleaning up lingering connections between tests.
+    /// Silently ignores errors (useful for cleanup operations).
+    /// </summary>
+    public async Task CloseAllConnectionsAsync()
+    {
+        try
+        {
+            // Infer management port if not specified
+            var managementPort = ManagementPort;
+            if (!managementPort.HasValue)
+            {
+                var uri = new Uri(ConnectionString);
+                managementPort = uri.Port switch
+                {
+                    5672 => 15672,   // Standard RabbitMQ
+                    20001 => 20002,  // Testcontainers
+                    _ => 15672       // Default
+                };
+            }
+
+            var baseUrl = $"http://localhost:{managementPort}";
+
+            // Get all connections
+            var connectionsUrl = $"{baseUrl}/api/connections";
+            var response = await _httpClient.Value.GetAsync(connectionsUrl);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                // Silently ignore failures
+                return;
+            }
+
+            var connectionsJson = await response.Content.ReadAsStringAsync();
+            var connections = global::System.Text.Json.JsonDocument.Parse(connectionsJson);
+
+            // Close each connection
+            foreach (var connection in connections.RootElement.EnumerateArray())
+            {
+                if (connection.TryGetProperty("name", out var nameProperty))
+                {
+                    var connectionName = nameProperty.GetString();
+                    if (!string.IsNullOrEmpty(connectionName))
+                    {
+                        // URL encode the connection name
+                        var encodedName = Uri.EscapeDataString(connectionName);
+                        var deleteUrl = $"{baseUrl}/api/connections/{encodedName}";
+
+                        // Send DELETE request (ignore response)
+                        await _httpClient.Value.DeleteAsync(deleteUrl);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Silently ignore all errors during cleanup
+        }
+    }
+
+    /// <summary>
     /// Creates and configures an HttpClient for RabbitMQ Management API.
     /// </summary>
     private static HttpClient CreateHttpClient()

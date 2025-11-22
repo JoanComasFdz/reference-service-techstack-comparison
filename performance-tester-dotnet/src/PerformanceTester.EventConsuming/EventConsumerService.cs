@@ -16,7 +16,7 @@ namespace PerformanceTester.EventConsuming;
 internal sealed class EventConsumerService : BackgroundService, IEventConsumer
 {
     private const string ExchangeName = "referenceservice.comparison";
-    private const string RoutingKey = "instrument.status.changed";
+    private const string RoutingKey = "instrumentstatus.kpi.updated";
     private const int PrefetchCount = 50;
 
     private readonly string _connectionString;

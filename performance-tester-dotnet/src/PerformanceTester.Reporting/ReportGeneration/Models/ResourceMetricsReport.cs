@@ -33,6 +33,37 @@ public sealed record ResourceMetricsReport
 }
 
 /// <summary>
+/// Process-specific resource metrics report (CPU/RSS memory/threads) with samples and statistical summary.
+/// </summary>
+public sealed record ProcessResourceMetricsReport
+{
+    /// <summary>
+    /// Test date/time.
+    /// </summary>
+    public required string TestDate { get; init; }
+
+    /// <summary>
+    /// Sampling interval in milliseconds.
+    /// </summary>
+    public required int SamplingIntervalMs { get; init; }
+
+    /// <summary>
+    /// Individual resource samples (time-series data).
+    /// </summary>
+    public required IReadOnlyList<ProcessResourceSampleJson> Samples { get; init; }
+
+    /// <summary>
+    /// Statistical summary of CPU metrics.
+    /// </summary>
+    public required ResourceSummary CpuSummary { get; init; }
+
+    /// <summary>
+    /// Statistical summary of memory metrics.
+    /// </summary>
+    public required ResourceSummary MemorySummary { get; init; }
+}
+
+/// <summary>
 /// Individual resource sample for JSON output.
 /// </summary>
 public sealed record ResourceSampleJson
@@ -56,6 +87,38 @@ public sealed record ResourceSampleJson
     /// Memory usage in megabytes.
     /// </summary>
     public required double MemoryMb { get; init; }
+}
+
+/// <summary>
+/// Individual process resource sample for JSON output.
+/// Includes RSS memory and thread count (specific to process monitoring).
+/// </summary>
+public sealed record ProcessResourceSampleJson
+{
+    /// <summary>
+    /// Sample timestamp (ISO8601 format).
+    /// </summary>
+    public required string Timestamp { get; init; }
+
+    /// <summary>
+    /// Elapsed seconds since test start.
+    /// </summary>
+    public required double ElapsedSeconds { get; init; }
+
+    /// <summary>
+    /// CPU usage percentage (0-100 per core, can exceed 100).
+    /// </summary>
+    public required double CpuPercent { get; init; }
+
+    /// <summary>
+    /// RSS (Resident Set Size) memory usage in megabytes.
+    /// </summary>
+    public required double MemoryRssMb { get; init; }
+
+    /// <summary>
+    /// Number of threads.
+    /// </summary>
+    public required int Threads { get; init; }
 }
 
 /// <summary>

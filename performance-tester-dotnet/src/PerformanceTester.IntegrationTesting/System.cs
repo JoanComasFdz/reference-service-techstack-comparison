@@ -35,17 +35,17 @@ public class System : IDisposable
     /// <param name="rabbitMqConnectionString">RabbitMQ AMQP connection string</param>
     /// <param name="rabbitMqManagementPort">Optional RabbitMQ Management API port</param>
     /// <param name="output">Optional test output helper for logging</param>
-    internal void Initialize(string postgresConnectionString, string rabbitMqConnectionString, int? rabbitMqManagementPort = null, ITestOutputHelper? output = null)
+    internal async Task InitializeAsync(string postgresConnectionString, string rabbitMqConnectionString, int? rabbitMqManagementPort = null, ITestOutputHelper? output = null)
     {
         PostgreSQL = new PostgreSQL(postgresConnectionString);
         RabbitMQ = new RabbitMQ(rabbitMqConnectionString, rabbitMqManagementPort);
         OS = new OS();
         Output = output;
 
-        InitializeSystem();
+        await InitializeSystemAsync();
     }
 
-    protected virtual void InitializeSystem() { }
+    protected virtual Task InitializeSystemAsync() => Task.CompletedTask;
 
     public virtual void Dispose()
     {

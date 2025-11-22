@@ -460,4 +460,70 @@ public sealed class ReportGeneratorTests : IntegrationTest
         }
     }
 
+    /// <summary>
+    /// End-to-end integration test that ensures ReportGenerator and ChartGenerator work together.
+    /// This test uses the production code path to catch any mismatches between what's written and what's read.
+    /// Prevents regression of the memory_rss_mb vs memory_mb bug.
+    /// </summary>
+    [Fact]
+    public async Task ReportGenerator_And_ChartGenerator_ShouldWorkTogether_RoundTripTest()
+    {
+        // Arrange
+        var outputDirectory = System.FileSystem.CreateTempDirectory("roundtrip-test");
+        var testReport = new TestReportBuilder()
+            .WithSystemInfo(SystemInfoBuilder.CreateIntelI9())
+            .Build();  // Use defaults - includes all required sample types
+
+        try
+        {
+            // Act - Step 1: Generate all JSON reports using production ReportGenerator
+            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+
+            // Act - Step 2: Generate chart using production ChartGenerator (reads the JSON files)
+            var timestamp = testReport.TestDate.ToString("yyyyMMdd_HHmmss");
+            var sanitizedName = testReport.MonitoredProcess.Name.ToLowerInvariant();
+            var chartPath = Path.Combine(outputDirectory, $"test-report-{timestamp}-{sanitizedName}.chart.png");
+            
+            await System.Reporting.ChartGenerator.GenerateChartAsync(chartPath, testReport);
+
+            // Assert - Verify chart was created successfully
+            Assert.True(File.Exists(chartPath), "Chart PNG file should exist after round-trip");
+
+            // Assert - Verify chart has reasonable size (not empty, not corrupted)
+            var fileInfo = new FileInfo(chartPath);
+            Assert.True(fileInfo.Length > 10_000, 
+                $"Chart file should be > 10KB (actual: {fileInfo.Length} bytes)");
+            Assert.True(fileInfo.Length < 5_000_000,
+                $"Chart file should be < 5MB (actual: {fileInfo.Length} bytes)");
+
+            // Assert - Verify all expected JSON files were created
+            var jsonFiles = Directory.GetFiles(outputDirectory, "*.json");
+            Assert.Equal(7, jsonFiles.Length); // Main + 6 metric files
+
+            // Assert - Verify process resource metrics have correct structure (memory_rss_mb + threads)
+            var resourceMetricsPath = Directory.GetFiles(outputDirectory, "*.resource-metrics.json").First();
+            var resourceJson = await File.ReadAllTextAsync(resourceMetricsPath);
+            var resourceDoc = JsonDocument.Parse(resourceJson);
+            var samples = resourceDoc.RootElement.GetProperty("samples");
+            
+            if (samples.GetArrayLength() > 0)
+            {
+                var firstSample = samples[0];
+                Assert.True(firstSample.TryGetProperty("memory_rss_mb", out _), 
+                    "Process metrics should have memory_rss_mb");
+                Assert.True(firstSample.TryGetProperty("threads", out _),
+                    "Process metrics should have threads");
+                Assert.False(firstSample.TryGetProperty("memory_mb", out _),
+                    "Process metrics should NOT have memory_mb (should be memory_rss_mb)");
+            }
+
+            Output.WriteLine("✓ Round-trip test passed: ReportGenerator → ChartGenerator integration verified");
+            Output.WriteLine($"  Chart created: {chartPath}");
+            Output.WriteLine($"  Chart size: {fileInfo.Length:N0} bytes");
+        }
+        finally
+        {
+            System.FileSystem.CleanupTempDirectory(outputDirectory);
+        }
+    }
 }

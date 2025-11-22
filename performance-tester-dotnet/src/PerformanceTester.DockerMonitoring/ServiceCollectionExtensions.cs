@@ -31,44 +31,28 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<DockerClientWrapper>();
         }
 
-        // Create the monitor instance as a singleton
+        // Register the monitor service as a keyed singleton
         // This ensures the same instance is used for both IHostedService and IDockerMonitor
+        // without causing eager resolution of all IHostedService instances during Build()
+        services.AddKeyedSingleton<DockerMonitorService>(containerName, (sp, key) =>
+        {
+            var dockerClient = sp.GetRequiredService<DockerClientWrapper>();
+            var logger = sp.GetRequiredService<ILogger<DockerMonitorService>>();
+
+            return new DockerMonitorService(
+                containerName,
+                interval,
+                dockerClient,
+                logger);
+        });
+
+        // Register as IHostedService (retrieves the keyed singleton)
         services.AddSingleton<IHostedService>(sp =>
-        {
-            var dockerClient = sp.GetRequiredService<DockerClientWrapper>();
-            var logger = sp.GetRequiredService<ILogger<DockerMonitorService>>();
+            sp.GetRequiredKeyedService<DockerMonitorService>(containerName));
 
-            return new DockerMonitorService(
-                containerName,
-                interval,
-                dockerClient,
-                logger);
-        });
-
-        // Register as IDockerMonitor (same instance as IHostedService)
+        // Register as IDockerMonitor (retrieves the same keyed singleton)
         services.AddSingleton<IDockerMonitor>(sp =>
-        {
-            // Find the IHostedService that matches this container name
-            var hostedServices = sp.GetServices<IHostedService>();
-            var monitorService = hostedServices
-                .OfType<DockerMonitorService>()
-                .FirstOrDefault(m => m.ContainerName == containerName);
-
-            if (monitorService != null)
-            {
-                return monitorService;
-            }
-
-            // If not found, create a new one (shouldn't happen if registration order is correct)
-            var dockerClient = sp.GetRequiredService<DockerClientWrapper>();
-            var logger = sp.GetRequiredService<ILogger<DockerMonitorService>>();
-
-            return new DockerMonitorService(
-                containerName,
-                interval,
-                dockerClient,
-                logger);
-        });
+            sp.GetRequiredKeyedService<DockerMonitorService>(containerName));
 
         return services;
     }

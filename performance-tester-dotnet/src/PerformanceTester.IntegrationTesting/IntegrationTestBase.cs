@@ -35,14 +35,18 @@ public abstract class IntegrationTestBase<TSystem> : IAsyncLifetime where TSyste
     /// </summary>
     public virtual async Task InitializeAsync()
     {
+        Console.WriteLine("[DEBUG] IntegrationTestBase.InitializeAsync() START");
         Output.WriteLine("=== Ensuring containers started ===");
         await s_containers.EnsureStartedAsync(Output);
-        System.Initialize(
+        Console.WriteLine("[DEBUG] Containers ensured started, calling System.InitializeAsync()...");
+        await System.InitializeAsync(
             s_containers.PostgresConnectionString,
             s_containers.RabbitMqConnectionString,
             s_containers.RabbitMqManagementPort,
             Output); // Pass output for logging
+        Console.WriteLine("[DEBUG] System.InitializeAsync() completed");
         Output.WriteLine("=== Containers ready ===");
+        Console.WriteLine("[DEBUG] IntegrationTestBase.InitializeAsync() END");
     }
 
     /// <summary>

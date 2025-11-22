@@ -81,7 +81,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
                 .WithSampleCount(300)
                 .WithStatisticalVariation(targetAverage: 500.0, targetCv: 3.0)
                 .Build())
-            .WithService(new ResourceMetricsReportBuilder(testReport.TestDate, "service")
+            .WithService(new ProcessResourceMetricsReportBuilder(testReport.TestDate)
                 .WithSampleCount(130)
                 .WithPhaseBasedVariation(targetAvgCpu: 45.0, targetAvgMemory: 125.0)
                 .Build())
@@ -185,7 +185,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
                 .WithSampleCount(300)
                 .WithStatisticalVariation(targetAverage: 500.0, targetCv: 3.0)
                 .Build())
-            .WithService(new ResourceMetricsReportBuilder(testReport.TestDate, "service")
+            .WithService(new ProcessResourceMetricsReportBuilder(testReport.TestDate)
                 .WithSampleCount(130)
                 .WithPhaseBasedVariation(targetAvgCpu: 45.0, targetAvgMemory: 125.0)
                 .Build())
@@ -276,7 +276,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
             })
             .Build();
         var outputPath = new TestReportFileBuilder(testDir, testReport)
-            .WithService(new ResourceMetricsReportBuilder(testReport.TestDate, "service")
+            .WithService(new ProcessResourceMetricsReportBuilder(testReport.TestDate)
                 .WithSampleCount(130)
                 .WithPhaseBasedVariation(targetAvgCpu: 45.0, targetAvgMemory: 125.0)
                 .Build())
@@ -303,7 +303,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
         // Verify all 4 resource data files loaded
         var basePath = outputPath.Replace(".chart.png", "");
         var serviceJson = await File.ReadAllTextAsync($"{basePath}.resource-metrics.json");
-        var serviceData = JsonSerializer.Deserialize<ResourceMetricsReport>(serviceJson,
+        var serviceData = JsonSerializer.Deserialize<ProcessResourceMetricsReport>(serviceJson,
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
         Assert.NotNull(serviceData);
         Assert.NotEmpty(serviceData.Samples);
@@ -412,7 +412,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
                 .WithSampleCount(300)
                 .WithStatisticalVariation(targetAverage: 500.0, targetCv: 3.0)
                 .Build())
-            .WithService(new ResourceMetricsReportBuilder(testReport.TestDate, "service")
+            .WithService(new ProcessResourceMetricsReportBuilder(testReport.TestDate)
                 .WithSampleCount(130)
                 .WithPhaseBasedVariation(targetAvgCpu: 45.0, targetAvgMemory: 125.0)
                 .Build())
@@ -515,7 +515,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
                 .WithSampleCount(300)
                 .WithStatisticalVariation(targetAverage: 500.0, targetCv: 3.0)
                 .Build())
-            .WithService(new ResourceMetricsReportBuilder(testReport.TestDate, "service")
+            .WithService(new ProcessResourceMetricsReportBuilder(testReport.TestDate)
                 .WithSampleCount(130)
                 .WithPhaseBasedVariation(targetAvgCpu: 45.0, targetAvgMemory: 125.0)
                 .Build())
@@ -655,7 +655,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
                 .WithSampleCount(300)
                 .WithStatisticalVariation(targetAverage: 500.0, targetCv: 3.0)
                 .Build())
-            .WithService(new ResourceMetricsReportBuilder(testReport.TestDate, "service")
+            .WithService(new ProcessResourceMetricsReportBuilder(testReport.TestDate)
                 .WithSampleCount(130)
                 .WithPhaseBasedVariation(targetAvgCpu: 45.0, targetAvgMemory: 125.0)
                 .Build())
@@ -755,7 +755,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
                 .WithSampleCount(300)
                 .WithStatisticalVariation(targetAverage: 500.0, targetCv: 3.0)
                 .Build())
-            .WithService(new ResourceMetricsReportBuilder(testReport.TestDate, "service")
+            .WithService(new ProcessResourceMetricsReportBuilder(testReport.TestDate)
                 .WithSampleCount(130)
                 .WithPhaseBasedVariation(targetAvgCpu: 45.0, targetAvgMemory: 125.0)
                 .Build())

@@ -40,9 +40,9 @@ public sealed class EventConsumingSystem : IntegrationTesting.System
             base.Output);
     }
 
-    protected override void InitializeSystem()
+    protected override async Task InitializeSystemAsync()
     {
-        base.InitializeSystem();
+        await base.InitializeSystemAsync();
 
         // Create production EventPublisher via DI for test setup
         var builder = Host.CreateApplicationBuilder();
@@ -65,8 +65,8 @@ public sealed class EventConsumingSystem : IntegrationTesting.System
         // Resolve services from DI container
         this.EventPublisher = _eventPublisherHost.Services.GetRequiredService<IEventPublisher>();
 
-        // Connect to RabbitMQ using public API (synchronously for initialization)
-        this.EventPublisher.ConnectAsync().GetAwaiter().GetResult();
+        // Connect to RabbitMQ using public API (now properly awaited)
+        await this.EventPublisher.ConnectAsync();
     }
 
     public override void Dispose()

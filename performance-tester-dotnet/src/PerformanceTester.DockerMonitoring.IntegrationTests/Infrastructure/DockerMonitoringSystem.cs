@@ -20,8 +20,10 @@ public sealed class DockerMonitoringSystem : SystemBase
     /// <summary>
     /// Initializes Docker monitoring services for PostgreSQL and RabbitMQ containers.
     /// </summary>
-    protected override void InitializeSystem()
+    protected override async Task InitializeSystemAsync()
     {
+        await base.InitializeSystemAsync();
+
         var builder = Host.CreateApplicationBuilder();
 
         builder.Logging.ClearProviders();

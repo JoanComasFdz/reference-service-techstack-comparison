@@ -16,7 +16,7 @@ public class TestReportFileBuilder
     // All reports are nullable - null means excluded, non-null means included
     private ThroughputReport? _eventsReport;
     private ThroughputReport? _apiReport;
-    private ResourceMetricsReport? _serviceReport;
+    private ProcessResourceMetricsReport? _serviceReport;
     private ResourceMetricsReport? _rabbitmqReport;
     private ResourceMetricsReport? _postgresReport;
     private ResourceMetricsReport? _systemReport;
@@ -69,7 +69,7 @@ public class TestReportFileBuilder
     /// <summary>
     /// Include service resource metrics file with provided data.
     /// </summary>
-    public TestReportFileBuilder WithService(ResourceMetricsReport serviceReport)
+    public TestReportFileBuilder WithService(ProcessResourceMetricsReport serviceReport)
     {
         _serviceReport = serviceReport;
         return this;

@@ -70,7 +70,7 @@ internal sealed class ChartGenerator : IChartGenerator
         // Load data from JSON files
         var eventsData = LoadThroughputReport(eventsThroughputFile);
         var apiData = LoadThroughputReport(apiThroughputFile);
-        var serviceData = LoadResourceReport(resourceMetricsFile);
+        var serviceData = LoadProcessResourceReport(resourceMetricsFile);
         var rabbitmqData = LoadResourceReport(rabbitmqMetricsFile);
         var postgresData = LoadResourceReport(postgresMetricsFile);
         var systemData = LoadResourceReport(systemMetricsFile);
@@ -463,6 +463,43 @@ internal sealed class ChartGenerator : IChartGenerator
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to load resource report from {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    private ResourceMetricsReport? LoadProcessResourceReport(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return null;
+
+        try
+        {
+            var json = File.ReadAllText(filePath);
+            var processReport = JsonSerializer.Deserialize<ProcessResourceMetricsReport>(json, JsonOptions);
+
+            if (processReport == null)
+                return null;
+
+            // Convert ProcessResourceMetricsReport to ResourceMetricsReport for charting
+            // (charts don't need thread info, just CPU and memory)
+            return new ResourceMetricsReport
+            {
+                TestDate = processReport.TestDate,
+                SamplingIntervalMs = processReport.SamplingIntervalMs,
+                Samples = processReport.Samples.Select(s => new ResourceSampleJson
+                {
+                    Timestamp = s.Timestamp,
+                    ElapsedSeconds = s.ElapsedSeconds,
+                    CpuPercent = s.CpuPercent,
+                    MemoryMb = s.MemoryRssMb // Map RSS memory to generic memory
+                }).ToList(),
+                CpuSummary = processReport.CpuSummary,
+                MemorySummary = processReport.MemorySummary
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load process resource report from {FilePath}", filePath);
             return null;
         }
     }

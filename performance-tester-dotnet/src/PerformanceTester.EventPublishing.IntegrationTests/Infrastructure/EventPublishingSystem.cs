@@ -14,9 +14,9 @@ public sealed class EventPublishingSystem : IntegrationTesting.System
     /// </summary>
     public EventPublishing EventPublishing { get; private set; } = null!;
 
-    protected override void InitializeSystem()
+    protected override async Task InitializeSystemAsync()
     {
-        base.InitializeSystem();
+        await base.InitializeSystemAsync();
 
         // Create EventPublishing facade with connection details from base System
         this.EventPublishing = new EventPublishing(
