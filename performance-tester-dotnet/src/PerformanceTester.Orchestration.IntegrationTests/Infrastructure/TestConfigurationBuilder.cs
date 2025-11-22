@@ -17,7 +17,7 @@ public class TestConfigurationBuilder
     private string _postgresContainerName = "performance-tester-postgres";
     private TimeSpan? _inactivityTimeout = null;
     private int _warmupEventCount = 50;
-    private TimeSpan? _warmupApiDuration = null;
+    private uint _warmupApiCallCount = 5;
     private TimeSpan? _warmupInactivityTimeout = null;
 
     public TestConfigurationBuilder WithEventCount(int eventCount)
@@ -80,9 +80,9 @@ public class TestConfigurationBuilder
         return this;
     }
 
-    public TestConfigurationBuilder WithWarmupApiDuration(TimeSpan warmupApiDuration)
+    public TestConfigurationBuilder WithWarmupApiCallCount(uint warmupApiCallCount)
     {
-        _warmupApiDuration = warmupApiDuration;
+        _warmupApiCallCount = warmupApiCallCount;
         return this;
     }
 
@@ -100,7 +100,7 @@ public class TestConfigurationBuilder
             ApiWorkers: _apiWorkers,
             InactivityTimeout: _inactivityTimeout,
             WarmupEventCount: _warmupEventCount,
-            WarmupApiDuration: _warmupApiDuration,
+            WarmupApiCallCount: _warmupApiCallCount,
             WarmupInactivityTimeout: _warmupInactivityTimeout,
             ServicePort: _servicePort,
             DatabaseName: _databaseName,

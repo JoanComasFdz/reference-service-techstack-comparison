@@ -284,21 +284,47 @@ public class TestOrchestrator : ITestOrchestrator
 
             _logger.LogInformation("Warmup: All {Count} events consumed", config.WarmupEventCount);
 
-            // Warmup API
+            // Warmup API using simple HttpClient (not k6)
             _logger.LogInformation(
-                "Warmup: Running {Duration}s API load test with 1 worker",
-                config.WarmupApiDurationOrDefault.TotalSeconds);
+                "Warmup: Making {Count} HTTP calls to API endpoint",
+                config.WarmupApiCallCount);
 
-            var apiResult = await _apiLoadTester.StartTestAsync(
-                config.ApiUrl,
-                config.WarmupApiDurationOrDefault,
-                virtualUsers: 1,
-                cancellationToken);
+            using var httpClient = new HttpClient();
+            var successCount = 0;
+            var failCount = 0;
+
+            for (var i = 0; i < config.WarmupApiCallCount; i++)
+            {
+                try
+                {
+                    var response = await httpClient.GetAsync(config.ApiUrl, cancellationToken);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        successCount++;
+                    }
+                    else
+                    {
+                        failCount++;
+                        _logger.LogWarning(
+                            "Warmup API call {Index} failed with status {StatusCode}",
+                            i + 1,
+                            response.StatusCode);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    failCount++;
+                    _logger.LogWarning(
+                        ex,
+                        "Warmup API call {Index} failed with exception",
+                        i + 1);
+                }
+            }
 
             _logger.LogInformation(
-                "Warmup: API test complete - {Requests} requests, {Rate:F2} req/s",
-                apiResult.TotalRequests,
-                apiResult.RequestsPerSecond);
+                "Warmup: API calls complete - {Success} succeeded, {Failed} failed",
+                successCount,
+                failCount);
 
             // Clear database and queues again
             _logger.LogInformation("Warmup: Clearing database and queues before measured test");

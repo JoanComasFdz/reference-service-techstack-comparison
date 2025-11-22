@@ -61,7 +61,7 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
         //                 ConfigurableReferenceService publishes only 1 event → TIMEOUT!
         var config = new TestConfigurationBuilder()
             .WithWarmupEventCount(1)
-            .WithWarmupApiDuration(TimeSpan.FromSeconds(1))
+            .WithWarmupApiCallCount(3)
             .WithWarmupInactivityTimeout(TimeSpan.FromSeconds(2))
             .WithEventCount(2)
             .WithInactivityTimeout(TimeSpan.FromSeconds(2))  // Short timeout to detect missing events

@@ -8,26 +8,28 @@ public sealed class OrchestratorCancellationTests(ITestOutputHelper output)
     : IntegrationTest(output)
 {
     [Fact]
-    public async Task RunTestAsync_WhenCancelled_ShouldStopGracefully()
+    public async Task RunTestAsync_WhenCancelledDuringEventPhase_ShouldStopGracefully()
     {
         // Arrange
         await System.DotNetAotService.StartAsync(OrchestrationSystem.IntegrationTestDatabaseName);
 
         var config = new TestConfigurationBuilder()
-            .WithEventCount(10000)                       // Large count
-            .WithApiDuration(TimeSpan.FromMinutes(5))    // Long duration
+            .WithEventCount(10000)                       // Large count to ensure we're in event phase
+            .WithApiDuration(TimeSpan.FromSeconds(1))    // Short (won't reach this phase)
             .WithDatabaseName(OrchestrationSystem.IntegrationTestDatabaseName)
             .Build();
 
         using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromSeconds(2)); // Cancel after 2s
+        cts.CancelAfter(TimeSpan.FromSeconds(2)); // Cancel while processing events
 
         try
         {
             // Act & Assert
-            // When cancelled, the event consumer throws TimeoutException because no events are received
-            // (publishing stops due to cancellation, so consumer detects inactivity)
-            await Assert.ThrowsAsync<TimeoutException>(async () =>
+            // When cancelled during event phase, the orchestrator should stop gracefully.
+            // The exact exception type depends on which component detects cancellation first:
+            // - Publisher: OperationCanceledException (from ThrowIfCancellationRequested)
+            // - Consumer: TaskCanceledException (from TrySetCanceled)
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             {
                 await System.Orchestration.Orchestrator.RunTestAsync(config, cts.Token);
             });
@@ -36,9 +38,38 @@ public sealed class OrchestratorCancellationTests(ITestOutputHelper output)
         }
         finally
         {
-            // CRITICAL: Purge ConfigurableReferenceService queue to prevent stale events
-            // from affecting subsequent tests. Events published to the shared exchange
-            // are routed to ALL bound queues, including this one if it exists.
+            await System.RabbitMQ.PurgeQueueAsync(ConfigurableReferenceService.DefaultInputQueueName);
+        }
+    }
+
+    [Fact]
+    public async Task RunTestAsync_WhenCancelledDuringApiPhase_ShouldStopGracefully()
+    {
+        // Arrange
+        await System.DotNetAotService.StartAsync(OrchestrationSystem.IntegrationTestDatabaseName);
+
+        var config = new TestConfigurationBuilder()
+            .WithEventCount(1)                           // Minimal events to quickly reach API phase
+            .WithApiDuration(TimeSpan.FromMinutes(1))    // Long duration to ensure we're in API phase
+            .WithDatabaseName(OrchestrationSystem.IntegrationTestDatabaseName)
+            .Build();
+
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromSeconds(5)); // Cancel while in API load test phase
+
+        try
+        {
+            // Act & Assert
+            // When cancelled during API phase, the orchestrator should stop gracefully.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            {
+                await System.Orchestration.Orchestrator.RunTestAsync(config, cts.Token);
+            });
+
+            System.DotNetAotService.Stop();
+        }
+        finally
+        {
             await System.RabbitMQ.PurgeQueueAsync(ConfigurableReferenceService.DefaultInputQueueName);
         }
     }

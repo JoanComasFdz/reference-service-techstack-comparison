@@ -8,7 +8,7 @@ namespace PerformanceTester.Orchestration;
 /// <param name="ApiWorkers">Number of concurrent API workers (default: 1)</param>
 /// <param name="InactivityTimeout">Timeout for consumer inactivity (default: 120 seconds)</param>
 /// <param name="WarmupEventCount">Number of events for warmup phase (default: 200)</param>
-/// <param name="WarmupApiDuration">Duration of API load test during warmup (default: 5 seconds)</param>
+/// <param name="WarmupApiCallCount">Number of HTTP calls to make during API warmup (default: 10)</param>
 /// <param name="WarmupInactivityTimeout">Timeout for consumer inactivity during warmup (default: 30 seconds)</param>
 /// <param name="ServicePort">Port where service is running (default: 8080)</param>
 /// <param name="DatabaseName">PostgreSQL database name for the service</param>
@@ -21,7 +21,7 @@ public record TestConfiguration(
     int ApiWorkers = 1,
     TimeSpan? InactivityTimeout = null,
     int WarmupEventCount = 200,
-    TimeSpan? WarmupApiDuration = null,
+    uint WarmupApiCallCount = 10,
     TimeSpan? WarmupInactivityTimeout = null,
     int ServicePort = 8080,
     string DatabaseName = "defaultdb",
@@ -38,11 +38,6 @@ public record TestConfiguration(
     /// Gets the inactivity timeout with default value if not specified.
     /// </summary>
     public TimeSpan InactivityTimeoutOrDefault => InactivityTimeout ?? TimeSpan.FromSeconds(120);
-
-    /// <summary>
-    /// Gets the warmup API duration with default value if not specified.
-    /// </summary>
-    public TimeSpan WarmupApiDurationOrDefault => WarmupApiDuration ?? TimeSpan.FromSeconds(5);
 
     /// <summary>
     /// Gets the warmup inactivity timeout with default value if not specified.
