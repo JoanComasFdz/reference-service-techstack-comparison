@@ -245,6 +245,21 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
             return;
         }
 
+        // Check for cancellation first
+        if (_trackingCancellationToken.IsCancellationRequested)
+        {
+            var currentCount = Interlocked.CompareExchange(ref _receivedEventCount, 0, 0);
+            _logger.LogWarning(
+                "Event tracking cancelled (received {Current}/{Expected})",
+                currentCount,
+                _expectedCount);
+
+            _trackingCompletionSource.TrySetCanceled(_trackingCancellationToken);
+            _inactivityTimer?.Dispose();
+            _inactivityTimer = null;
+            return;
+        }
+
         var timeSinceLastEvent = DateTime.UtcNow - _lastEventReceivedTime;
         if (timeSinceLastEvent > _inactivityTimeout)
         {
