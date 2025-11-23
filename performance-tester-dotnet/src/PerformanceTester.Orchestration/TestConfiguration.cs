@@ -15,6 +15,7 @@ namespace PerformanceTester.Orchestration;
 /// <param name="ResultsFolder">Directory to save test results (default: ./test-results)</param>
 /// <param name="RabbitMqContainerName">Name of RabbitMQ Docker container (default: performancetest-rabbitmq)</param>
 /// <param name="PostgresContainerName">Name of PostgreSQL Docker container (default: performancetest-postgres)</param>
+/// <param name="MaxConsecutiveApiFailures">Maximum consecutive API failures before aborting load test (default: 3)</param>
 public record TestConfiguration(
     int EventCount = 10000,
     TimeSpan? ApiDuration = null,
@@ -27,7 +28,8 @@ public record TestConfiguration(
     string DatabaseName = "defaultdb",
     string ResultsFolder = "./test-results",
     string RabbitMqContainerName = "performancetest-rabbitmq",
-    string PostgresContainerName = "performancetest-postgres")
+    string PostgresContainerName = "performancetest-postgres",
+    int MaxConsecutiveApiFailures = 3)
 {
     /// <summary>
     /// Gets the API duration with default value if not specified.

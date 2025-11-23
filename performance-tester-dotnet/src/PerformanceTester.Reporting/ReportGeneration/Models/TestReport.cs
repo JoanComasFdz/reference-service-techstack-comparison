@@ -271,4 +271,14 @@ public sealed record ApiResults
     /// Error percentage (0-100).
     /// </summary>
     public required double ErrorPercentage { get; init; }
+
+    /// <summary>
+    /// True if API load test was aborted early due to consecutive failures.
+    /// </summary>
+    public bool WasAborted { get; init; } = false;
+
+    /// <summary>
+    /// Reason for abort, if test was aborted.
+    /// </summary>
+    public string? AbortReason { get; init; }
 }

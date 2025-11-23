@@ -20,6 +20,7 @@ internal sealed class ApiLoadTestService : IApiLoadTester
         string targetUrl,
         TimeSpan duration,
         int virtualUsers,
+        int maxConsecutiveFailures = 3,
         CancellationToken cancellationToken = default)
     {
         // Validate parameters
@@ -35,12 +36,15 @@ internal sealed class ApiLoadTestService : IApiLoadTester
         if (virtualUsers < 1)
             throw new ArgumentException("Virtual users must be at least 1", nameof(virtualUsers));
 
-        _logger.LogInformation("=== Starting API load test: {Url}, duration: {Duration}, VUs: {VUs} ===",
-            targetUrl, duration, virtualUsers);
+        if (maxConsecutiveFailures < 0)
+            throw new ArgumentException("Max consecutive failures cannot be negative", nameof(maxConsecutiveFailures));
+
+        _logger.LogInformation("=== Starting API load test: {Url}, duration: {Duration}, VUs: {VUs}, maxConsecutiveFailures: {MaxFailures} ===",
+            targetUrl, duration, virtualUsers, maxConsecutiveFailures);
 
         // Generate k6 script
         var durationString = K6ScriptGenerator.FormatDuration(duration);
-        var scriptContent = K6ScriptGenerator.GenerateScript(targetUrl, durationString, virtualUsers);
+        var scriptContent = K6ScriptGenerator.GenerateScript(targetUrl, durationString, virtualUsers, maxConsecutiveFailures);
 
         // Write script to temporary file
         var scriptPath = Path.Combine(Path.GetTempPath(), $"k6-script-{Guid.NewGuid():N}.js");
@@ -52,23 +56,36 @@ internal sealed class ApiLoadTestService : IApiLoadTester
             // Execute k6 and get metrics
             var executor = new K6Executor(_logger);
             var testStartTime = DateTime.UtcNow;
-            var metrics = await executor.ExecuteAsync(scriptPath, cancellationToken);
+            var executionResult = await executor.ExecuteAsync(scriptPath, cancellationToken);
             var testEndTime = DateTime.UtcNow;
             var actualDuration = testEndTime - testStartTime;
 
-            _logger.LogInformation("✓ k6 execution completed, processing {Count} metrics", metrics.Count);
+            _logger.LogInformation("✓ k6 execution completed, processing {Count} metrics (aborted: {WasAborted})",
+                executionResult.Metrics.Count, executionResult.WasAborted);
 
             // Aggregate metrics
             var aggregator = new MetricsAggregator();
-            foreach (var metric in metrics)
+            foreach (var metric in executionResult.Metrics)
             {
                 aggregator.ProcessMetric(metric);
             }
 
-            var result = aggregator.ComputeResult(actualDuration);
+            var result = aggregator.ComputeResult(actualDuration) with
+            {
+                WasAborted = executionResult.WasAborted,
+                AbortReason = executionResult.AbortReason
+            };
 
-            _logger.LogInformation("✓ Test completed: {TotalRequests} requests, {FailedRequests} failed",
-                result.TotalRequests, result.FailedRequests);
+            if (executionResult.WasAborted)
+            {
+                _logger.LogWarning("⚠️ Test aborted: {TotalRequests} requests, {FailedRequests} failed, reason: {AbortReason}",
+                    result.TotalRequests, result.FailedRequests, executionResult.AbortReason);
+            }
+            else
+            {
+                _logger.LogInformation("✓ Test completed: {TotalRequests} requests, {FailedRequests} failed",
+                    result.TotalRequests, result.FailedRequests);
+            }
 
             return result;
         }

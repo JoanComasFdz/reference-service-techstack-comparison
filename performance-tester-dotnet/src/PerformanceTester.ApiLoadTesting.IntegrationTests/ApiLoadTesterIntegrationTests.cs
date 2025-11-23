@@ -79,4 +79,62 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
                 virtualUsers: 1);
         });
     }
+
+    [Fact]
+    public async Task StartTestAsync_WhenServerReturnsErrors_ShouldAbortAfterConsecutiveFailures()
+    {
+        // Arrange - Start test HTTP server that always returns 500 errors
+        using var server = new TestHttpServer(port: 9004, alwaysFail: true);
+
+        // Act - Run load test with default maxConsecutiveFailures (3)
+        var result = await System.ApiLoadTesting.LoadTester.StartTestAsync(
+            targetUrl: server.BaseUrl,
+            duration: TimeSpan.FromSeconds(30),  // Long duration - should abort early
+            virtualUsers: 1,
+            maxConsecutiveFailures: 3);
+
+        // Assert - Test should be aborted with failed requests
+        Asserting.That(result)
+            .WasAborted()
+            .HasFailedRequests()
+            .HasAbortReasonContaining("consecutive failures");
+    }
+
+    [Fact]
+    public async Task StartTestAsync_WhenAbortDisabled_ShouldCompleteWithoutAborting()
+    {
+        // Arrange - Start test HTTP server that always returns 500 errors
+        using var server = new TestHttpServer(port: 9005, alwaysFail: true);
+
+        // Act - Run load test with abort disabled (maxConsecutiveFailures = 0)
+        var result = await System.ApiLoadTesting.LoadTester.StartTestAsync(
+            targetUrl: server.BaseUrl,
+            duration: TimeSpan.FromSeconds(3),  // Short duration since all requests will fail
+            virtualUsers: 1,
+            maxConsecutiveFailures: 0);  // Disable abort
+
+        // Assert - Test should complete normally (not aborted) but have failed requests
+        Asserting.That(result)
+            .WasNotAborted()
+            .HasFailedRequests();
+    }
+
+    [Fact]
+    public async Task StartTestAsync_WhenServerIsHealthy_ShouldNotAbort()
+    {
+        // Arrange - Start healthy test HTTP server
+        using var server = new TestHttpServer(port: 9006);
+
+        // Act - Run load test with abort enabled
+        var result = await System.ApiLoadTesting.LoadTester.StartTestAsync(
+            targetUrl: server.BaseUrl,
+            duration: TimeSpan.FromSeconds(5),
+            virtualUsers: 1,
+            maxConsecutiveFailures: 3);
+
+        // Assert - Test should complete normally without abort
+        Asserting.That(result)
+            .WasNotAborted()
+            .HasNoFailedRequests();
+    }
 }

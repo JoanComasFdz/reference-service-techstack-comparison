@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace PerformanceTester.ApiLoadTesting;
 
@@ -8,8 +9,10 @@ namespace PerformanceTester.ApiLoadTesting;
 /// Executes k6 binary as a process and parses JSON output in real-time.
 /// Returns aggregated metrics when k6 process completes.
 /// </summary>
-internal sealed class K6Executor
+internal sealed partial class K6Executor
 {
+    private const int K6AbortExitCode = 108;
+
     private readonly ILogger _logger;
     private readonly K6MetricsParser _metricsParser;
     private readonly string _k6Path;
@@ -22,13 +25,13 @@ internal sealed class K6Executor
     }
 
     /// <summary>
-    /// Executes k6 with the specified script and returns metrics when complete.
+    /// Executes k6 with the specified script and returns execution result including metrics and abort info.
     /// </summary>
     /// <param name="scriptPath">Path to k6 script file.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>List of parsed k6 metrics.</returns>
-    /// <exception cref="InvalidOperationException">k6 binary not found or execution failed.</exception>
-    public async Task<List<K6Metric>> ExecuteAsync(
+    /// <returns>K6 execution result with metrics and abort information.</returns>
+    /// <exception cref="InvalidOperationException">k6 binary not found or execution failed (non-abort errors).</exception>
+    public async Task<K6ExecutionResult> ExecuteAsync(
         string scriptPath,
         CancellationToken cancellationToken)
     {
@@ -78,18 +81,54 @@ internal sealed class K6Executor
         await stderrTask;
 
         var exitCode = process.ExitCode;
+        var stderr = stderrBuilder.ToString();
         _logger.LogInformation("k6 exited with code: {ExitCode}", exitCode);
 
-        // Check for errors
+        // Handle abort (exit code 108) - return metrics with abort info
+        if (exitCode == K6AbortExitCode)
+        {
+            var abortReason = ExtractAbortReason(stderr);
+            _logger.LogWarning("k6 test was aborted: {AbortReason}", abortReason);
+            return new K6ExecutionResult(metrics, WasAborted: true, AbortReason: abortReason);
+        }
+
+        // Check for other errors
         if (exitCode != 0)
         {
-            var stderr = stderrBuilder.ToString();
             throw new InvalidOperationException(
                 $"k6 execution failed with exit code {exitCode}. Stderr:\n{stderr}");
         }
 
-        return metrics;
+        return new K6ExecutionResult(metrics);
     }
+
+    /// <summary>
+    /// Extracts abort reason from k6 stderr output.
+    /// </summary>
+    private static string ExtractAbortReason(string stderr)
+    {
+        // k6 abort messages typically contain "test aborted:" or similar
+        var match = AbortReasonRegex().Match(stderr);
+        if (match.Success)
+        {
+            return match.Groups[1].Value.Trim();
+        }
+
+        // Try to find any line containing "Aborting" from our script
+        var abortingMatch = AbortingMessageRegex().Match(stderr);
+        if (abortingMatch.Success)
+        {
+            return abortingMatch.Groups[1].Value.Trim();
+        }
+
+        return "Test aborted (reason not found in output)";
+    }
+
+    [GeneratedRegex(@"test aborted:\s*(.+?)(?:\n|$)", RegexOptions.IgnoreCase)]
+    private static partial Regex AbortReasonRegex();
+
+    [GeneratedRegex(@"(Aborting:.+?)(?:\n|$)", RegexOptions.IgnoreCase)]
+    private static partial Regex AbortingMessageRegex();
 
     /// <summary>
     /// Finds k6 binary by checking multiple locations.

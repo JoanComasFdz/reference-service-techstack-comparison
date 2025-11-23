@@ -45,6 +45,11 @@ public sealed class ConfigurableReferenceService(
     private TimeSpan _delayBetweenEvents = TimeSpan.Zero;
     private int _warmupEventCount = 0;
 
+    // HTTP response configuration
+    private int _httpStatusCode = 200;
+    private int _failEveryNthRequest = 0;
+    private int _kpiRequestCount = 0;
+
     // Connection state
     private IConnection? _connection;
     private IChannel? _inputChannel;
@@ -86,6 +91,44 @@ public sealed class ConfigurableReferenceService(
         _output?.WriteLine(
             $"ConfigurableReferenceService configured: {_configuredEventCount} event(s), " +
             $"{_delayBetweenEvents.TotalSeconds:F2}s delay, ignoring first {_warmupEventCount} warmup event(s)");
+    }
+
+    /// <summary>
+    /// Configure the HTTP response status code for /kpi endpoint.
+    /// All requests will return this status code.
+    /// </summary>
+    /// <param name="statusCode">HTTP status code to return (default: 200)</param>
+    public void ConfigureHttpResponse(int statusCode = 200)
+    {
+        _httpStatusCode = statusCode;
+        _failEveryNthRequest = 0;
+        _kpiRequestCount = 0;
+
+        _output?.WriteLine(
+            $"ConfigurableReferenceService HTTP configured: always return status {_httpStatusCode}");
+    }
+
+    /// <summary>
+    /// Configure intermittent failures (fail every Nth request).
+    /// Requests not matching Nth pattern return 200 OK.
+    /// </summary>
+    /// <param name="failEveryNthRequest">Fail every Nth request (e.g., 3 = fail every 3rd request)</param>
+    public void ConfigureIntermittentFailures(int failEveryNthRequest)
+    {
+        if (failEveryNthRequest < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(failEveryNthRequest),
+                failEveryNthRequest,
+                "Must be at least 1");
+        }
+
+        _failEveryNthRequest = failEveryNthRequest;
+        _httpStatusCode = 200; // Success by default
+        _kpiRequestCount = 0;
+
+        _output?.WriteLine(
+            $"ConfigurableReferenceService HTTP configured: fail every {_failEveryNthRequest} request(s)");
     }
 
     /// <summary>
@@ -173,7 +216,8 @@ public sealed class ConfigurableReferenceService(
                 {
                     // Create new HttpListener on each attempt (previous one may be disposed)
                     _httpListener = new HttpListener();
-                    _httpListener.Prefixes.Add($"http://localhost:{listenPort.Value}/");
+                    // Use http://+: to bind to all interfaces (localhost may not match 127.0.0.1 in some scenarios)
+                    _httpListener.Prefixes.Add($"http://+:{listenPort.Value}/");
                     _httpListener.Start();
                     started = true;
                     break;
@@ -231,10 +275,35 @@ public sealed class ConfigurableReferenceService(
                             {
                                 // KPI endpoint - returns mock data (matches reference service specification)
                                 // Real reference services return the latest record from PostgreSQL
-                                context.Response.StatusCode = 200;
+
+                                // Determine status code based on configuration
+                                int statusCode;
+                                if (_failEveryNthRequest > 0)
+                                {
+                                    // Intermittent failure mode: fail every Nth request
+                                    var requestNum = Interlocked.Increment(ref _kpiRequestCount);
+                                    statusCode = (requestNum % _failEveryNthRequest == 0) ? 500 : 200;
+                                }
+                                else
+                                {
+                                    // Fixed status code mode
+                                    statusCode = _httpStatusCode;
+                                }
+
+                                context.Response.StatusCode = statusCode;
                                 context.Response.ContentType = "application/json";
                                 await using var writer = new StreamWriter(context.Response.OutputStream);
-                                await writer.WriteAsync("{\"deviceId\":\"TEST-DEVICE-001\",\"currentStatus\":\"RUNNING\",\"timestamp\":\"" + DateTimeOffset.UtcNow.ToString("o") + "\"}");
+
+                                if (statusCode >= 400)
+                                {
+                                    // Error response
+                                    await writer.WriteAsync("{\"error\":\"Configured test error\",\"statusCode\":" + statusCode + "}");
+                                }
+                                else
+                                {
+                                    // Success response
+                                    await writer.WriteAsync("{\"deviceId\":\"TEST-DEVICE-001\",\"currentStatus\":\"RUNNING\",\"timestamp\":\"" + DateTimeOffset.UtcNow.ToString("o") + "\"}");
+                                }
                             }
                             else
                             {

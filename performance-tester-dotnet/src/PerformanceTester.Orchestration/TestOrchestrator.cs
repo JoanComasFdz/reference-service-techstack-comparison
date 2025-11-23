@@ -411,6 +411,7 @@ public class TestOrchestrator : ITestOrchestrator
             config.ApiUrl,
             config.ApiDurationOrDefault,
             config.ApiWorkers,
+            config.MaxConsecutiveApiFailures,
             cancellationToken);
 
         var endTime = DateTime.UtcNow;
@@ -641,7 +642,9 @@ public class TestOrchestrator : ITestOrchestrator
                     SuccessCount = testResult.ApiLoadTestResult.TotalRequests - testResult.ApiLoadTestResult.FailedRequests,
                     SuccessPercentage = ((testResult.ApiLoadTestResult.TotalRequests - testResult.ApiLoadTestResult.FailedRequests) / (double)testResult.ApiLoadTestResult.TotalRequests) * 100,
                     ErrorCount = testResult.ApiLoadTestResult.FailedRequests,
-                    ErrorPercentage = (testResult.ApiLoadTestResult.FailedRequests / (double)testResult.ApiLoadTestResult.TotalRequests) * 100
+                    ErrorPercentage = (testResult.ApiLoadTestResult.FailedRequests / (double)testResult.ApiLoadTestResult.TotalRequests) * 100,
+                    WasAborted = testResult.ApiLoadTestResult.WasAborted,
+                    AbortReason = testResult.ApiLoadTestResult.AbortReason
                 }
             },
             EventsThroughputSamples = eventThroughputSamples,

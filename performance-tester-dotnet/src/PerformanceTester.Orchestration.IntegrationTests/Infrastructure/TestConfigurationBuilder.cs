@@ -19,6 +19,7 @@ public class TestConfigurationBuilder
     private int _warmupEventCount = 50;
     private uint _warmupApiCallCount = 5;
     private TimeSpan? _warmupInactivityTimeout = null;
+    private int _maxConsecutiveApiFailures = 3;
 
     public TestConfigurationBuilder WithEventCount(int eventCount)
     {
@@ -92,6 +93,12 @@ public class TestConfigurationBuilder
         return this;
     }
 
+    public TestConfigurationBuilder WithMaxConsecutiveApiFailures(int maxConsecutiveApiFailures)
+    {
+        _maxConsecutiveApiFailures = maxConsecutiveApiFailures;
+        return this;
+    }
+
     public TestConfiguration Build()
     {
         return new TestConfiguration(
@@ -106,6 +113,7 @@ public class TestConfigurationBuilder
             DatabaseName: _databaseName,
             ResultsFolder: _resultsFolder,
             RabbitMqContainerName: _rabbitMqContainerName,
-            PostgresContainerName: _postgresContainerName);
+            PostgresContainerName: _postgresContainerName,
+            MaxConsecutiveApiFailures: _maxConsecutiveApiFailures);
     }
 }

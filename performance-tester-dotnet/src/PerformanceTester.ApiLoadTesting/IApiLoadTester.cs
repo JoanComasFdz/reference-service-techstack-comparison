@@ -12,6 +12,7 @@ public interface IApiLoadTester
     /// <param name="targetUrl">Target endpoint URL to test (e.g., "http://localhost:8094/kpi").</param>
     /// <param name="duration">Test duration (e.g., TimeSpan.FromSeconds(30)).</param>
     /// <param name="virtualUsers">Number of virtual users (concurrent requests).</param>
+    /// <param name="maxConsecutiveFailures">Maximum consecutive failures before aborting (0 = disabled, default: 3).</param>
     /// <param name="cancellationToken">Cancellation token to stop the test early.</param>
     /// <returns>API load test result with aggregated metrics.</returns>
     /// <exception cref="ArgumentException">Invalid target URL or parameters.</exception>
@@ -21,5 +22,6 @@ public interface IApiLoadTester
         string targetUrl,
         TimeSpan duration,
         int virtualUsers,
+        int maxConsecutiveFailures = 3,
         CancellationToken cancellationToken = default);
 }

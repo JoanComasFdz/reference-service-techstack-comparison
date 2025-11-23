@@ -70,4 +70,56 @@ public static class ApiLoadTestingAssertions
         Assert.NotEmpty(result.ThroughputSamples);
         return assertingThat;
     }
+
+    /// <summary>
+    /// Asserts that the test was aborted due to consecutive failures.
+    /// </summary>
+    /// <returns>The asserting instance for fluent chaining.</returns>
+    public static AssertingThat<ApiLoadTestResult> WasAborted(
+        this AssertingThat<ApiLoadTestResult> assertingThat)
+    {
+        var result = assertingThat.InstanceToAssert;
+        Assert.True(result.WasAborted, "Expected test to be aborted, but it was not");
+        return assertingThat;
+    }
+
+    /// <summary>
+    /// Asserts that the test was not aborted.
+    /// </summary>
+    /// <returns>The asserting instance for fluent chaining.</returns>
+    public static AssertingThat<ApiLoadTestResult> WasNotAborted(
+        this AssertingThat<ApiLoadTestResult> assertingThat)
+    {
+        var result = assertingThat.InstanceToAssert;
+        Assert.False(result.WasAborted, $"Expected test to not be aborted, but it was aborted with reason: {result.AbortReason}");
+        return assertingThat;
+    }
+
+    /// <summary>
+    /// Asserts that the test has an abort reason containing the specified text.
+    /// </summary>
+    /// <param name="assertingThat">The asserting instance.</param>
+    /// <param name="expectedText">Text expected to be in the abort reason.</param>
+    /// <returns>The asserting instance for fluent chaining.</returns>
+    public static AssertingThat<ApiLoadTestResult> HasAbortReasonContaining(
+        this AssertingThat<ApiLoadTestResult> assertingThat,
+        string expectedText)
+    {
+        var result = assertingThat.InstanceToAssert;
+        Assert.NotNull(result.AbortReason);
+        Assert.Contains(expectedText, result.AbortReason, StringComparison.OrdinalIgnoreCase);
+        return assertingThat;
+    }
+
+    /// <summary>
+    /// Asserts that the test result has failed requests.
+    /// </summary>
+    /// <returns>The asserting instance for fluent chaining.</returns>
+    public static AssertingThat<ApiLoadTestResult> HasFailedRequests(
+        this AssertingThat<ApiLoadTestResult> assertingThat)
+    {
+        var result = assertingThat.InstanceToAssert;
+        Assert.True(result.FailedRequests > 0, "Expected at least one failed request, but found none");
+        return assertingThat;
+    }
 }

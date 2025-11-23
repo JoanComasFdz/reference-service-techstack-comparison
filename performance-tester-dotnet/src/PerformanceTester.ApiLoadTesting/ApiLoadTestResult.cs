@@ -12,6 +12,8 @@ namespace PerformanceTester.ApiLoadTesting;
 /// <param name="P99RequestDurationMs">99th percentile request duration in milliseconds.</param>
 /// <param name="RequestsPerSecond">Average requests per second (throughput).</param>
 /// <param name="ThroughputSamples">Collection of throughput samples captured during test.</param>
+/// <param name="WasAborted">True if test was aborted early due to consecutive failures.</param>
+/// <param name="AbortReason">Reason for abort, if test was aborted.</param>
 public record ApiLoadTestResult(
     int TotalRequests,
     TimeSpan TotalDuration,
@@ -20,4 +22,6 @@ public record ApiLoadTestResult(
     double P95RequestDurationMs,
     double P99RequestDurationMs,
     double RequestsPerSecond,
-    IReadOnlyCollection<ApiThroughputSample> ThroughputSamples);
+    IReadOnlyCollection<ApiThroughputSample> ThroughputSamples,
+    bool WasAborted = false,
+    string? AbortReason = null);
