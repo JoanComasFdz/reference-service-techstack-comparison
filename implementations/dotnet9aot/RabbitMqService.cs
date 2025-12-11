@@ -40,7 +40,8 @@ public class RabbitMqService : BackgroundService
             HostName = _configuration["RabbitMQ:Host"] ?? "localhost",
             Port = int.Parse(_configuration["RabbitMQ:Port"] ?? "5672"),
             UserName = _configuration["RabbitMQ:Username"] ?? "admin",
-            Password = _configuration["RabbitMQ:Password"] ?? "admin"
+            Password = _configuration["RabbitMQ:Password"] ?? "admin",
+            VirtualHost = _configuration["RabbitMQ:VirtualHost"] ?? "/"
         };
 
         _connection = await factory.CreateConnectionAsync(cancellationToken);
@@ -77,7 +78,7 @@ public class RabbitMqService : BackgroundService
             global: false,
             cancellationToken: cancellationToken);
 
-        _logger.LogInformation("RabbitMQ initialized: Exchange={Exchange}, Queue={Queue}, Prefetch={Prefetch}", ExchangeName, QueueName, prefetchCount);
+        _logger.LogInformation("RabbitMQ initialized: Exchange={Exchange}, Queue={Queue}, Prefetch={Prefetch}, VHost={VHost}", ExchangeName, QueueName, prefetchCount, factory.VirtualHost);
     }
 
     private async Task ConsumeMessages(CancellationToken stoppingToken)

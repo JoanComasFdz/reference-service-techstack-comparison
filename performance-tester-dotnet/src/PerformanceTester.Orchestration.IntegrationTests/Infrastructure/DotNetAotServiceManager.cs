@@ -18,6 +18,7 @@ public sealed class DotNetAotServiceManager : IDisposable
     private readonly int _rabbitMqPort;
     private readonly string _rabbitMqUser;
     private readonly string _rabbitMqPassword;
+    private readonly string? _rabbitMqVhost;
     private Process? _dotnetProcess;
     private const string DotNetAotServicePath = "/workspace/implementations/dotnet9aot";
     private const string DotNetAotServiceBinary = "dotnet9AotReferenceService";
@@ -34,6 +35,7 @@ public sealed class DotNetAotServiceManager : IDisposable
         int rabbitMqPort,
         string rabbitMqUser,
         string rabbitMqPassword,
+        string? rabbitMqVhost,
         ITestOutputHelper? output)
     {
         _postgresHost = postgresHost;
@@ -44,6 +46,7 @@ public sealed class DotNetAotServiceManager : IDisposable
         _rabbitMqPort = rabbitMqPort;
         _rabbitMqUser = rabbitMqUser;
         _rabbitMqPassword = rabbitMqPassword;
+        _rabbitMqVhost = rabbitMqVhost;
         _output = output;
     }
 
@@ -125,6 +128,10 @@ public sealed class DotNetAotServiceManager : IDisposable
         _dotnetProcess.StartInfo.EnvironmentVariables["RabbitMQ__Port"] = _rabbitMqPort.ToString();
         _dotnetProcess.StartInfo.EnvironmentVariables["RabbitMQ__Username"] = _rabbitMqUser;
         _dotnetProcess.StartInfo.EnvironmentVariables["RabbitMQ__Password"] = _rabbitMqPassword;
+        if (!string.IsNullOrEmpty(_rabbitMqVhost))
+        {
+            _dotnetProcess.StartInfo.EnvironmentVariables["RabbitMQ__VirtualHost"] = _rabbitMqVhost;
+        }
         _dotnetProcess.StartInfo.EnvironmentVariables["ASPNETCORE_URLS"] = DotNetAotServiceUrl;
 
         // Capture output for debugging

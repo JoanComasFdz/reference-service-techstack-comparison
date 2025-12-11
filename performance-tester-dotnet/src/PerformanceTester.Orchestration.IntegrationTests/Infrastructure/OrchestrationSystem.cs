@@ -16,7 +16,7 @@ namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 /// - IEventConsumer (direct access for testing consumer timeout behavior)
 /// - Infrastructure helpers (PostgreSQL, RabbitMQ)
 /// </summary>
-public sealed class OrchestrationSystem : IntegrationTesting.System
+public sealed class OrchestrationSystem : IntegrationTesting.VhostIsolatedSystem
 {
     /// <summary>
     /// Database name used by all orchestration integration tests.
@@ -34,18 +34,9 @@ public sealed class OrchestrationSystem : IntegrationTesting.System
         await base.InitializeSystemAsync();
         base.Output?.WriteLine("[INIT] Base system initialized");
 
-        // CRITICAL: Close all lingering RabbitMQ connections from previous tests
-        // Without this, connections can block queue deletion and cause hangs
-        base.Output?.WriteLine("[INIT] Closing all RabbitMQ connections...");
-        try
-        {
-            await base.RabbitMQ.CloseAllConnectionsAsync();
-            base.Output?.WriteLine("[INIT] ✓ All RabbitMQ connections closed");
-        }
-        catch (Exception ex)
-        {
-            base.Output?.WriteLine($"[INIT] ⚠️ Failed to close RabbitMQ connections: {ex.Message}");
-        }
+        // NOTE: RabbitMQ connection cleanup is now handled by vhost isolation.
+        // Each test gets its own vhost, so cross-test contamination is impossible.
+        base.Output?.WriteLine("[INIT] Vhost isolation enabled - skipping connection cleanup");
 
         // Create integration test database (idempotent - safe to call multiple times)
         base.Output?.WriteLine("[INIT] Creating integration test database...");
@@ -71,6 +62,15 @@ public sealed class OrchestrationSystem : IntegrationTesting.System
 
         // Initialize .NET AOT service manager (builds and manages .NET AOT service)
         base.Output?.WriteLine("[INIT] Creating DotNetAotServiceManager...");
+        
+        // Extract vhost from URI path (if present)
+        // URI format: amqp://user:pass@host:port/vhost
+        var rabbitMqVhost = Uri.UnescapeDataString(rabbitMqUri.AbsolutePath.TrimStart('/'));
+        if (!string.IsNullOrEmpty(rabbitMqVhost))
+        {
+            base.Output?.WriteLine($"[INIT] RabbitMQ vhost: {rabbitMqVhost}");
+        }
+        
         this.DotNetAotService = new DotNetAotServiceManager(
             postgresHost: pgBuilder.Host!,
             postgresPort: pgBuilder.Port,
@@ -80,6 +80,7 @@ public sealed class OrchestrationSystem : IntegrationTesting.System
             rabbitMqPort: rabbitMqUri.Port,
             rabbitMqUser: rabbitMqCredentials[0],
             rabbitMqPassword: rabbitMqCredentials[1],
+            rabbitMqVhost: string.IsNullOrEmpty(rabbitMqVhost) ? null : rabbitMqVhost,
             output: base.Output);
         base.Output?.WriteLine("[INIT] ✓ DotNetAotServiceManager created");
 

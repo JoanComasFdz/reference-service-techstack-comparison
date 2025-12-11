@@ -11,7 +11,7 @@ namespace PerformanceTester.IntegrationTesting;
 /// <param name="ManagementPort">Management API port (default: 15672 for standard, 20002 for testcontainers)</param>
 public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDisposable
 {
-    private readonly Lazy<HttpClient> _httpClient = new(CreateHttpClient);
+    private HttpClient? _httpClient;
     
     private bool _disposed;
     /// <summary>
@@ -169,24 +169,11 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
     {
         try
         {
-            // Infer management port if not specified
-            var managementPort = ManagementPort;
-            if (!managementPort.HasValue)
-            {
-                var uri = new Uri(ConnectionString);
-                managementPort = uri.Port switch
-                {
-                    5672 => 15672,   // Standard RabbitMQ
-                    20001 => 20002,  // Testcontainers
-                    _ => 15672       // Default
-                };
-            }
-
-            var baseUrl = $"http://localhost:{managementPort}";
+            var baseUrl = GetManagementApiBaseUrl();
 
             // Get all connections
             var connectionsUrl = $"{baseUrl}/api/connections";
-            var response = await _httpClient.Value.GetAsync(connectionsUrl);
+            var response = await GetHttpClient().GetAsync(connectionsUrl);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -210,7 +197,7 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
                         var deleteUrl = $"{baseUrl}/api/connections/{encodedName}";
 
                         // Send DELETE request (ignore response)
-                        await _httpClient.Value.DeleteAsync(deleteUrl);
+                        await GetHttpClient().DeleteAsync(deleteUrl);
                     }
                 }
             }
@@ -222,25 +209,151 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
     }
 
     /// <summary>
-    /// Creates and configures an HttpClient for RabbitMQ Management API.
+    /// Gets the HttpClient for RabbitMQ Management API.
+    /// Creates it lazily with credentials from the connection string.
     /// </summary>
-    private static HttpClient CreateHttpClient()
+    private HttpClient GetHttpClient()
     {
-        var client = new HttpClient();
-        var authToken = Convert.ToBase64String(Encoding.UTF8.GetBytes("admin:admin"));
-        client.DefaultRequestHeaders.Authorization =
+        if (_httpClient != null)
+            return _httpClient;
+
+        _httpClient = new HttpClient();
+        
+        // Extract credentials from connection string
+        var uri = new Uri(ConnectionString);
+        var credentials = uri.UserInfo; // Format: "user:pass"
+        if (string.IsNullOrEmpty(credentials))
+        {
+            credentials = "guest:guest"; // Default RabbitMQ credentials
+        }
+        
+        var authToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials));
+        _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Basic", authToken);
-        return client;
+        
+        return _httpClient;
     }
+
+
+    #region Vhost Management
+
+    /// <summary>
+    /// Creates a new vhost via the RabbitMQ Management API.
+    /// </summary>
+    /// <param name="vhostName">The name of the vhost to create</param>
+    public async Task CreateVhostAsync(string vhostName)
+    {
+        var baseUrl = GetManagementApiBaseUrl();
+        var encodedVhost = Uri.EscapeDataString(vhostName);
+        var url = $"{baseUrl}/api/vhosts/{encodedVhost}";
+
+        var content = new StringContent("{}", Encoding.UTF8, "application/json");
+        var response = await GetHttpClient().PutAsync(url, content);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Deletes a vhost via the RabbitMQ Management API.
+    /// All exchanges, queues, bindings, and connections within the vhost are automatically deleted.
+    /// </summary>
+    /// <param name="vhostName">The name of the vhost to delete</param>
+    public async Task DeleteVhostAsync(string vhostName)
+    {
+        try
+        {
+            var baseUrl = GetManagementApiBaseUrl();
+            var encodedVhost = Uri.EscapeDataString(vhostName);
+            var url = $"{baseUrl}/api/vhosts/{encodedVhost}";
+
+            var response = await GetHttpClient().DeleteAsync(url);
+            // Ignore 404 (vhost doesn't exist) - idempotent cleanup
+            if (response.StatusCode != global::System.Net.HttpStatusCode.NotFound)
+            {
+                response.EnsureSuccessStatusCode();
+            }
+        }
+        catch
+        {
+            // Silently ignore errors during cleanup
+        }
+    }
+
+    /// <summary>
+    /// Sets permissions for a user on a vhost via the Management API.
+    /// Required after creating a vhost so connections can use it.
+    /// </summary>
+    /// <param name="vhostName">The vhost to set permissions on</param>
+    /// <param name="username">The user to grant permissions to</param>
+    public async Task SetVhostPermissionsAsync(string vhostName, string username)
+    {
+        var baseUrl = GetManagementApiBaseUrl();
+        var encodedVhost = Uri.EscapeDataString(vhostName);
+        var encodedUsername = Uri.EscapeDataString(username);
+        var url = $"{baseUrl}/api/permissions/{encodedVhost}/{encodedUsername}";
+
+        var permissions = new
+        {
+            configure = ".*",
+            write = ".*",
+            read = ".*"
+        };
+        var json = global::System.Text.Json.JsonSerializer.Serialize(permissions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await GetHttpClient().PutAsync(url, content);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Creates a new connection string with the specified vhost appended.
+    /// </summary>
+    /// <param name="baseConnectionString">Base AMQP connection string without vhost</param>
+    /// <param name="vhostName">The vhost name to append</param>
+    /// <returns>Connection string with vhost: amqp://user:pass@host:port/vhostName</returns>
+    public static string WithVhost(string baseConnectionString, string vhostName)
+    {
+        var uri = new Uri(baseConnectionString);
+        
+        // Build new URI with vhost path
+        // The vhost must be URL-encoded in the path
+        var encodedVhost = Uri.EscapeDataString(vhostName);
+        var newUri = new UriBuilder(uri)
+        {
+            Path = "/" + encodedVhost
+        };
+        
+        return newUri.Uri.ToString();
+    }
+
+    /// <summary>
+    /// Gets the Management API base URL, extracting host from connection string
+    /// and inferring the port if not specified.
+    /// </summary>
+    private string GetManagementApiBaseUrl()
+    {
+        var uri = new Uri(ConnectionString);
+        var host = uri.Host;
+        
+        var managementPort = ManagementPort;
+        if (!managementPort.HasValue)
+        {
+            managementPort = uri.Port switch
+            {
+                5672 => 15672,   // Standard RabbitMQ
+                20001 => 20002,  // Testcontainers
+                _ => 15672       // Default
+            };
+        }
+        return $"http://{host}:{managementPort}";
+    }
+
+    #endregion
 
     public void Dispose()
     {
         if (_disposed) return;
 
-        if (_httpClient.IsValueCreated)
-        {
-            _httpClient.Value.Dispose();
-        }
+        _httpClient?.Dispose();
 
         _disposed = true;
         GC.SuppressFinalize(this);

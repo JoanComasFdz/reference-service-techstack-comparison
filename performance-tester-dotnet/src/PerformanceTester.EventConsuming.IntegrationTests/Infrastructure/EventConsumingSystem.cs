@@ -12,7 +12,7 @@ namespace PerformanceTester.EventConsuming.IntegrationTests.Infrastructure;
 /// Extends base System class and adds EventConsuming facade for accessing production services.
 /// Also includes EventPublisher for test setup (publishing CloudEvents to consume).
 /// </summary>
-public sealed class EventConsumingSystem : IntegrationTesting.System
+public sealed class EventConsumingSystem : IntegrationTesting.VhostIsolatedSystem
 {
     private IHost? _eventPublisherHost;
 

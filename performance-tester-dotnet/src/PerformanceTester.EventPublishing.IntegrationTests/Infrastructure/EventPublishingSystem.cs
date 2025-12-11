@@ -6,7 +6,7 @@ namespace PerformanceTester.EventPublishing.IntegrationTests.Infrastructure;
 /// System under test for EventPublishing integration tests.
 /// Extends base System class and adds EventPublishing facade for accessing production services.
 /// </summary>
-public sealed class EventPublishingSystem : IntegrationTesting.System
+public sealed class EventPublishingSystem : IntegrationTesting.VhostIsolatedSystem
 {
     /// <summary>
     /// EventPublishing facade providing access to all EventPublishing services via DI.
