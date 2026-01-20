@@ -246,14 +246,7 @@ fi
 echo ""
 echo "Pre-installing MCP server dependencies..."
 
-# Pre-install Context7 MCP server (npm-based)
-echo "  → Pre-installing Context7 MCP dependencies..."
-npm install -g @upstash/context7-mcp@latest 2>/dev/null
-if [ $? -eq 0 ]; then
-    echo "  ✓ Context7 MCP dependencies cached"
-else
-    echo "  ⚠ Failed to pre-install Context7 MCP (will be installed on first use)"
-fi
+# Note: Context7 is installed as a plugin (via official marketplace), not as MCP server
 
 # Pre-install Serena MCP server (Python-based with uvx)
 echo "  → Pre-installing Serena MCP dependencies..."
@@ -300,6 +293,9 @@ fi
 echo ""
 echo "Registering MCP servers..."
 
+# Note: Context7 is available as a plugin from the official marketplace
+# It will be auto-installed when the plugin is enabled in settings.json
+
 # Function to check if MCP server is already registered
 is_mcp_registered() {
     local server_name="$1"
@@ -309,52 +305,6 @@ is_mcp_registered() {
     fi
     return 1
 }
-
-# =========================================
-# Context7 MCP Server
-# =========================================
-echo ""
-echo "Configuring Context7 MCP server..."
-
-# Detect Context7 API key
-CONTEXT7_KEY=""
-
-# Check 1: Environment variable
-if [ -n "$CONTEXT7_API_KEY" ]; then
-    CONTEXT7_KEY="$CONTEXT7_API_KEY"
-    echo "  ✓ Using Context7 API key from environment variable"
-# Check 2: .env file at workspace root
-elif [ -f "/workspace/.env" ]; then
-    CONTEXT7_KEY=$(grep -E "^CONTEXT7_API_KEY=" /workspace/.env 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'")
-    if [ -n "$CONTEXT7_KEY" ]; then
-        echo "  ✓ Using Context7 API key from /workspace/.env"
-    fi
-fi
-
-# Register Context7 MCP server
-if is_mcp_registered "context7"; then
-    echo "  ✓ Context7 MCP server already registered"
-else
-    if [ -n "$CONTEXT7_KEY" ]; then
-        echo "  → Registering Context7 with API key..."
-        export CONTEXT7_API_KEY="$CONTEXT7_KEY"
-        if claude mcp add context7 npx -- -y @upstash/context7-mcp 2>/dev/null; then
-            echo "  ✓ Context7 MCP server registered successfully!"
-        else
-            echo "  ✗ Failed to register Context7 MCP server"
-            echo "    You can register manually with: claude mcp add context7 npx -- -y @upstash/context7-mcp"
-        fi
-    else
-        echo "  → Registering Context7 without API key (you can add it later)..."
-        echo "    To add key: export CONTEXT7_API_KEY=your_key or add to /workspace/.env"
-        if claude mcp add context7 npx -- -y @upstash/context7-mcp 2>/dev/null; then
-            echo "  ✓ Context7 MCP server registered successfully!"
-        else
-            echo "  ✗ Failed to register Context7 MCP server"
-            echo "    You can register manually with: claude mcp add context7 npx -- -y @upstash/context7-mcp"
-        fi
-    fi
-fi
 
 # =========================================
 # Serena MCP Server
