@@ -1,7 +1,8 @@
 using System.Diagnostics;
 using System.Net;
+using Docker.DotNet;
+using Docker.DotNet.Models;
 using DotNet.Testcontainers.Builders;
-using DotNet.Testcontainers.Networks;
 using Npgsql;
 using RabbitMQ.Client;
 using Testcontainers.PostgreSql;
@@ -34,7 +35,7 @@ internal sealed class ContainerManager
 
     public static ContainerManager Instance => s_instance.Value;
 
-    private INetwork? _network;
+    private const string NetworkName = "performance-tester-testcontainers-network";
     private PostgreSqlContainer? _postgresContainer;
     private RabbitMqContainer? _rabbitMqContainer;
     private readonly SemaphoreSlim _startLock = new(1, 1);
@@ -82,23 +83,20 @@ internal sealed class ContainerManager
     {
         try
         {
-            output?.WriteLine("Creating Docker network 'performance-tester-testcontainers-network'...");
-            // Create a shared Docker network to group containers together
-            // This makes them appear as a group in Docker Desktop and allows container-to-container communication
-            _network = new NetworkBuilder()
-                .WithName("performance-tester-testcontainers-network")
-                .WithReuse(true) // Reuse network across test runs
-                .WithCleanUp(false) // Never remove the network
-                .Build();
-
-            await _network.CreateAsync(ct);
-            output?.WriteLine("✓ Docker network created");
+            // Create/ensure the Docker network exists using Docker API directly
+            // This avoids the Testcontainers network conflict issue where INetwork.CreateAsync
+            // throws even when WithReuse(true) is set and the network already exists
+            output?.WriteLine($"Ensuring Docker network '{NetworkName}' exists...");
+            await EnsureNetworkExistsAsync(output, ct);
 
             output?.WriteLine("Configuring PostgreSQL container (postgres:16-alpine)...");
             // Build PostgreSQL container with reuse enabled
             // WithReuse(true) keeps the container running after tests complete
             // Container will be reused on subsequent test runs
             // Using fixed ports for consistency across test runs
+            // NOTE: We don't use .WithNetwork(INetwork) because Testcontainers' INetwork
+            // has a bug where CreateAsync throws even on reuse. Instead, we connect
+            // containers to the network after startup using Docker API.
             _postgresContainer = new PostgreSqlBuilder()
                 .WithImage("postgres:16-alpine")
                 .WithDatabase("testdb")
@@ -107,7 +105,6 @@ internal sealed class ContainerManager
                 .WithName("performance-tester-postgres") // Consistent name for reuse
                 .WithLabel("com.docker.compose.project", "performance-tester-testcontainers") // Group in Docker Desktop
                 .WithLabel("com.docker.compose.service", "postgres") // Service name for grouping
-                .WithNetwork(_network) // Add to shared network
                 .WithPortBinding(20000, 5432) // Fixed host port for reuse
                 .WithVolumeMount("performance-tester-postgres-testcontainers-data", "/var/lib/postgresql/data") // Named volume for data persistence
                 .WithReuse(true) // Keep container running and reuse it
@@ -124,7 +121,6 @@ internal sealed class ContainerManager
                 .WithName("performance-tester-rabbitmq") // Consistent name for reuse
                 .WithLabel("com.docker.compose.project", "performance-tester-testcontainers") // Group in Docker Desktop
                 .WithLabel("com.docker.compose.service", "rabbitmq") // Service name for grouping
-                .WithNetwork(_network) // Add to shared network
                 .WithPortBinding(20001, 5672)  // Fixed host port for AMQP
                 .WithPortBinding(20002, 15672) // Fixed host port for Management UI
                 .WithVolumeMount("performance-tester-rabbitmq-testcontainers-data", "/var/lib/rabbitmq") // Named volume for data persistence
@@ -140,6 +136,13 @@ internal sealed class ContainerManager
                 _rabbitMqContainer.StartAsync(ct)
             );
             output?.WriteLine("✓ Containers started");
+
+            // Connect containers to the shared network using Docker API
+            // This is done after container startup to avoid the Testcontainers network conflict
+            output?.WriteLine("Connecting containers to network...");
+            await ConnectContainerToNetworkAsync(_postgresContainer.Id, "PostgreSQL", output, ct);
+            await ConnectContainerToNetworkAsync(_rabbitMqContainer.Id, "RabbitMQ", output, ct);
+            output?.WriteLine("✓ Containers connected to network");
 
             // Store connection strings and ports
             // In devcontainer environments, use container IPs and internal ports instead of host-mapped ports
@@ -170,9 +173,8 @@ internal sealed class ContainerManager
         catch
         {
             output?.WriteLine("✗ Container startup failed");
-            // On failure, reset state but don't dispose containers or network
+            // On failure, reset state but don't dispose containers
             // (they may be partially working and useful for debugging)
-            _network = null;
             _postgresContainer = null;
             _rabbitMqContainer = null;
             PostgresConnectionString = string.Empty;
@@ -243,6 +245,81 @@ internal sealed class ContainerManager
 
         throw new TimeoutException(
             "RabbitMQ container did not become ready within 30 seconds");
+    }
+
+    /// <summary>
+    /// Ensures the Docker network exists using Docker API directly.
+    /// This bypasses Testcontainers' INetwork which has issues with reuse when
+    /// the network already exists (throws Conflict even with WithReuse(true)).
+    /// </summary>
+    private static async Task EnsureNetworkExistsAsync(ITestOutputHelper? output, CancellationToken ct)
+    {
+        using var dockerClient = new DockerClientConfiguration().CreateClient();
+
+        // Check if network already exists
+        var networks = await dockerClient.Networks.ListNetworksAsync(
+            new NetworksListParameters
+            {
+                Filters = new Dictionary<string, IDictionary<string, bool>>
+                {
+                    ["name"] = new Dictionary<string, bool> { [NetworkName] = true }
+                }
+            },
+            ct);
+
+        if (networks.Any(n => n.Name == NetworkName))
+        {
+            output?.WriteLine($"✓ Docker network '{NetworkName}' already exists (reusing)");
+            return;
+        }
+
+        // Network doesn't exist, create it
+        try
+        {
+            await dockerClient.Networks.CreateNetworkAsync(
+                new NetworksCreateParameters
+                {
+                    Name = NetworkName,
+                    Driver = "bridge"
+                },
+                ct);
+            output?.WriteLine($"✓ Docker network '{NetworkName}' created");
+        }
+        catch (DockerApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+            // Race condition: network was created by another process between our check and create
+            output?.WriteLine($"✓ Docker network '{NetworkName}' already exists (race condition, reusing)");
+        }
+    }
+
+    /// <summary>
+    /// Connects a container to the shared network using Docker API.
+    /// Handles the case where the container is already connected (idempotent).
+    /// </summary>
+    private static async Task ConnectContainerToNetworkAsync(
+        string containerId,
+        string containerName,
+        ITestOutputHelper? output,
+        CancellationToken ct)
+    {
+        using var dockerClient = new DockerClientConfiguration().CreateClient();
+
+        try
+        {
+            await dockerClient.Networks.ConnectNetworkAsync(
+                NetworkName,
+                new NetworkConnectParameters
+                {
+                    Container = containerId
+                },
+                ct);
+            output?.WriteLine($"  ✓ {containerName} connected to network");
+        }
+        catch (DockerApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden && ex.Message.Contains("already"))
+        {
+            // Container is already connected to the network (from a previous run with reuse)
+            output?.WriteLine($"  ✓ {containerName} already connected to network (reusing)");
+        }
     }
 
     /// <summary>
