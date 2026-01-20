@@ -41,7 +41,10 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     {
         // Arrange
         await System.StartMonitoringAsync();
-        await Task.Delay(TimeSpan.FromSeconds(2));
+
+        // Wait for samples to be collected (deterministic, avoids race condition)
+        // Docker stats API latency is variable (200ms-3s), so we poll instead of fixed delay
+        await System.WaitForSamplesAsync();
 
         // Act
         await System.StopMonitoringAsync();
