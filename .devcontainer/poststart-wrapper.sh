@@ -15,14 +15,17 @@ log "POSTSTART WRAPPER STARTING"
 log "========================================="
 
 log "Step 1: Running init-firewall.sh..."
-if sudo /usr/local/bin/init-firewall.sh >> "$LOGFILE" 2>&1; then
+FIREWALL_OUTPUT=$(sudo /usr/local/bin/init-firewall.sh 2>&1) && {
+    echo "$FIREWALL_OUTPUT" >> "$LOGFILE"
     log "✓ init-firewall.sh completed successfully"
-else
+} || {
     EXIT_CODE=$?
+    echo "$FIREWALL_OUTPUT" >> "$LOGFILE"
     log "✗ init-firewall.sh FAILED with exit code $EXIT_CODE"
-    log "Check $LOGFILE for details"
+    log "Error output:"
+    echo "$FIREWALL_OUTPUT" | tail -30
     exit $EXIT_CODE
-fi
+}
 
 log "Step 2: Running fix-docker-iptables.sh..."
 if sudo /usr/local/bin/fix-docker-iptables.sh >> "$LOGFILE" 2>&1; then

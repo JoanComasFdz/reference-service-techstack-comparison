@@ -4,6 +4,18 @@
 
 set -e  # Exit on error
 
+# Use container-local docker config without Windows credential helper
+# The host's config.json may reference credential helpers that don't exist in Linux
+export DOCKER_CONFIG="/tmp/docker-config"
+mkdir -p "$DOCKER_CONFIG"
+echo '{"auths":{}}' > "$DOCKER_CONFIG/config.json"
+
+# Fix Docker socket permissions (needed before postStartCommand runs)
+if [ -S /var/run/docker.sock ]; then
+    echo "Fixing Docker socket permissions..."
+    sudo chmod 666 /var/run/docker.sock
+fi
+
 echo "=========================================="
 echo "Pre-pulling Docker images for performance testing..."
 echo "=========================================="

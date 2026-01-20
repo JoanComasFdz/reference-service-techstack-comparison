@@ -43,13 +43,17 @@ else
 fi
 
 log "Step 4: Pre-pulling Docker images..."
-if bash /workspace/.devcontainer/prepull-images.sh >> "$LOGFILE" 2>&1; then
+PREPULL_OUTPUT=$(bash /workspace/.devcontainer/prepull-images.sh 2>&1) && {
+    echo "$PREPULL_OUTPUT" >> "$LOGFILE"
     log "✓ Docker images pre-pulled"
-else
+} || {
     EXIT_CODE=$?
+    echo "$PREPULL_OUTPUT" >> "$LOGFILE"
     log "✗ Docker image pre-pull FAILED with exit code $EXIT_CODE"
+    log "Error output:"
+    echo "$PREPULL_OUTPUT" | tail -20
     exit $EXIT_CODE
-fi
+}
 
 log "Step 5: Adding DEVCONTAINER=true to shell configs..."
 if echo 'export DEVCONTAINER=true' >> /home/node/.zshrc && \
