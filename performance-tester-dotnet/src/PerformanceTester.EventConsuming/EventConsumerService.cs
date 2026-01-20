@@ -164,6 +164,16 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
 
             _logger.LogInformation("EventConsumer disconnecting from RabbitMQ...");
 
+            // Generate final throughput sample to capture any remaining events
+            var finalSample = _throughputTracker.GetFinalSample();
+            if (finalSample != null)
+            {
+                await _throughputChannel.Writer.WriteAsync(finalSample);
+                _logger.LogDebug("Final throughput sample written: {EventsPerSec:F1} events/sec, {Total} total",
+                    finalSample.ThroughputEventsPerSecond,
+                    finalSample.CumulativeEventCount);
+            }
+
             // Complete throughput channel to signal MetricsCollectorService
             _throughputChannel.Writer.Complete();
             _logger.LogInformation("✓ Throughput channel completed");
@@ -357,6 +367,18 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
             if (_trackingCompletionSource != null && count >= _expectedCount)
             {
                 _logger.LogInformation("✓ Target count reached: {Current}/{Expected} events", count, _expectedCount);
+
+                // Write final throughput sample to capture any remaining events not yet sampled
+                // (e.g., if all events processed in < 500ms sampling interval)
+                var finalSample = _throughputTracker.GetFinalSample();
+                if (finalSample != null)
+                {
+                    await _throughputChannel.Writer.WriteAsync(finalSample, _trackingCancellationToken);
+                    _logger.LogDebug("Final throughput sample at target: {EventsPerSec:F1} events/sec, {Total} total",
+                        finalSample.ThroughputEventsPerSecond,
+                        finalSample.CumulativeEventCount);
+                }
+
                 _trackingCompletionSource.TrySetResult(true);
                 _inactivityTimer?.Dispose();
                 _inactivityTimer = null;
