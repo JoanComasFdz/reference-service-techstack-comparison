@@ -14,12 +14,15 @@ The devcontainer configuration has been refactored to separate concerns and impr
 ├── Dockerfile                  # Container image definition
 ├── postcreate-wrapper.sh       # Runs ONCE after container creation
 ├── poststart-wrapper.sh        # Runs EVERY TIME container starts
-├── setup-claudecode.sh         # Claude Code installation
+├── setup-claudecode.sh         # Claude Code installation and plugin setup
+├── ccstatusline.settings.json  # Status line configuration for Claude Code
 ├── install-k6.sh              # k6 load testing tool installation
 ├── prepull-images.sh          # Pre-pull Docker images for performance
 ├── init-firewall.sh           # Firewall rules setup
 ├── fix-docker-iptables.sh     # Docker iptables chains configuration
 ├── connect-to-testcontainers-network.sh  # Connect to testcontainers network
+├── MIGRATION_PLAN.md          # Migration planning documentation
+├── TESTCONTAINERS_IN_DEVCONTAINER.md  # Testcontainers setup guide
 └── CLAUDE.md                  # This file
 ```
 

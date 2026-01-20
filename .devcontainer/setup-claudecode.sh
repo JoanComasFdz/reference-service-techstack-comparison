@@ -3,9 +3,8 @@
 # Setup script for Claude Code configuration
 # - Auto-configures devcontainer.json if needed
 # - Installs Claude Code CLI
-# - Pre-installs MCP server dependencies
+# - Pre-caches plugin dependencies (Context7, Serena)
 # - Installs Superpowers plugin
-# - Registers MCP servers
 # - Configures ccstatusline
 
 set -e  # Exit on error
@@ -241,20 +240,19 @@ else
 fi
 
 # =========================================
-# 0.1. Pre-install MCP Dependencies
+# 0.1. Pre-install Plugin Dependencies
 # =========================================
 echo ""
-echo "Pre-installing MCP server dependencies..."
+echo "Pre-installing plugin dependencies..."
 
-# Note: Context7 is installed as a plugin (via official marketplace), not as MCP server
-
-# Pre-install Serena MCP server (Python-based with uvx)
-echo "  → Pre-installing Serena MCP dependencies..."
-uvx --from git+https://github.com/oraios/serena serena-mcp-server --help >/dev/null 2>&1 || true
+# Note: Context7 and Serena are installed as plugins via the official marketplace
+# Pre-cache Serena dependencies (Python-based with uvx) for faster first-run
+echo "  → Pre-caching Serena plugin dependencies..."
+uvx --from git+https://github.com/oraios/serena serena --help >/dev/null 2>&1 || true
 if [ $? -eq 0 ]; then
-    echo "  ✓ Serena MCP dependencies cached"
+    echo "  ✓ Serena plugin dependencies cached"
 else
-    echo "  ⚠ Failed to pre-install Serena MCP (will be installed on first use)"
+    echo "  ⚠ Failed to pre-cache Serena (will be installed on first use)"
 fi
 
 # =========================================
@@ -288,42 +286,12 @@ else
 fi
 
 # =========================================
-# 2. Register MCP Servers
+# 2. MCP Servers (via Plugins)
 # =========================================
 echo ""
-echo "Registering MCP servers..."
-
-# Note: Context7 is available as a plugin from the official marketplace
-# It will be auto-installed when the plugin is enabled in settings.json
-
-# Function to check if MCP server is already registered
-is_mcp_registered() {
-    local server_name="$1"
-    if [ -f "$CLAUDE_DIR/config.json" ]; then
-        grep -q "\"$server_name\"" "$CLAUDE_DIR/config.json" 2>/dev/null
-        return $?
-    fi
-    return 1
-}
-
-# =========================================
-# Serena MCP Server
-# =========================================
-echo ""
-echo "Configuring Serena MCP server..."
-
-# Register Serena MCP server
-if is_mcp_registered "serena"; then
-    echo "  ✓ Serena MCP server already registered"
-else
-    echo "  → Registering Serena MCP server..."
-    if claude mcp add serena uvx -- --from git+https://github.com/oraios/serena serena-mcp-server 2>/dev/null; then
-        echo "  ✓ Serena MCP server registered successfully!"
-    else
-        echo "  ✗ Failed to register Serena MCP server"
-        echo "    You can register manually with: claude mcp add serena uvx -- --from git+https://github.com/oraios/serena serena-mcp-server"
-    fi
-fi
+echo "MCP servers configuration..."
+echo "  ℹ Context7 and Serena are available as plugins from the official marketplace"
+echo "  ℹ Plugins are configured in settings.json and auto-installed on first use"
 
 # =========================================
 # Fix installMethod detection issue
