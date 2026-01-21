@@ -69,43 +69,57 @@ This project follows **Vertical Slice Architecture** rather than traditional lay
 ### Solution Structure
 
 ```
-PerformanceTester.sln (6 projects)
+PerformanceTester.sln (14 projects)
 │
-├── Phase 0: Integration Testing Foundation (COMPLETE ✅)
-│   ├── PerformanceTester.IntegrationTesting/
-│   │   ├── ContainerManager.cs          # Singleton for PostgreSQL + RabbitMQ
-│   │   ├── IntegrationTestBase.cs       # Base class for all integration tests
-│   │   └── Logging/                     # xUnit output integration
+├── Foundation Layer
+│   ├── PerformanceTester.Common/                 # Cross-platform utilities (OS detection)
+│   ├── PerformanceTester.IntegrationTesting/     # Container lifecycle management
 │   └── PerformanceTester.IntegrationTesting.Tests/
-│       └── 8 verification tests (all passing)
 │
-├── Phase 1: Infrastructure Slice (COMPLETE ✅)
-│   ├── PerformanceTester.Infrastructure/
-│   │   ├── IServiceDiscovery            # Process discovery (cross-platform)
-│   │   ├── IDatabase                    # PostgreSQL management (truncate tables)
-│   │   └── IRabbitMQ                    # RabbitMQ queue management (purge)
+├── Phase 1: Infrastructure (COMPLETE ✅)
+│   ├── PerformanceTester.Infrastructure/         # Service discovery, DB, RabbitMQ mgmt
 │   └── PerformanceTester.Infrastructure.IntegrationTests/
-│       └── 15 integration tests (all passing)
 │
-└── Phase 2: Event Publishing Slice (COMPLETE ✅)
-    ├── PerformanceTester.EventPublishing/
-    │   ├── IEventPublisher               # CloudEvents publishing to RabbitMQ
-    │   ├── CloudEvent model              # CloudEvents v1.0 compliance
-    │   └── PublishMetrics record         # Throughput tracking
-    └── PerformanceTester.EventPublishing.IntegrationTests/
-        └── 6 integration tests (all passing)
+├── Phase 2: Data Collection Slices (COMPLETE ✅)
+│   ├── PerformanceTester.EventPublishing/        # CloudEvents to RabbitMQ
+│   ├── PerformanceTester.EventPublishing.IntegrationTests/
+│   ├── PerformanceTester.EventConsuming/         # RabbitMQ consumer with inactivity timeout
+│   ├── PerformanceTester.EventConsuming.IntegrationTests/
+│   ├── PerformanceTester.ProcessMonitoring/      # CPU, memory, threads monitoring
+│   ├── PerformanceTester.ProcessMonitoring.IntegrationTests/
+│   ├── PerformanceTester.DockerMonitoring/       # Docker container stats
+│   ├── PerformanceTester.DockerMonitoring.IntegrationTests/
+│   ├── PerformanceTester.ApiLoadTesting/         # k6 integration
+│   └── PerformanceTester.ApiLoadTesting.IntegrationTests/
+│
+├── Phase 3: Reporting (COMPLETE ✅)
+│   ├── PerformanceTester.Reporting/              # JSON reports, PNG charts, comparisons
+│   └── PerformanceTester.Reporting.IntegrationTests/
+│
+└── Phase 4: Orchestration (COMPLETE ✅)
+    ├── PerformanceTester.Orchestration/          # Test workflow coordination
+    └── PerformanceTester.Orchestration.IntegrationTests/
 ```
 
 ### Project Dependencies
 
 ```
-Phase 0: IntegrationTesting (no dependencies)
+Phase 0: IntegrationTesting + Common (foundation)
     ↓
-Phase 1: Infrastructure (depends on Phase 0 for testing only)
+Phase 1: Infrastructure (service discovery, DB, RabbitMQ utilities)
     ↓
-Phase 2: EventPublishing (depends on Phase 0 for testing only)
+Phase 2: [6 Independent Slices - All COMPLETE]
+    ├─ EventPublishing (owns CloudEvent)
+    ├─ EventConsuming (owns ThroughputSample)
+    ├─ ProcessMonitoring (owns ProcessMetrics)
+    ├─ DockerMonitoring (owns DockerMetrics)
+    └─ ApiLoadTesting (owns K6Result)
     ↓
-Phase 3+: Planned (EventConsuming, ProcessMonitoring, SystemMonitoring, etc.)
+Phase 3: Reporting (aggregates data from all slices)
+    ↓
+Phase 4: Orchestration (coordinates all slices)
+    ↓
+Phase 5: CLI (NOT STARTED - entry point)
 ```
 
 **Key Insight:** All production projects are independent (no project-to-project dependencies). Only test projects depend on `IntegrationTesting` for shared infrastructure.
@@ -189,17 +203,78 @@ var metrics = await publisher.PublishEventsAsync(count: 1000);
 // Prints: Published 1000 events in 2.34s (427.35 events/sec)
 ```
 
-### 📋 Phase 3+: Planned
+### ✅ Phase 2b: Event Consuming Slice (COMPLETE)
 
-Future slices (can be developed in parallel):
-- **EventConsuming** - RabbitMQ consumer with throughput tracking
-- **ProcessMonitoring** - Process resource monitoring (CPU, memory)
-- **SystemMonitoring** - System-wide monitoring
-- **DockerMonitoring** - Docker container stats
-- **ApiLoadTesting** - k6 integration for HTTP load testing
-- **Reporting** - Test result aggregation and comparison
-- **Orchestration** - Workflow coordination (publish → consume → API load)
-- **CLI** - Command-line interface (entry point)
+**Deliverables:**
+- `IEventConsumer` - RabbitMQ consumption with inactivity timeout
+- `ThroughputTracker` - 500ms interval throughput sampling
+- `IMetricsCollector` - Thread-safe metrics collection via Channels
+- BackgroundService lifecycle management
+- Integration tests (all passing)
+
+**Key Improvement over Python:**
+- **Inactivity timeout** (120s since last event) vs Python's absolute timeout
+- Allows slow-but-progressing services to complete
+- Detects truly stuck services
+
+### ✅ Phase 2c: Process Monitoring Slice (COMPLETE)
+
+**Deliverables:**
+- `IProcessMonitor` - Process resource monitoring interface
+- `ProcessMonitorService` - BackgroundService with deferred start pattern
+- `ProcessMetrics` - CPU%, memory MB, thread count snapshots
+- 500ms sampling interval with PeriodicTimer
+- Integration tests (all passing)
+
+### ✅ Phase 2d: Docker Monitoring Slice (COMPLETE)
+
+**Deliverables:**
+- `IDockerMonitor` - Container monitoring interface
+- `DockerMonitorService` - BackgroundService for container stats
+- `DockerClientWrapper` - Docker API interaction via Docker.DotNet
+- Multiple container concurrent monitoring
+- Integration tests (all passing)
+
+### ✅ Phase 2e: API Load Testing Slice (COMPLETE)
+
+**Deliverables:**
+- `IApiLoadTester` - k6 load test interface
+- `ApiLoadTestService` - k6 script generation and execution
+- `K6ScriptGenerator` - Customizable k6 scripts
+- `K6MetricsParser` - Real-time JSON output parsing
+- `MetricsAggregator` - Result aggregation (p95, p99, throughput)
+- Integration tests (all passing)
+
+### ✅ Phase 3: Reporting (COMPLETE)
+
+**Deliverables:**
+- `IReportGenerator` - 7 JSON file types per test run
+- `IChartGenerator` - 5-subplot PNG visualization (ScottPlot)
+- `IComparisonReportGenerator` - Markdown cross-service comparison
+- `StatisticsCalculator` - Statistical utilities (std dev, CV%, percentiles)
+- `SystemInfoDetector` - Hardware/OS detection
+- 27 integration tests (all passing)
+
+### ✅ Phase 4: Orchestration (COMPLETE)
+
+**Deliverables:**
+- `ITestOrchestrator` - Complete workflow coordination
+- `TestOrchestrator` - 7-phase test execution engine
+- `TestConfiguration` - Test parameters record
+- `TestResult` - Raw test data aggregation
+- Concurrent publish/consume (not sequential)
+- 14+ integration tests (all passing)
+
+**Workflow Phases:**
+1. Setup → 2. Warmup → 3. Publish → 4. Consume → 5. API Load → 6. Reporting
+
+### 📋 Phase 5: CLI (NOT STARTED)
+
+**Remaining work:**
+- `PerformanceTester.Cli` - Command-line interface entry point
+- System.CommandLine for argument parsing
+- Serilog for structured logging
+- Host builder wiring all services together
 
 ## Common Development Tasks
 
@@ -966,6 +1041,6 @@ docker-compose -f scripts/infrastructure/docker-compose.yml up -d
 
 ---
 
-**Last Updated:** 2025-01-10
-**Status:** Phase 0, 1, 2 complete; Phase 3+ planned
+**Last Updated:** 2025-01-20
+**Status:** Phases 0-4 COMPLETE; Phase 5 (CLI) remaining
 **Target Framework:** .NET 9.0
