@@ -45,6 +45,14 @@ public sealed class ConfigurableReferenceService(
     private TimeSpan _delayBetweenEvents = TimeSpan.Zero;
     private int _warmupEventCount = 0;
 
+    // Publish mode configuration
+    private enum PublishMode { Normal, WarmupOnly, NoResponse }
+    private PublishMode _publishMode = PublishMode.Normal;
+
+    // Termination configuration (simulating process death)
+    private int _terminateAfterEvents = int.MaxValue;
+    private bool _terminationEnabled = false;
+
     // HTTP response configuration
     private int _httpStatusCode = 200;
     private int _failEveryNthRequest = 0;
@@ -129,6 +137,77 @@ public sealed class ConfigurableReferenceService(
 
         _output?.WriteLine(
             $"ConfigurableReferenceService HTTP configured: fail every {_failEveryNthRequest} request(s)");
+    }
+
+    /// <summary>
+    /// Configure service to publish warmup events only, no test events.
+    /// Use for testing warmup timeout scenarios where warmup succeeds but test events never arrive.
+    /// </summary>
+    /// <param name="warmupEventCount">Number of warmup events to publish (then stop)</param>
+    public void ConfigureWarmupOnly(int warmupEventCount)
+    {
+        if (warmupEventCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(warmupEventCount), warmupEventCount, "Warmup event count cannot be negative");
+        }
+
+        _warmupEventCount = warmupEventCount;
+        _configuredEventCount = 0;
+        _publishMode = PublishMode.WarmupOnly;
+
+        _output?.WriteLine(
+            $"ConfigurableReferenceService configured: WarmupOnly mode - {_warmupEventCount} warmup event(s), then stop publishing");
+    }
+
+    /// <summary>
+    /// Configure service to terminate (disconnect) after processing N events.
+    /// Use for testing process death scenarios during event processing.
+    /// </summary>
+    /// <param name="eventCount">Total events to process before termination (includes warmup events)</param>
+    public void ConfigureTerminationAfterEvents(int eventCount)
+    {
+        if (eventCount < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(eventCount), eventCount, "Event count must be at least 1");
+        }
+
+        _terminateAfterEvents = eventCount;
+        _terminationEnabled = true;
+
+        _output?.WriteLine(
+            $"ConfigurableReferenceService configured: will terminate after {_terminateAfterEvents} event(s)");
+    }
+
+    /// <summary>
+    /// Configure delay between publishing each event.
+    /// Use for testing slow processing scenarios.
+    /// </summary>
+    /// <param name="delayBetweenEvents">Delay between each published event</param>
+    public void ConfigurePublishDelay(TimeSpan delayBetweenEvents)
+    {
+        if (delayBetweenEvents < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(delayBetweenEvents), delayBetweenEvents, "Delay cannot be negative");
+        }
+
+        _delayBetweenEvents = delayBetweenEvents;
+
+        _output?.WriteLine(
+            $"ConfigurableReferenceService configured: {_delayBetweenEvents.TotalSeconds:F2}s delay between events");
+    }
+
+    /// <summary>
+    /// Configure service to not respond to any events (complete silence).
+    /// Use for testing complete timeout scenarios where service ACKs but never publishes.
+    /// </summary>
+    public void ConfigureNoResponse()
+    {
+        _publishMode = PublishMode.NoResponse;
+        _configuredEventCount = 0;
+        _warmupEventCount = 0;
+
+        _output?.WriteLine(
+            $"ConfigurableReferenceService configured: NoResponse mode - will ACK events but never publish");
     }
 
     /// <summary>
@@ -426,27 +505,68 @@ public sealed class ConfigurableReferenceService(
             // Increment input counter
             var inputCount = Interlocked.Increment(ref _receivedInputEventCount);
 
-            // Warmup events (1 through _warmupEventCount): Publish immediately (act like real service)
-            if (inputCount <= _warmupEventCount)
+            // Check for termination (simulates process death)
+            if (_terminationEnabled && inputCount >= _terminateAfterEvents)
             {
-                _output?.WriteLine($"  ⊙ Warmup event {inputCount}/{_warmupEventCount} - publishing immediately");
+                _output?.WriteLine($"💀 ConfigurableReferenceService terminating after {inputCount} events (simulating process death)");
 
-                // Publish one event immediately for each warmup event
-                await PublishSingleEventAsync(inputCount);
-            }
-            // First event AFTER warmup triggers configured publication behavior
-            else if (inputCount == _warmupEventCount + 1)
-            {
-                _output?.WriteLine($"✓ ConfigurableReferenceService received trigger event {inputCount} (first after warmup, ID: {eventArgs.DeliveryTag})");
-                _triggerCompletionSource?.TrySetResult(true);
+                // ACK this last event before terminating
+                if (_inputChannel != null)
+                {
+                    await _inputChannel.BasicAckAsync(deliveryTag: eventArgs.DeliveryTag, multiple: false);
+                }
 
-                // Start publishing configured number of output events (with optional delay)
-                _ = Task.Run(async () => await PublishOutputEventsAsync(), _cancellationTokenSource.Token);
+                // Disconnect to simulate process death
+                _ = Task.Run(async () => await DisconnectAsync(), CancellationToken.None);
+                return;
             }
-            else
+
+            // Handle based on publish mode
+            switch (_publishMode)
             {
-                // Ignore subsequent input events after trigger (just ACK them)
-                _output?.WriteLine($"  ⊙ Ignoring input event {inputCount} (already triggered)");
+                case PublishMode.NoResponse:
+                    // ACK but don't publish anything - complete silence
+                    _output?.WriteLine($"  ⊙ NoResponse mode: ACK event {inputCount} without publishing");
+                    break;
+
+                case PublishMode.WarmupOnly:
+                    // Only publish during warmup phase
+                    if (inputCount <= _warmupEventCount)
+                    {
+                        _output?.WriteLine($"  ⊙ WarmupOnly mode: warmup event {inputCount}/{_warmupEventCount} - publishing");
+                        await PublishSingleEventAsync(inputCount);
+                    }
+                    else
+                    {
+                        _output?.WriteLine($"  ⊙ WarmupOnly mode: post-warmup event {inputCount} - NOT publishing (warmup complete)");
+                    }
+                    break;
+
+                case PublishMode.Normal:
+                default:
+                    // Warmup events (1 through _warmupEventCount): Publish immediately (act like real service)
+                    if (inputCount <= _warmupEventCount)
+                    {
+                        _output?.WriteLine($"  ⊙ Warmup event {inputCount}/{_warmupEventCount} - publishing immediately");
+
+                        // Publish one event immediately for each warmup event
+                        await PublishSingleEventAsync(inputCount);
+                    }
+                    // First event AFTER warmup triggers configured publication behavior
+                    else if (inputCount == _warmupEventCount + 1)
+                    {
+                        _output?.WriteLine($"✓ ConfigurableReferenceService received trigger event {inputCount} (first after warmup, ID: {eventArgs.DeliveryTag})");
+                        _triggerCompletionSource?.TrySetResult(true);
+
+                        // Start publishing configured number of output events (with optional delay)
+                        _ = Task.Run(async () => await PublishOutputEventsAsync(), _cancellationTokenSource.Token);
+                    }
+                    else
+                    {
+                        // Ignore subsequent input events after trigger (just ACK them)
+                        _output?.WriteLine($"  ⊙ Ignoring input event {inputCount} (already triggered)");
+                    }
+                    break;
             }
 
             // Always ACK input events

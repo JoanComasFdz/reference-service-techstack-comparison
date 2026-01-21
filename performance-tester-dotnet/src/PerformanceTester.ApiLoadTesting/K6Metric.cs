@@ -23,8 +23,12 @@ internal sealed class K6Metric
 /// </summary>
 internal sealed class K6MetricData
 {
+    /// <summary>
+    /// k6 outputs ISO 8601 timestamps (e.g., "2026-01-21T15:43:05.123Z").
+    /// Using DateTimeOffset preserves timezone information correctly.
+    /// </summary>
     [JsonPropertyName("time")]
-    public DateTime Time { get; set; }
+    public DateTimeOffset Time { get; set; }
 
     [JsonPropertyName("value")]
     public double Value { get; set; }

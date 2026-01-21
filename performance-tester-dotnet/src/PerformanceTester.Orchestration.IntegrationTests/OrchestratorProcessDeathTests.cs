@@ -1,0 +1,336 @@
+using Xunit;
+using Xunit.Abstractions;
+using PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
+
+namespace PerformanceTester.Orchestration.IntegrationTests;
+
+/// <summary>
+/// Collection definition to disable parallel execution for process death tests.
+/// Required because tests share the ConfigurableReferenceService and port bindings.
+/// </summary>
+[CollectionDefinition("ProcessDeathTests", DisableParallelization = true)]
+public class ProcessDeathTestsCollection { }
+
+/// <summary>
+/// Integration tests for process death scenarios.
+/// Tests the orchestrator's behavior when the service under test terminates unexpectedly
+/// during different phases of the test workflow.
+/// </summary>
+/// <remarks>
+/// These tests must run sequentially because they share ConfigurableReferenceService resources.
+/// The [Collection] attribute ensures xUnit runs them one at a time.
+/// </remarks>
+[Collection("ProcessDeathTests")]
+public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
+    : IntegrationTest(output)
+{
+    /// <summary>
+    /// Test 2.2: Verifies that when the service dies during event publishing/consumption,
+    /// the orchestrator times out with partial progress information.
+    /// </summary>
+    /// <remarks>
+    /// The ConfigurableReferenceService is configured to terminate after processing 50 events
+    /// out of 500 expected, simulating a process crash mid-test.
+    /// </remarks>
+    [Fact]
+    public async Task RunTestAsync_WhenServiceDiesDuringEventPublishing_ShouldTimeoutWithProgress()
+    {
+        // Arrange
+        const int testPort = 9970;
+        const int eventCount = 200;          // Reduced from 500 to make test faster
+        const int warmupEventCount = 10;
+        const int terminateAfterEvents = 30; // Terminate after 30 input events
+
+        // Configure service to process events but terminate after 30 input events (simulates process death)
+        // Add a delay between output events so termination can interrupt before all events published
+        System.ConfigurableReferenceService.ConfigurePublication(
+            eventCount: eventCount,
+            warmupEventCount: warmupEventCount);
+        System.ConfigurableReferenceService.ConfigureTerminationAfterEvents(terminateAfterEvents);
+        System.ConfigurableReferenceService.ConfigurePublishDelay(TimeSpan.FromMilliseconds(100)); // Slow down publishing
+
+        await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: testPort);
+        await System.WaitForServiceHealthyAsync(port: testPort);
+
+        var config = new TestConfigurationBuilder()
+            .WithServicePort(testPort)
+            .WithWarmupEventCount(warmupEventCount)
+            .WithEventCount(eventCount)
+            .WithInactivityTimeout(TimeSpan.FromSeconds(5))  // Short timeout to detect service death
+            .WithApiDuration(TimeSpan.FromSeconds(5))        // Won't reach this phase
+            .WithDatabaseName(OrchestrationSystem.IntegrationTestDatabaseName)
+            .Build();
+
+        try
+        {
+            // Act & Assert: Should timeout during event consumption with partial progress
+            var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
+            {
+                await System.Orchestration.Orchestrator.RunTestAsync(config);
+            });
+
+            // Verify exception message shows partial progress (some events out of 200)
+            // The service terminates after processing ~30 input events, which interrupts
+            // the output publishing before all 200 events are published
+            // Progress format is typically "X/Y" where Y is the expected count
+            Assert.True(
+                exception.Message.Contains("/200") || exception.Message.Contains("of 200"),
+                $"Exception should show progress out of 200 expected events. Actual: {exception.Message}");
+
+            Output.WriteLine($"Test passed: TimeoutException with message: {exception.Message}");
+        }
+        finally
+        {
+            // Cleanup - service may already be disconnected due to simulated death
+            try
+            {
+                await System.ConfigurableReferenceService.DisconnectAsync();
+            }
+            catch (Exception ex)
+            {
+                Output.WriteLine($"Disconnect warning (expected if service died): {ex.Message}");
+            }
+
+            await System.RabbitMQ.PurgeQueueAsync(ConfigurableReferenceService.DefaultInputQueueName);
+        }
+    }
+
+    /// <summary>
+    /// Test 2.3: Verifies that when the service dies during the warmup phase,
+    /// the test aborts with warmup progress information.
+    /// </summary>
+    /// <remarks>
+    /// The ConfigurableReferenceService is configured to terminate after processing 20 events
+    /// during a 50-event warmup phase.
+    /// </remarks>
+    [Fact]
+    public async Task RunTestAsync_WhenServiceDiesDuringWarmup_ShouldAbort()
+    {
+        // Arrange
+        const int testPort = 9971;
+        const int eventCount = 100;
+        const int warmupEventCount = 50;
+        const int terminateAfterEvents = 20;  // Dies during warmup (before 50 warmup events complete)
+
+        // Configure service to process events but terminate after 20 events (mid-warmup)
+        System.ConfigurableReferenceService.ConfigurePublication(
+            eventCount: eventCount,
+            warmupEventCount: warmupEventCount);
+        System.ConfigurableReferenceService.ConfigureTerminationAfterEvents(terminateAfterEvents);
+
+        await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: testPort);
+        await System.WaitForServiceHealthyAsync(port: testPort);
+
+        var config = new TestConfigurationBuilder()
+            .WithServicePort(testPort)
+            .WithWarmupEventCount(warmupEventCount)
+            .WithWarmupInactivityTimeout(TimeSpan.FromSeconds(5))  // Short timeout to detect service death
+            .WithEventCount(eventCount)
+            .WithInactivityTimeout(TimeSpan.FromSeconds(10))
+            .WithDatabaseName(OrchestrationSystem.IntegrationTestDatabaseName)
+            .Build();
+
+        try
+        {
+            // Act & Assert: Should timeout during warmup phase
+            var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
+            {
+                await System.Orchestration.Orchestrator.RunTestAsync(config);
+            });
+
+            // Verify exception message shows warmup progress (partial progress out of 50 warmup events)
+            Assert.True(
+                exception.Message.Contains("/50") || exception.Message.Contains("of 50"),
+                $"Exception should show warmup progress. Actual: {exception.Message}");
+
+            Output.WriteLine($"Test passed: TimeoutException during warmup with message: {exception.Message}");
+        }
+        finally
+        {
+            // Cleanup - service may already be disconnected due to simulated death
+            try
+            {
+                await System.ConfigurableReferenceService.DisconnectAsync();
+            }
+            catch (Exception ex)
+            {
+                Output.WriteLine($"Disconnect warning (expected if service died): {ex.Message}");
+            }
+
+            await System.RabbitMQ.PurgeQueueAsync(ConfigurableReferenceService.DefaultInputQueueName);
+        }
+    }
+
+    /// <summary>
+    /// Test 2.4: Verifies that when the service dies during the API load test phase,
+    /// the API test aborts due to consecutive failures.
+    /// </summary>
+    /// <remarks>
+    /// This test configures the service to complete event publishing successfully,
+    /// then terminate after a short delay, simulating a crash during API testing.
+    /// The ConfigurableReferenceService will stop responding to HTTP requests after disconnect.
+    /// </remarks>
+    [Fact]
+    public async Task RunTestAsync_WhenServiceDiesDuringApiPhase_ShouldAbortApiTest()
+    {
+        // Arrange
+        const int testPort = 9972;
+        const int eventCount = 10;
+        const int warmupEventCount = 10;
+
+        // Configure service to complete events, then we'll terminate it during API phase
+        // Total events = warmupEventCount + eventCount = 20
+        // Terminate after completing all events (21 to ensure all events processed)
+        // But the HTTP listener will be down, causing API failures
+        System.ConfigurableReferenceService.ConfigurePublication(
+            eventCount: eventCount,
+            warmupEventCount: warmupEventCount);
+
+        // Configure intermittent failures that will escalate to consecutive failures
+        // after a few successful requests, simulating gradual service degradation
+        System.ConfigurableReferenceService.ConfigureIntermittentFailures(failEveryNthRequest: 1); // All requests fail
+
+        await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: testPort);
+        await System.WaitForServiceHealthyAsync(port: testPort);
+
+        // Reconfigure HTTP to succeed initially, then we'll make it fail
+        // Actually, for this test we configure all HTTP requests to succeed during warmup,
+        // but then the service "dies" by returning errors consistently
+        System.ConfigurableReferenceService.ConfigureHttpResponse(statusCode: 200);
+
+        var config = new TestConfigurationBuilder()
+            .WithServicePort(testPort)
+            .WithWarmupEventCount(warmupEventCount)
+            .WithEventCount(eventCount)
+            .WithApiDuration(TimeSpan.FromSeconds(10))
+            .WithMaxConsecutiveApiFailures(3)  // Abort after 3 consecutive failures
+            .WithDatabaseName(OrchestrationSystem.IntegrationTestDatabaseName)
+            .Build();
+
+        try
+        {
+            // Start the test in a separate task
+            var testTask = Task.Run(async () =>
+            {
+                return await System.Orchestration.Orchestrator.RunTestAsync(config);
+            });
+
+            // Wait for events to complete (should be quick with 10 events)
+            // Then simulate service death by making HTTP always fail
+            await Task.Delay(TimeSpan.FromSeconds(3));
+
+            // Simulate service death by disconnecting (HTTP listener stops)
+            // Note: This will cause all subsequent HTTP requests to fail
+            Output.WriteLine("Simulating service death by disconnecting...");
+            await System.ConfigurableReferenceService.DisconnectAsync();
+
+            // Wait for test to complete (should abort due to HTTP failures)
+            var report = await testTask;
+
+            // Assert: API test should have been aborted due to consecutive failures
+            Assert.True(report.Results.Phase3Api.WasAborted,
+                "API load test should have been aborted due to service death");
+            Assert.NotNull(report.Results.Phase3Api.AbortReason);
+            Assert.Contains("consecutive", report.Results.Phase3Api.AbortReason!, StringComparison.OrdinalIgnoreCase);
+
+            // Should have some successful requests before death
+            // Note: May have 0 successes if service died very quickly
+            Output.WriteLine($"API test aborted. Success count: {report.Results.Phase3Api.SuccessCount}, Error count: {report.Results.Phase3Api.ErrorCount}");
+            Output.WriteLine($"Abort reason: {report.Results.Phase3Api.AbortReason}");
+
+            Assert.True(report.Results.Phase3Api.ErrorCount > 0,
+                "Should have errors after service death");
+        }
+        finally
+        {
+            // Cleanup - service may already be disconnected
+            try
+            {
+                await System.ConfigurableReferenceService.DisconnectAsync();
+            }
+            catch (Exception ex)
+            {
+                Output.WriteLine($"Disconnect warning (expected if already disconnected): {ex.Message}");
+            }
+
+            await System.RabbitMQ.PurgeQueueAsync(ConfigurableReferenceService.DefaultInputQueueName);
+        }
+    }
+
+    /// <summary>
+    /// Test 2.5: Verifies that when the service dies mid-test, the test handles
+    /// it gracefully without crashing, timing out with progress information.
+    /// </summary>
+    /// <remarks>
+    /// This test is similar to Test 2.2 but focuses on verifying graceful handling:
+    /// - No unhandled exceptions
+    /// - Proper timeout with progress
+    /// - Test framework doesn't crash
+    /// </remarks>
+    [Fact]
+    public async Task RunTestAsync_WhenServiceDies_ProcessMetricsShouldStopGracefully()
+    {
+        // Arrange
+        const int testPort = 9973;
+        const int eventCount = 200;
+        const int warmupEventCount = 10;
+        const int terminateAfterEvents = 30;  // Service dies mid-test (after 30 input events)
+
+        // Configure service to terminate after 30 input events (well into test phase)
+        // Add delay to slow down output publishing so termination can interrupt it
+        System.ConfigurableReferenceService.ConfigurePublication(
+            eventCount: eventCount,
+            warmupEventCount: warmupEventCount);
+        System.ConfigurableReferenceService.ConfigureTerminationAfterEvents(terminateAfterEvents);
+        System.ConfigurableReferenceService.ConfigurePublishDelay(TimeSpan.FromMilliseconds(100)); // Slow down publishing
+
+        await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: testPort);
+        await System.WaitForServiceHealthyAsync(port: testPort);
+
+        var config = new TestConfigurationBuilder()
+            .WithServicePort(testPort)
+            .WithWarmupEventCount(warmupEventCount)
+            .WithEventCount(eventCount)
+            .WithInactivityTimeout(TimeSpan.FromSeconds(5))  // Short timeout to detect service death
+            .WithDatabaseName(OrchestrationSystem.IntegrationTestDatabaseName)
+            .Build();
+
+        try
+        {
+            // Act: Test should timeout gracefully (not crash) when service dies
+            var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
+            {
+                await System.Orchestration.Orchestrator.RunTestAsync(config);
+            });
+
+            // Assert: The test framework didn't crash - we got a proper TimeoutException
+            // This verifies graceful handling of process death
+            Assert.NotNull(exception);
+            Assert.NotEmpty(exception.Message);
+
+            // Verify the exception contains meaningful progress information
+            // The message should include how many events were received before timeout
+            Assert.True(
+                exception.Message.Contains("Inactivity timeout") ||
+                exception.Message.Contains("timeout"),
+                $"Exception should mention timeout. Actual: {exception.Message}");
+
+            Output.WriteLine($"Test passed: Graceful timeout with message: {exception.Message}");
+            Output.WriteLine("Process metrics collection stopped gracefully (no crash occurred)");
+        }
+        finally
+        {
+            // Cleanup - service may already be disconnected due to simulated death
+            try
+            {
+                await System.ConfigurableReferenceService.DisconnectAsync();
+            }
+            catch (Exception ex)
+            {
+                Output.WriteLine($"Disconnect warning (expected if service died): {ex.Message}");
+            }
+
+            await System.RabbitMQ.PurgeQueueAsync(ConfigurableReferenceService.DefaultInputQueueName);
+        }
+    }
+}

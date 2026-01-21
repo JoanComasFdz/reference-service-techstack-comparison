@@ -26,7 +26,8 @@ internal sealed class MetricsCollectorService : BackgroundService, IMetricsColle
     /// <inheritdoc />
     public IReadOnlyCollection<EventThroughputSample> GetThroughputSamples()
     {
-        return _samples.ToArray();
+        // ConcurrentBag doesn't preserve insertion order, so sort by timestamp
+        return _samples.OrderBy(s => s.Timestamp).ToArray();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

@@ -40,13 +40,9 @@ internal sealed class MetricsAggregator
                 break;
 
             case "vus":
-                // Convert DateTime to UTC if needed before creating DateTimeOffset
-                var utcTime = metric.Data.Time.Kind == DateTimeKind.Utc
-                    ? metric.Data.Time
-                    : DateTime.SpecifyKind(metric.Data.Time, DateTimeKind.Utc);
-
+                // k6 outputs ISO 8601 timestamps - DateTimeOffset preserves timezone correctly
                 var sample = new ApiThroughputSample(
-                    Timestamp: new DateTimeOffset(utcTime, TimeSpan.Zero),
+                    Timestamp: metric.Data.Time.ToUniversalTime(),
                     RequestsPerSecond: 0,  // Calculated in final result based on actual test duration
                     CumulativeRequestCount: _totalRequests,
                     ActiveVirtualUsers: (int)metric.Data.Value);
@@ -76,7 +72,8 @@ internal sealed class MetricsAggregator
             P95RequestDurationMs: Math.Round(p95Duration, 2),
             P99RequestDurationMs: Math.Round(p99Duration, 2),
             RequestsPerSecond: Math.Round(requestsPerSecond, 2),
-            ThroughputSamples: _throughputSamples.ToArray());
+            // ConcurrentBag doesn't preserve insertion order, so sort by timestamp
+            ThroughputSamples: _throughputSamples.OrderBy(s => s.Timestamp).ToArray());
     }
 
     private static double CalculatePercentile(List<double> values, double percentile)
