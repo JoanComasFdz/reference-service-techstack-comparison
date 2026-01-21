@@ -32,8 +32,6 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
     public async Task RunTestAsync_WhenApiServerReturnsErrors_ShouldAbortAndReportReason()
     {
         // Arrange
-        System.DotNetAotService.Stop();
-
         System.ConfigurableReferenceService.ConfigureHttpResponse(statusCode: 500);
         System.ConfigurableReferenceService.ConfigurePublication(
             eventCount: 1,
@@ -84,8 +82,6 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
     public async Task RunTestAsync_WhenAbortDisabled_ShouldCompleteFullDuration()
     {
         // Arrange
-        System.DotNetAotService.Stop();
-
         System.ConfigurableReferenceService.ConfigureHttpResponse(statusCode: 500);
         System.ConfigurableReferenceService.ConfigurePublication(
             eventCount: 1,
@@ -135,8 +131,6 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
     public async Task RunTestAsync_WithHigherAbortThreshold_ShouldTolerateIntermittentFailures()
     {
         // Arrange
-        System.DotNetAotService.Stop();
-
         System.ConfigurableReferenceService.ConfigureIntermittentFailures(failEveryNthRequest: 3);
         System.ConfigurableReferenceService.ConfigurePublication(
             eventCount: 1,

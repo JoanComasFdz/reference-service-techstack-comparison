@@ -1,7 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Npgsql;
-using PerformanceTester.EventConsuming;
 using PerformanceTester.IntegrationTesting;
 using Xunit.Abstractions;
 
@@ -11,7 +8,6 @@ namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 /// System under test for Orchestration integration tests.
 /// Provides access to:
 /// - ITestOrchestrator (production API)
-/// - DotNetAotServiceManager (test fixture)
 /// - ConfigurableReferenceService (bi-directional mock service for testing)
 /// - IEventConsumer (direct access for testing consumer timeout behavior)
 /// - Infrastructure helpers (PostgreSQL, RabbitMQ)
@@ -25,7 +21,6 @@ public sealed class OrchestrationSystem : IntegrationTesting.VhostIsolatedSystem
     public const string IntegrationTestDatabaseName = "dotnet9aot_perftest_integrationtest_db";
 
     public Orchestration Orchestration { get; private set; } = null!;
-    public DotNetAotServiceManager DotNetAotService { get; private set; } = null!;
     public ConfigurableReferenceService ConfigurableReferenceService { get; private set; } = null!;
 
     protected override async Task InitializeSystemAsync()
@@ -50,39 +45,6 @@ public sealed class OrchestrationSystem : IntegrationTesting.VhostIsolatedSystem
             // Database already exists - ignore
             base.Output?.WriteLine($"[INIT] ✓ Integration test database already exists: {IntegrationTestDatabaseName}");
         }
-
-        // Parse PostgreSQL connection string
-        base.Output?.WriteLine("[INIT] Parsing connection strings...");
-        var pgBuilder = new NpgsqlConnectionStringBuilder(base.PostgreSQL.ConnectionString);
-
-        // Parse RabbitMQ connection string (amqp://user:pass@host:port/)
-        var rabbitMqUri = new Uri(base.RabbitMQ.ConnectionString);
-        var rabbitMqCredentials = rabbitMqUri.UserInfo.Split(':');
-        base.Output?.WriteLine("[INIT] ✓ Connection strings parsed");
-
-        // Initialize .NET AOT service manager (builds and manages .NET AOT service)
-        base.Output?.WriteLine("[INIT] Creating DotNetAotServiceManager...");
-        
-        // Extract vhost from URI path (if present)
-        // URI format: amqp://user:pass@host:port/vhost
-        var rabbitMqVhost = Uri.UnescapeDataString(rabbitMqUri.AbsolutePath.TrimStart('/'));
-        if (!string.IsNullOrEmpty(rabbitMqVhost))
-        {
-            base.Output?.WriteLine($"[INIT] RabbitMQ vhost: {rabbitMqVhost}");
-        }
-        
-        this.DotNetAotService = new DotNetAotServiceManager(
-            postgresHost: pgBuilder.Host!,
-            postgresPort: pgBuilder.Port,
-            postgresUser: pgBuilder.Username!,
-            postgresPassword: pgBuilder.Password!,
-            rabbitMqHost: rabbitMqUri.Host,
-            rabbitMqPort: rabbitMqUri.Port,
-            rabbitMqUser: rabbitMqCredentials[0],
-            rabbitMqPassword: rabbitMqCredentials[1],
-            rabbitMqVhost: string.IsNullOrEmpty(rabbitMqVhost) ? null : rabbitMqVhost,
-            output: base.Output);
-        base.Output?.WriteLine("[INIT] ✓ DotNetAotServiceManager created");
 
         // Initialize orchestration facade (creates IHost with all services)
         base.Output?.WriteLine("[INIT] Creating Orchestration (IHost)...");
@@ -173,9 +135,6 @@ public sealed class OrchestrationSystem : IntegrationTesting.VhostIsolatedSystem
 
     public override void Dispose()
     {
-        // Stop and cleanup .NET AOT service
-        DotNetAotService?.Dispose();
-
         // Dispose configurable event publisher (DisposeAsync already calls DisconnectAsync)
         ConfigurableReferenceService?.DisposeAsync().AsTask().GetAwaiter().GetResult();
 

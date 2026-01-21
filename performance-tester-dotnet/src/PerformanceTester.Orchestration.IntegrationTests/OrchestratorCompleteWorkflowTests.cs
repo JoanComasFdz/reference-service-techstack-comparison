@@ -20,8 +20,18 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
         // ARRANGE
         // ====================================================================
 
-        // Start .NET AOT service
-        await System.DotNetAotService.StartAsync(OrchestrationSystem.IntegrationTestDatabaseName);
+        const int testPort = 9990;
+        const int eventCount = 500;
+        const int warmupEventCount = 50;  // Match default from TestConfigurationBuilder
+
+        // Configure ConfigurableReferenceService to handle full workflow
+        // It needs to respond to warmup events AND test events
+        System.ConfigurableReferenceService.ConfigurePublication(
+            eventCount: eventCount,
+            warmupEventCount: warmupEventCount);
+
+        await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: testPort);
+        await System.WaitForServiceHealthyAsync(port: testPort);
 
         // Create unique results folder for this test run
         var resultsFolder = $"./test-results-{Guid.NewGuid():N}";
@@ -29,9 +39,11 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
         try
         {
             var config = new TestConfigurationBuilder()
-                .WithEventCount(500)                    // Sufficient for meaningful throughput
+                .WithEventCount(eventCount)
+                .WithWarmupEventCount(warmupEventCount)
                 .WithApiWorkers(1)
                 .WithApiDuration(TimeSpan.FromSeconds(10))  // Match expected range 9-12 seconds
+                .WithServicePort(testPort)
                 .WithResultsFolder(resultsFolder)
                 .WithDatabaseName(OrchestrationSystem.IntegrationTestDatabaseName)
                 .Build();
@@ -49,7 +61,8 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
             // Verify service was discovered
             Assert.True(report.MonitoredProcess.Pid > 0,
                 "Service PID should be discovered");
-            Assert.Equal("dotnet9AotReferenceService", report.MonitoredProcess.Name);
+            // NOTE: Process name will be the test runner process, not "dotnet9AotReferenceService"
+            Assert.NotEmpty(report.MonitoredProcess.Name);
 
             Output.WriteLine($"✓ Phase 0 (Setup): Service discovered (PID: {report.MonitoredProcess.Pid})");
 
@@ -70,7 +83,7 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
             // ====================================================================
 
             // Verify event count configuration
-            Assert.Equal(500, report.Configuration.NumEvents);
+            Assert.Equal(eventCount, report.Configuration.NumEvents);
 
             // Verify publishing phase completed
             Assert.True(report.Results.Phase1Publish.DurationSeconds > 0,
@@ -196,11 +209,11 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
 
             // Remove test results folder
             Directory.Delete(resultsFolder, recursive: true);
-
-            System.DotNetAotService.Stop();
         }
         finally
         {
+            await System.ConfigurableReferenceService.DisconnectAsync();
+
             // CRITICAL: Purge ConfigurableReferenceService queue to prevent stale events
             // from affecting subsequent tests. Events published to the shared exchange
             // are routed to ALL bound queues, including this one if it exists.

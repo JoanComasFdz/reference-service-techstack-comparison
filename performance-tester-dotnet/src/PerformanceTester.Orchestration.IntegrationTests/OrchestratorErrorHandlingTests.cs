@@ -1,7 +1,3 @@
-using JoanComasFdz.AssertingThat;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using PerformanceTester.EventPublishing;
 using Xunit;
 using Xunit.Abstractions;
 using PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
@@ -15,11 +11,12 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
     public async Task RunTestAsync_WhenServiceNotRunning_ShouldFailGracefully()
     {
         // Arrange
-        // Ensure .NET AOT service is NOT running
-        System.DotNetAotService.Stop();
+        // No service started - ConfigurableReferenceService not connected
+        // Service discovery will timeout trying to find process on port
 
         var config = new TestConfigurationBuilder()
             .WithEventCount(10)
+            .WithServicePort(9998)  // Use dedicated port that has no listener
             .WithDatabaseName(OrchestrationSystem.IntegrationTestDatabaseName)
             .Build();
 
@@ -49,9 +46,6 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
     public async Task RunTestAsync_WhenConsumerTimeout_ShouldIncludeReceivedCount()
     {
         // Arrange
-        // Ensure .NET AOT service is NOT running
-        System.DotNetAotService.Stop();
-
         // Use ConfigurableReferenceService as a minimal test service
         // Timeline:
         //   Warmup phase: Orchestrator publishes 1 events
