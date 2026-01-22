@@ -67,8 +67,8 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
 # Resolve and add other allowed domains
 # For CDN-backed domains (NuGet, Docker, npm), resolve multiple times to capture more IPs
-cdn_domains="api.nuget.org www.nuget.org nuget.org globalcdn.nuget.org registry-1.docker.io auth.docker.io registry.hub.docker.com production.cloudflare.docker.com index.docker.io registry.npmjs.org"
-non_cdn_domains="github.com api.anthropic.com sentry.io statsig.anthropic.com statsig.com marketplace.visualstudio.com vscode.blob.core.windows.net update.code.visualstudio.com docs.microsoft.com learn.microsoft.com download.visualstudio.microsoft.com download.microsoft.com az764295.vo.msecnd.net vscode-download.azureedge.net vscodeextensiongallery.blob.core.windows.net vscodeextensions.blob.core.windows.net vscodehub.azureedge.net vsassets.io vsmarketplacebadges.dev context7.com mcp.context7.com pypi.org files.pythonhosted.org pypi.python.org"
+cdn_domains="api.nuget.org www.nuget.org nuget.org globalcdn.nuget.org registry-1.docker.io auth.docker.io registry.hub.docker.com production.cloudflare.docker.com index.docker.io registry.npmjs.org api.anthropic.com"
+non_cdn_domains="github.com sentry.io statsig.anthropic.com statsig.com marketplace.visualstudio.com vscode.blob.core.windows.net update.code.visualstudio.com docs.microsoft.com learn.microsoft.com download.visualstudio.microsoft.com download.microsoft.com az764295.vo.msecnd.net vscode-download.azureedge.net vscodeextensiongallery.blob.core.windows.net vscodeextensions.blob.core.windows.net vscodehub.azureedge.net vsassets.io vsmarketplacebadges.dev context7.com mcp.context7.com pypi.org files.pythonhosted.org pypi.python.org dl.google.com archive.apache.org static.rust-lang.org rustup.rs bun.sh mise.run mise.jdx.dev objects.githubusercontent.com go.dev golang.org storage.googleapis.com downloads.python-lang.org www.python.org python.org gregory.szorc.com github-cloud.githubusercontent.com"
 
 # Save original IFS and temporarily reset for domain iteration
 # (IFS=$'\n\t' prevents word splitting on spaces)
