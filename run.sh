@@ -14,6 +14,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="$SCRIPT_DIR/logs/run-all-setup-test.log"
 
+# Source shared library functions
+source "$SCRIPT_DIR/scripts/common.sh"
+
 # Test configuration defaults
 EVENTS=2000
 DURATION="120s"
@@ -22,38 +25,6 @@ NATIVE="--native"
 # Generate timestamp for results folder
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RESULTS_FOLDER="$SCRIPT_DIR/test-results-${TIMESTAMP}"
-
-# Color codes for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Logging functions
-log_phase() {
-    echo ""
-    echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}$1${NC}"
-    echo -e "${BLUE}========================================${NC}"
-    echo ""
-}
-
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
 
 # Error handler
 error_handler() {
@@ -68,7 +39,7 @@ trap error_handler ERR
 
 # Main execution
 main() {
-    log_phase "MASTER ORCHESTRATION - Complete Setup and Test Pipeline"
+    log_section "MASTER ORCHESTRATION - Complete Setup and Test Pipeline"
     log_info "Configuration:"
     log_info "  Events: $EVENTS"
     log_info "  Duration: $DURATION"
@@ -85,7 +56,7 @@ main() {
 
     # Phase 1: Setup Environment
     CURRENT_PHASE="Environment Setup"
-    log_phase "Phase 1: $CURRENT_PHASE"
+    log_section "Phase 1: $CURRENT_PHASE"
     log_info "Running setup-environment.sh in non-interactive mode..."
     if ./scripts/infrastructure/setup/setup-environment.sh --non-interactive; then
         log_success "Environment setup completed successfully"
@@ -96,20 +67,15 @@ main() {
 
     # Activate mise for current script session
     log_info "Activating mise for script session..."
-    if [[ -f "$HOME/.local/bin/mise" ]]; then
-        # Initialize PROMPT_COMMAND to avoid "unbound variable" errors with set -u
-        PROMPT_COMMAND="${PROMPT_COMMAND:-}"
-        eval "$("$HOME/.local/bin/mise" activate bash)"
-        export PATH="$HOME/.local/bin:$PATH"
-        log_success "mise activated successfully"
-    else
-        log_error "mise not found at $HOME/.local/bin/mise"
+    if ! activate_mise; then
+        log_error "Failed to activate mise"
         exit 1
     fi
+    log_success "mise activated successfully"
 
     # Phase 2: Verify Environment
     CURRENT_PHASE="Environment Verification"
-    log_phase "Phase 2: $CURRENT_PHASE"
+    log_section "Phase 2: $CURRENT_PHASE"
     log_info "Running verify-environment.sh..."
     if ./scripts/infrastructure/setup/verify-environment.sh; then
         log_success "Environment verification completed successfully"
@@ -120,7 +86,7 @@ main() {
 
     # Phase 3: Build All Services
     CURRENT_PHASE="Build All Services"
-    log_phase "Phase 3: $CURRENT_PHASE"
+    log_section "Phase 3: $CURRENT_PHASE"
     log_info "Running test-all-builds.sh..."
     if ./scripts/tools/build/test-all-builds.sh; then
         log_success "All builds completed successfully"
@@ -131,7 +97,7 @@ main() {
 
     # Phase 4: Run Performance Tests
     CURRENT_PHASE="Performance Testing"
-    log_phase "Phase 4: $CURRENT_PHASE"
+    log_section "Phase 4: $CURRENT_PHASE"
     log_info "Running run-all-tests.sh..."
     if ./scripts/tools/testing/run-all-tests.sh --events "$EVENTS" --duration "$DURATION" $NATIVE --results-folder "$RESULTS_FOLDER"; then
         log_success "Performance tests completed successfully"
@@ -141,7 +107,7 @@ main() {
     fi
 
     # Completion
-    log_phase "ALL PHASES COMPLETED SUCCESSFULLY!"
+    log_section "ALL PHASES COMPLETED SUCCESSFULLY!"
     log_success "Test results are available in: $RESULTS_FOLDER"
     log_success "Log file: $LOG_FILE"
     echo ""

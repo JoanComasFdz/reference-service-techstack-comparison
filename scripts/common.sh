@@ -73,6 +73,15 @@ log_success() {
     fi
 }
 
+# Logs a section header (for visual separation of phases)
+log_section() {
+    echo ""
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}$1${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo ""
+}
+
 ################################################################################
 # Helper Functions
 ################################################################################
@@ -84,10 +93,17 @@ command_exists() {
 
 # Activate mise and verify it works
 activate_mise() {
+    # Check if mise is already in PATH
     if ! command_exists mise; then
-        log_error "mise not found in PATH!"
-        log_error "Please install mise: ./setup-environment.sh"
-        return 1
+        # Try common installation location
+        if [[ -f "$HOME/.local/bin/mise" ]]; then
+            log_info "Adding mise to PATH from $HOME/.local/bin"
+            export PATH="$HOME/.local/bin:$PATH"
+        else
+            log_error "mise not found in PATH or at $HOME/.local/bin/mise!"
+            log_error "Please install mise: ./setup-environment.sh"
+            return 1
+        fi
     fi
 
     # Activate mise for current shell
@@ -227,6 +243,150 @@ configure_shell_file() {
     if add_config_line "eval \"\$(~/.local/bin/mise activate $shell_type)\"" "# mise - polyglot tool version manager"; then
         log_success "Added mise activation to $shell_file"
     fi
+}
+
+################################################################################
+# Container Environment Detection
+################################################################################
+
+# Default infrastructure hosts (can be overridden by detect_container_environment)
+POSTGRES_HOST="${POSTGRES_HOST:-localhost}"
+RABBITMQ_HOST="${RABBITMQ_HOST:-localhost}"
+INFRASTRUCTURE_NETWORK="infrastructure_default"
+
+# Check if running inside a Docker container
+is_inside_container() {
+    [[ -f "/.dockerenv" ]] || grep -q docker /proc/1/cgroup 2>/dev/null
+}
+
+# Test TCP connectivity to a host:port
+# Usage: test_tcp_connectivity host port
+test_tcp_connectivity() {
+    local host=$1
+    local port=$2
+    nc -z -w1 "$host" "$port" 2>/dev/null
+}
+
+# Get the current container name (if running inside a container)
+get_container_name() {
+    if [[ -f "/.dockerenv" ]]; then
+        # Try to get container name from hostname or docker inspect
+        local container_id
+        container_id=$(cat /proc/self/cgroup 2>/dev/null | grep -oE '[0-9a-f]{64}' | head -1)
+        if [[ -n "$container_id" ]]; then
+            docker inspect --format '{{.Name}}' "$container_id" 2>/dev/null | sed 's/^\///'
+        else
+            hostname
+        fi
+    fi
+}
+
+# Connect current container to the infrastructure network
+# This allows containers to reach each other by name
+connect_to_infrastructure_network() {
+    local container_name
+    container_name=$(get_container_name)
+
+    if [[ -z "$container_name" ]]; then
+        log_warn "Could not determine container name"
+        return 1
+    fi
+
+    # Check if already connected
+    if docker network inspect "$INFRASTRUCTURE_NETWORK" --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null | grep -q "$container_name"; then
+        log_info "Container already connected to $INFRASTRUCTURE_NETWORK network"
+        return 0
+    fi
+
+    # Try to connect
+    log_info "Connecting container '$container_name' to $INFRASTRUCTURE_NETWORK network..."
+    if docker network connect "$INFRASTRUCTURE_NETWORK" "$container_name" 2>/dev/null; then
+        log_success "Connected to $INFRASTRUCTURE_NETWORK network"
+        return 0
+    else
+        log_warn "Failed to connect to $INFRASTRUCTURE_NETWORK network"
+        return 1
+    fi
+}
+
+# Detect container environment and set appropriate host variables
+# This function detects if we're running inside a devcontainer/docker container
+# and adjusts POSTGRES_HOST and RABBITMQ_HOST accordingly
+#
+# Sets global variables:
+#   POSTGRES_HOST - either "localhost" or "performancetest-postgres"
+#   RABBITMQ_HOST - either "localhost" or "performancetest-rabbitmq"
+#
+# Usage: detect_container_environment
+detect_container_environment() {
+    log_info "Detecting container environment..."
+
+    # If not inside a container, use localhost
+    if ! is_inside_container; then
+        log_info "Running on host system - using localhost for infrastructure"
+        POSTGRES_HOST="localhost"
+        RABBITMQ_HOST="localhost"
+        export POSTGRES_HOST RABBITMQ_HOST
+        return 0
+    fi
+
+    log_info "Running inside a container - checking infrastructure connectivity"
+
+    # First, try localhost (works if containers share network namespace or ports are mapped)
+    if test_tcp_connectivity "localhost" 5432; then
+        log_info "Infrastructure reachable via localhost"
+        POSTGRES_HOST="localhost"
+        RABBITMQ_HOST="localhost"
+        export POSTGRES_HOST RABBITMQ_HOST
+        return 0
+    fi
+
+    log_info "localhost:5432 not reachable - checking container network"
+
+    # Try container names (works if on same Docker network)
+    if test_tcp_connectivity "performancetest-postgres" 5432; then
+        log_info "Infrastructure reachable via container names"
+        POSTGRES_HOST="performancetest-postgres"
+        RABBITMQ_HOST="performancetest-rabbitmq"
+        export POSTGRES_HOST RABBITMQ_HOST
+        return 0
+    fi
+
+    # Not reachable by container name - try to connect to the infrastructure network
+    log_info "Container names not resolvable - attempting to join infrastructure network"
+
+    if connect_to_infrastructure_network; then
+        # Wait a moment for DNS to propagate
+        sleep 1
+
+        # Verify connectivity after joining
+        if test_tcp_connectivity "performancetest-postgres" 5432; then
+            log_success "Infrastructure now reachable via container names"
+            POSTGRES_HOST="performancetest-postgres"
+            RABBITMQ_HOST="performancetest-rabbitmq"
+            export POSTGRES_HOST RABBITMQ_HOST
+            return 0
+        fi
+    fi
+
+    # Last resort: try to get container IP directly
+    local postgres_ip
+    postgres_ip=$(docker inspect performancetest-postgres --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null | head -1)
+
+    if [[ -n "$postgres_ip" ]] && test_tcp_connectivity "$postgres_ip" 5432; then
+        log_warn "Using container IP address directly (less reliable)"
+        POSTGRES_HOST="$postgres_ip"
+        local rabbitmq_ip
+        rabbitmq_ip=$(docker inspect performancetest-rabbitmq --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null | head -1)
+        RABBITMQ_HOST="${rabbitmq_ip:-$postgres_ip}"
+        export POSTGRES_HOST RABBITMQ_HOST
+        return 0
+    fi
+
+    log_error "Could not establish connectivity to infrastructure containers"
+    log_error "Please ensure Docker infrastructure is running:"
+    log_error "  docker-compose -f scripts/infrastructure/docker-compose.yml up -d"
+    return 1
 }
 
 ################################################################################

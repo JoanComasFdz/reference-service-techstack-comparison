@@ -116,6 +116,8 @@ RUN chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/fix-docker-iptables.
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/fix-docker-iptables.sh" >> /etc/sudoers.d/node-firewall && \
   echo "node ALL=(root) NOPASSWD: /usr/bin/pkill *" >> /etc/sudoers.d/node-firewall && \
   echo "node ALL=(root) NOPASSWD: /bin/chmod 666 /var/run/docker.sock" >> /etc/sudoers.d/node-firewall && \
+  echo "node ALL=(root) NOPASSWD: /usr/bin/apt-get *" >> /etc/sudoers.d/node-firewall && \
+  echo "node ALL=(root) NOPASSWD: /usr/bin/snap *" >> /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
 
 # Configure docker group (GID 1001) to match WSL2 Docker Desktop socket ownership

@@ -16,8 +16,8 @@ go = "1.23.12"
 # Rust
 rust = "stable"
 
-# .NET
-dotnet = "9.0.306"
+# .NET - installed via Dockerfile (dotnet-sdk-9.0), not managed by mise
+# dotnet = "9.0.306"
 
 # Bun (TypeScript/JavaScript runtime)
 bun = "1.3.1"
@@ -33,8 +33,8 @@ python = "3.13.8"
 # JAVA_HOME will be set to the active Java version by mise
 # GRAALVM_HOME will be set by the GraalVM installation script when using GraalVM builds
 
-# .NET environment variables
-DOTNET_ROOT = "{{ env.HOME }}/.local/share/mise/installs/dotnet/9.0.306"
+# .NET environment variables (system installation from Dockerfile)
+DOTNET_ROOT = "/usr/share/dotnet"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 
 # Go environment variables
@@ -65,7 +65,7 @@ http_timeout = "300"  # 5 minutes for slow connections
 # Verbose output for debugging
 verbose = false
 
-[alias.java.versions]
+[tool_alias.java.versions]
 # Convenient aliases for Java version switching
 # Using GraalVM distributions which provide full JDK + native-image capability
 21 = "graalvm-jdk-21.0.2"           # Java 21 via GraalVM

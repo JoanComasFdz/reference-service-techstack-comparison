@@ -67,8 +67,8 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
 # Resolve and add other allowed domains
 # For CDN-backed domains (NuGet, Docker, npm), resolve multiple times to capture more IPs
-cdn_domains="api.nuget.org www.nuget.org nuget.org globalcdn.nuget.org registry-1.docker.io auth.docker.io registry.hub.docker.com production.cloudflare.docker.com index.docker.io registry.npmjs.org api.anthropic.com"
-non_cdn_domains="github.com sentry.io statsig.anthropic.com statsig.com marketplace.visualstudio.com vscode.blob.core.windows.net update.code.visualstudio.com docs.microsoft.com learn.microsoft.com download.visualstudio.microsoft.com download.microsoft.com az764295.vo.msecnd.net vscode-download.azureedge.net vscodeextensiongallery.blob.core.windows.net vscodeextensions.blob.core.windows.net vscodehub.azureedge.net vsassets.io vsmarketplacebadges.dev context7.com mcp.context7.com pypi.org files.pythonhosted.org pypi.python.org dl.google.com archive.apache.org static.rust-lang.org rustup.rs bun.sh mise.run mise.jdx.dev objects.githubusercontent.com go.dev golang.org storage.googleapis.com downloads.python-lang.org www.python.org python.org gregory.szorc.com github-cloud.githubusercontent.com"
+cdn_domains="api.nuget.org www.nuget.org nuget.org globalcdn.nuget.org registry-1.docker.io auth.docker.io registry.hub.docker.com production.cloudflare.docker.com index.docker.io registry.npmjs.org api.anthropic.com deb.debian.org download.docker.com ftp.debian.org security.debian.org dotnetcli.azureedge.net dotnetcli.blob.core.windows.net crates.io static.crates.io"
+non_cdn_domains="github.com sentry.io statsig.anthropic.com statsig.com marketplace.visualstudio.com vscode.blob.core.windows.net update.code.visualstudio.com docs.microsoft.com learn.microsoft.com download.visualstudio.microsoft.com download.microsoft.com az764295.vo.msecnd.net vscode-download.azureedge.net vscodeextensiongallery.blob.core.windows.net vscodeextensions.blob.core.windows.net vscodehub.azureedge.net vsassets.io vsmarketplacebadges.dev context7.com mcp.context7.com pypi.org files.pythonhosted.org pypi.python.org dl.google.com archive.apache.org static.rust-lang.org rustup.rs sh.rustup.rs bun.sh mise.run mise.jdx.dev objects.githubusercontent.com go.dev golang.org proxy.golang.org sum.golang.org go.googlesource.com storage.googleapis.com downloads.python-lang.org www.python.org python.org gregory.szorc.com github-cloud.githubusercontent.com api.fastly.com dot.net aka.ms"
 
 # Save original IFS and temporarily reset for domain iteration
 # (IFS=$'\n\t' prevents word splitting on spaces)
@@ -147,6 +147,20 @@ if [ -n "$cloudflare_ranges" ]; then
     done < <(echo "$cloudflare_ranges")
 else
     echo "WARNING: Failed to fetch Cloudflare IP ranges, Docker Hub may not work"
+fi
+
+# Add Fastly IP ranges (used by Debian CDN)
+echo "Adding Fastly IP ranges for Debian repositories..."
+fastly_json=$(curl -s https://api.fastly.com/public-ip-list)
+if [ -n "$fastly_json" ] && echo "$fastly_json" | jq -e '.addresses' >/dev/null 2>&1; then
+    while read -r cidr; do
+        if [[ "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
+            echo "Adding Fastly range $cidr"
+            ipset add allowed-domains "$cidr" -exist
+        fi
+    done < <(echo "$fastly_json" | jq -r '.addresses[]')
+else
+    echo "WARNING: Failed to fetch Fastly IP ranges, Debian repositories may not work"
 fi
 
 # Get host IP and actual CIDR subnet (not /24 assumption)

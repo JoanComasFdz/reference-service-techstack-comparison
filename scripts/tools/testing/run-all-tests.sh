@@ -20,8 +20,7 @@ DB_PASS="admin"
 RABBITMQ_CONTAINER="performancetest-rabbitmq"
 RABBITMQ_USER="admin"
 RABBITMQ_VHOST="/"
-POSTGRES_HOST="localhost"
-RABBITMQ_HOST="localhost"
+# POSTGRES_HOST and RABBITMQ_HOST are set by detect_container_environment() after sourcing common.sh
 
 # Default test configuration
 NUM_EVENTS=10000
@@ -44,6 +43,13 @@ fi
 
 # Detect Java versions using shared library function
 detect_java_versions
+
+# Detect container environment and set POSTGRES_HOST/RABBITMQ_HOST
+# This must be called early, before any functions that use these variables
+if ! detect_container_environment; then
+    log_error "Failed to detect container environment"
+    exit 1
+fi
 
 # Show usage
 show_usage() {
@@ -313,7 +319,12 @@ kill_process() {
 kill_by_port() {
     local port=$1
     log_info "Checking for processes on port $port"
+    # Try lsof first
     local pids=$(lsof -ti ":$port" 2>/dev/null || true)
+    # If lsof didn't find anything, try ss
+    if [ -z "$pids" ]; then
+        pids=$(ss -tlnp 2>/dev/null | grep ":$port " | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | sort -u || true)
+    fi
     if [ -n "$pids" ]; then
         for pid in $pids; do
             kill_process "$pid"
@@ -324,6 +335,21 @@ kill_by_port() {
 # Java version helpers (mise)
 # Note: We use 'mise exec java@VERSION -- command' to run commands with specific Java versions
 # This approach does not modify .mise.toml and works correctly in non-interactive scripts
+
+# Function to check if a port is listening
+# Uses ss (preferred) or lsof as fallback
+is_port_listening() {
+    local port=$1
+    # Try ss first (more reliable in containers)
+    if ss -tlnp 2>/dev/null | grep -q ":$port "; then
+        return 0
+    fi
+    # Fall back to lsof
+    if lsof -ti ":$port" > /dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
 
 # Function to wait for service to be ready
 wait_for_service() {
@@ -336,7 +362,7 @@ wait_for_service() {
     # Phase 1: Wait for port to be listening
     log_info "Phase 1: Checking if port $port is listening..."
     while [ $waited -lt $max_wait ]; do
-        if lsof -ti ":$port" > /dev/null 2>&1; then
+        if is_port_listening "$port"; then
             log_success "Port $port is listening (after ${waited}s)"
             break
         fi
@@ -394,8 +420,9 @@ run_test() {
     export RABBITMQ_HOST="$RABBITMQ_HOST"
 
     # Database URLs for services that need connection strings
-    # Each service has its own database
+    # Each service has its own database (lowercase to match create-databases.sql)
     local db_name="${service_name%ReferenceService}_db"
+    db_name="${db_name,,}"  # Convert to lowercase
     export DATABASE_URL="postgresql://admin:admin@${POSTGRES_HOST}:5432/${db_name}?schema=public"
 
     # Individual database connection parameters
@@ -409,9 +436,19 @@ run_test() {
     export RABBITMQ_USER="admin"
     export RABBITMQ_PASSWORD="admin"
     export RABBITMQ_PORT="5672"
+    # Full RabbitMQ URL (used by Rust service)
+    export RABBITMQ_URL="amqp://admin:admin@${RABBITMQ_HOST}:5672"
 
     # .NET-specific configuration overrides (uses double underscore for nested config)
+    # Connection string (used by some .NET services)
     export ConnectionStrings__DefaultConnection="Host=${POSTGRES_HOST};Port=5432;Database=${db_name};Username=admin;Password=admin"
+    # Individual Postgres settings (used by dotnet9 which builds its own connection string)
+    export Postgres__Host="$POSTGRES_HOST"
+    export Postgres__Port="5432"
+    export Postgres__Database="$db_name"
+    export Postgres__Username="admin"
+    export Postgres__Password="admin"
+    # RabbitMQ settings
     export RabbitMQ__Host="$RABBITMQ_HOST"
     export RabbitMQ__Port="$RABBITMQ_PORT"
     export RabbitMQ__User="$RABBITMQ_USER"
