@@ -608,7 +608,8 @@ public class TestOrchestrator : ITestOrchestrator
             MonitoredProcess = new MonitoredProcess
             {
                 Name = serviceName,
-                Pid = testResult.ServiceProcessId
+                Pid = testResult.ServiceProcessId,
+                Port = config.ServicePort
             },
             System = systemInfo ?? throw new InvalidOperationException("System info is required"),
             Configuration = new Reporting.TestConfiguration
@@ -650,7 +651,7 @@ public class TestOrchestrator : ITestOrchestrator
             EventsThroughputSamples = eventThroughputSamples,
             ApiThroughputSamples = apiThroughputSamples,
             ProcessResourceSamples = processResourceSamples,
-            SystemResourceSamples = Array.Empty<ContainerResourceSample>(),
+            SystemResourceSamples = Array.Empty<SystemResourceSample>(),
             RabbitMqResourceSamples = rabbitMqResourceSamples,
             PostgresResourceSamples = postgresResourceSamples
         };

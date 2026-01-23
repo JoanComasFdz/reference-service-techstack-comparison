@@ -65,8 +65,9 @@ public sealed record TestReport
     /// <summary>
     /// System-wide resource samples (all processes).
     /// Sampling interval: 500ms.
+    /// Contains extended memory metrics: used, total, and percent.
     /// </summary>
-    public IReadOnlyList<ContainerResourceSample> SystemResourceSamples { get; init; } = Array.Empty<ContainerResourceSample>();
+    public IReadOnlyList<SystemResourceSample> SystemResourceSamples { get; init; } = Array.Empty<SystemResourceSample>();
 
     /// <summary>
     /// RabbitMQ container resource samples.
@@ -75,10 +76,20 @@ public sealed record TestReport
     public IReadOnlyList<ContainerResourceSample> RabbitMqResourceSamples { get; init; } = Array.Empty<ContainerResourceSample>();
 
     /// <summary>
+    /// RabbitMQ container information (name and ID).
+    /// </summary>
+    public ContainerInfo? RabbitMqContainerInfo { get; init; }
+
+    /// <summary>
     /// PostgreSQL container resource samples.
     /// Sampling interval: 3000ms.
     /// </summary>
     public IReadOnlyList<ContainerResourceSample> PostgresResourceSamples { get; init; } = Array.Empty<ContainerResourceSample>();
+
+    /// <summary>
+    /// PostgreSQL container information (name and ID).
+    /// </summary>
+    public ContainerInfo? PostgresContainerInfo { get; init; }
 }
 
 /// <summary>
@@ -131,6 +142,11 @@ public sealed record MonitoredProcess
     /// Process ID (PID).
     /// </summary>
     public required int Pid { get; init; }
+
+    /// <summary>
+    /// Port number the service is listening on.
+    /// </summary>
+    public required int Port { get; init; }
 }
 
 /// <summary>

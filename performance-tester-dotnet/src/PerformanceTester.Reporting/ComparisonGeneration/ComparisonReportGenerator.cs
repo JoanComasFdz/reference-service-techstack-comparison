@@ -250,7 +250,7 @@ internal sealed class ComparisonReportGenerator : IComparisonReportGenerator
         }
 
         markdown.AppendLine();
-        markdown.AppendLine("*Min (events/s): Lowest throughput recorded during testing. Higher values indicate better worst-case performance.");
+        markdown.AppendLine("*Min (events/s): Lowest throughput recorded during testing (excludes zero values). Higher values indicate better worst-case performance.");
         markdown.AppendLine();
         markdown.AppendLine("**Std Dev: Standard deviation measures throughput variability. Lower values indicate more consistent performance.");
         markdown.AppendLine();
@@ -316,7 +316,7 @@ internal sealed class ComparisonReportGenerator : IComparisonReportGenerator
         }
 
         markdown.AppendLine();
-        markdown.AppendLine("*Min (calls/s): Lowest throughput recorded during testing. Higher values indicate better worst-case performance.");
+        markdown.AppendLine("*Min (calls/s): Lowest throughput recorded during testing (excludes zero values). Higher values indicate better worst-case performance.");
         markdown.AppendLine();
         markdown.AppendLine("**Std Dev: Standard deviation measures throughput variability. Lower values indicate more consistent performance.");
         markdown.AppendLine();
@@ -417,7 +417,7 @@ internal sealed class ComparisonReportGenerator : IComparisonReportGenerator
         var systemData = reports.Select(r =>
         {
             var cpuValues = r.SystemResourceSamples.Select(s => s.CpuPercent).ToList();
-            var memoryValues = r.SystemResourceSamples.Select(s => s.MemoryMb).ToList();
+            var memoryValues = r.SystemResourceSamples.Select(s => s.MemoryUsedMb).ToList();
 
             var avgCpu = StatisticsCalculator.CalculateAverage(cpuValues);
             var peakCpu = cpuValues.Any() ? cpuValues.Max() : 0.0;

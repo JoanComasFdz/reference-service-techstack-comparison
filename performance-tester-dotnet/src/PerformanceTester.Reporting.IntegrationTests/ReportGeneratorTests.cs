@@ -251,8 +251,8 @@ public sealed class ReportGeneratorTests : IntegrationTest
                 var firstSample = samples[0];
                 var sampleTimestamp = firstSample.GetProperty("timestamp").GetString();
 
-                // Format: "2025-11-13T14:25:30.100000+00:00"
-                Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+00:00$", sampleTimestamp!);
+                // Format: "2025-11-13T14:25:30.100000" (ISO 8601 without timezone per Python contract)
+                Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}$", sampleTimestamp!);
             }
         }
         finally
@@ -285,13 +285,13 @@ public sealed class ReportGeneratorTests : IntegrationTest
             var summary = doc.RootElement.GetProperty("summary");
 
             // Verify calculations (known statistics: avg=100, peak=150, min=50)
-            var avgRate = summary.GetProperty("avg_rate").GetDouble();
+            var avgRate = summary.GetProperty("avg_events_per_second").GetDouble();
             Assert.Equal(100.00, avgRate, precision: 2);
 
-            var peakRate = summary.GetProperty("peak_rate").GetDouble();
+            var peakRate = summary.GetProperty("peak_events_per_second").GetDouble();
             Assert.Equal(150.00, peakRate, precision: 2);
 
-            var minRate = summary.GetProperty("min_rate").GetDouble();
+            var minRate = summary.GetProperty("min_events_per_second").GetDouble();
             Assert.Equal(50.00, minRate, precision: 2);
         }
         finally
@@ -324,11 +324,11 @@ public sealed class ReportGeneratorTests : IntegrationTest
             var summary = doc.RootElement.GetProperty("summary");
 
             // Min should exclude zeros (values: 100, 150, 0, 75, 0, 50 → min=50)
-            var minRate = summary.GetProperty("min_rate").GetDouble();
+            var minRate = summary.GetProperty("min_events_per_second").GetDouble();
             Assert.Equal(50.0, minRate, precision: 2);
 
             // Average should include zeros
-            var avgRate = summary.GetProperty("avg_rate").GetDouble();
+            var avgRate = summary.GetProperty("avg_events_per_second").GetDouble();
             var expectedAvg = (100.0 + 150.0 + 0.0 + 75.0 + 0.0 + 50.0) / 6.0;
             Assert.Equal(expectedAvg, avgRate, precision: 2);
         }

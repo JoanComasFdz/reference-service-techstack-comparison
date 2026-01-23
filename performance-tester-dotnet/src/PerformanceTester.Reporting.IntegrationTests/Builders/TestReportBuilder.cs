@@ -7,6 +7,7 @@ namespace PerformanceTester.Reporting.IntegrationTests.Builders;
 public class TestReportBuilder
 {
     private string _processName = "testService";
+    private int _processPort = 8099;
     private double _runtime = 100.0;
     private double _avgCpu = 25.0;
     private double _avgMemory = 150.0;
@@ -24,13 +25,19 @@ public class TestReportBuilder
     private IReadOnlyList<ThroughputMetricSample>? _eventsThroughputSamples;
     private IReadOnlyList<ThroughputMetricSample>? _apiThroughputSamples;
     private IReadOnlyList<ProcessResourceSample>? _processResourceSamples;
-    private IReadOnlyList<ContainerResourceSample>? _systemResourceSamples;
+    private IReadOnlyList<SystemResourceSample>? _systemResourceSamples;
     private IReadOnlyList<ContainerResourceSample>? _rabbitmqResourceSamples;
     private IReadOnlyList<ContainerResourceSample>? _postgresResourceSamples;
 
     public TestReportBuilder WithProcessName(string name)
     {
         _processName = name;
+        return this;
+    }
+
+    public TestReportBuilder WithProcessPort(int port)
+    {
+        _processPort = port;
         return this;
     }
 
@@ -114,7 +121,7 @@ public class TestReportBuilder
         return this;
     }
 
-    public TestReportBuilder WithSystemResourceSamples(IReadOnlyList<ContainerResourceSample> samples)
+    public TestReportBuilder WithSystemResourceSamples(IReadOnlyList<SystemResourceSample> samples)
     {
         _systemResourceSamples = samples;
         return this;
@@ -134,7 +141,6 @@ public class TestReportBuilder
 
     public TestReportBuilder WithAllContainerSamples(IReadOnlyList<ContainerResourceSample> samples)
     {
-        _systemResourceSamples = samples;
         _rabbitmqResourceSamples = samples;
         _postgresResourceSamples = samples;
         return this;
@@ -146,9 +152,10 @@ public class TestReportBuilder
         var eventsSamples = _eventsThroughputSamples ?? ThroughputMetricSampleBuilder.Create(_testDate, _eventsThroughput, _eventsCv);
         var apiSamples = _apiThroughputSamples ?? ThroughputMetricSampleBuilder.Create(_testDate.AddSeconds(30), _apiThroughput, _apiCv);
         var processSamples = _processResourceSamples ?? ResourceSampleBuilder.CreateProcess(_testDate, _avgCpu, _avgMemory);
-        var systemSamples = _systemResourceSamples ?? ResourceSampleBuilder.CreateContainer(_testDate, count: 5);
-        var rabbitmqSamples = _rabbitmqResourceSamples ?? systemSamples;
-        var postgresSamples = _postgresResourceSamples ?? systemSamples;
+        var systemSamples = _systemResourceSamples ?? ResourceSampleBuilder.CreateSystem(_testDate, count: 5);
+        var containerSamples = ResourceSampleBuilder.CreateContainer(_testDate, count: 5);
+        var rabbitmqSamples = _rabbitmqResourceSamples ?? containerSamples;
+        var postgresSamples = _postgresResourceSamples ?? containerSamples;
 
         return new TestReport
         {
@@ -168,7 +175,8 @@ public class TestReportBuilder
             MonitoredProcess = new MonitoredProcess
             {
                 Name = _processName,
-                Pid = 12345
+                Pid = 12345,
+                Port = _processPort
             },
 
             System = _systemInfo ?? SystemInfoBuilder.CreateDefault(),
@@ -393,6 +401,33 @@ internal static class ResourceSampleBuilder
                 ElapsedSeconds = i * 3.0,
                 CpuPercent = 15.0 + (i * 1.0),
                 MemoryMb = 200.0 + (i * 10.0)
+            });
+        }
+
+        return samples;
+    }
+
+    /// <summary>
+    /// Creates system-wide resource samples with memory breakdown (used, total, percent).
+    /// </summary>
+    public static IReadOnlyList<SystemResourceSample> CreateSystem(
+        DateTime baseTime,
+        int count,
+        double totalMemoryMb = 16000.0)
+    {
+        var samples = new List<SystemResourceSample>();
+
+        for (int i = 0; i < count; i++)
+        {
+            var memoryUsedMb = 3500.0 + (i * 20.0);
+            samples.Add(new SystemResourceSample
+            {
+                Timestamp = baseTime.AddSeconds(i * 0.5),
+                ElapsedSeconds = i * 0.5,
+                CpuPercent = 10.0 + (i * 2.0),
+                MemoryUsedMb = memoryUsedMb,
+                MemoryTotalMb = totalMemoryMb,
+                MemoryPercent = Math.Round((memoryUsedMb / totalMemoryMb) * 100.0, 2)
             });
         }
 

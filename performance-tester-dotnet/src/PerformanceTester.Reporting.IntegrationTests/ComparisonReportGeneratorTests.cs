@@ -65,7 +65,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
             Assert.Contains("rustReferenceService", markdown);
 
             // Verify explanatory notes exist
-            Assert.Contains("*Min (events/s): Lowest throughput recorded during testing. Higher values indicate better worst-case performance.", markdown);
+            Assert.Contains("*Min (events/s): Lowest throughput recorded during testing (excludes zero values). Higher values indicate better worst-case performance.", markdown);
             Assert.Contains("**Std Dev: Standard deviation measures throughput variability. Lower values indicate more consistent performance.", markdown);
             Assert.Contains("***CV%: Coefficient of variation (std dev / mean × 100). Lower values indicate more stable relative performance.", markdown);
 
