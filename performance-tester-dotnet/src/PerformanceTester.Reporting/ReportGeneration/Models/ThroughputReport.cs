@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PerformanceTester.Reporting;
 
 /// <summary>
@@ -28,7 +30,8 @@ public sealed record ThroughputReport
 }
 
 /// <summary>
-/// Individual throughput sample for JSON output.
+/// Individual throughput sample for JSON input/output.
+/// Used for chart generation - stores normalized values.
 /// </summary>
 public sealed record ThroughputSampleJson
 {
@@ -43,18 +46,31 @@ public sealed record ThroughputSampleJson
     public required double ElapsedSeconds { get; init; }
 
     /// <summary>
-    /// Throughput rate (events/s or calls/s).
+    /// Throughput rate (events/s or calls/s) - normalized from source data.
     /// </summary>
-    public required double ThroughputRate { get; init; }
+    public double EventsPerSecond { get; init; }
 
     /// <summary>
-    /// Cumulative count (total events or calls processed).
+    /// Cumulative count (total events or calls) - normalized from source data.
     /// </summary>
-    public required int CumulativeCount { get; init; }
+    public int TotalEvents { get; init; }
+
+    /// <summary>
+    /// Gets the throughput rate for chart generation.
+    /// </summary>
+    [JsonIgnore]
+    public double ThroughputRate => EventsPerSecond;
+
+    /// <summary>
+    /// Gets the cumulative count for chart generation.
+    /// </summary>
+    [JsonIgnore]
+    public int CumulativeCount => TotalEvents;
 }
 
 /// <summary>
 /// Statistical summary of throughput metrics.
+/// Used both for calculation output and JSON serialization.
 /// </summary>
 public sealed record ThroughputSummary
 {
@@ -70,7 +86,6 @@ public sealed record ThroughputSummary
 
     /// <summary>
     /// Minimum throughput rate (zero values excluded).
-    /// IMPORTANT: Python excludes zeros from min but includes in average.
     /// </summary>
     public required double MinRate { get; init; }
 
@@ -81,15 +96,11 @@ public sealed record ThroughputSummary
 
     /// <summary>
     /// Coefficient of variation as percentage (0-100+).
-    /// Formula: (stdDev / mean) * 100.
-    /// Lower CV% indicates more stable performance.
     /// </summary>
     public required double CvRate { get; init; }
 
     /// <summary>
     /// Average response time in milliseconds (inverse of throughput).
-    /// Formula: 1000.0 / avgRate.
-    /// Only meaningful for throughput metrics.
     /// </summary>
     public required double AvgResponseTimeMs { get; init; }
 
