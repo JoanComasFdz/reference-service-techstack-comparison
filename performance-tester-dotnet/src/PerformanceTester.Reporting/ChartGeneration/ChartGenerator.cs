@@ -243,7 +243,7 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Legend.OutlineColor = Colors.Transparent;
         plot.Legend.ShadowColor = Colors.Transparent;
         plot.Legend.FontSize = 11;
-        plot.Layout.Fixed(new PixelPadding(left: 60, right: 220, bottom: 50, top: 50));
+        plot.Layout.Fixed(new PixelPadding(left: 60, right: 300, bottom: 50, top: 50));
 
         // Apply custom time tick generator for X-axis (HH:mm:ss format)
         ConfigureTimeAxis(plot);
@@ -269,7 +269,7 @@ internal sealed class ChartGenerator : IChartGenerator
             plot.Axes.Right.Label.Text = ramLabel;
 
             // Still configure time axis and layout for empty plots
-            plot.Layout.Fixed(new PixelPadding(left: 60, right: 220, bottom: 50, top: 50));
+            plot.Layout.Fixed(new PixelPadding(left: 60, right: 300, bottom: 50, top: 50));
             ConfigureTimeAxis(plot);
             return plot;
         }
@@ -348,7 +348,7 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Legend.OutlineColor = Colors.Transparent;
         plot.Legend.ShadowColor = Colors.Transparent;
         plot.Legend.FontSize = 11;
-        plot.Layout.Fixed(new PixelPadding(left: 60, right: 220, bottom: 50, top: 50));
+        plot.Layout.Fixed(new PixelPadding(left: 60, right: 300, bottom: 50, top: 50));
 
         // Apply custom time tick generator for X-axis (HH:mm:ss format)
         ConfigureTimeAxis(plot);

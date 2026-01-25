@@ -52,10 +52,11 @@ internal sealed class MetricsAggregator
     }
 
     /// <summary>
-    /// Computes final aggregated result.
+    /// Computes final aggregated result with calculated per-sample throughput rates.
     /// </summary>
     /// <param name="actualDuration">The actual duration of the test (from k6 execution start to end).</param>
-    public ApiLoadTestResult ComputeResult(TimeSpan actualDuration)
+    /// <param name="testStartTime">The start time of the test for calculating elapsed times.</param>
+    public ApiLoadTestResult ComputeResult(TimeSpan actualDuration, DateTimeOffset testStartTime)
     {
         var avgDuration = _requestDurations.Count > 0 ? _requestDurations.Average() : 0;
         var p95Duration = CalculatePercentile(_requestDurations, 0.95);
@@ -63,6 +64,36 @@ internal sealed class MetricsAggregator
         var requestsPerSecond = actualDuration.TotalSeconds > 0
             ? _totalRequests / actualDuration.TotalSeconds
             : 0;
+
+        // Sort samples by timestamp for delta calculation
+        var sortedSamples = _throughputSamples.OrderBy(s => s.Timestamp).ToList();
+
+        // Calculate per-sample RequestsPerSecond using delta-based approach
+        var samplesWithRates = new List<ApiThroughputSample>();
+        for (int i = 0; i < sortedSamples.Count; i++)
+        {
+            var sample = sortedSamples[i];
+            double sampleRps;
+
+            if (i == 0)
+            {
+                // First sample: cumulative rate from test start
+                var elapsedSeconds = (sample.Timestamp - testStartTime).TotalSeconds;
+                sampleRps = elapsedSeconds > 0
+                    ? sample.CumulativeRequestCount / elapsedSeconds
+                    : 0;
+            }
+            else
+            {
+                // Subsequent samples: delta-based rate
+                var prevSample = sortedSamples[i - 1];
+                var timeDiff = (sample.Timestamp - prevSample.Timestamp).TotalSeconds;
+                var countDiff = sample.CumulativeRequestCount - prevSample.CumulativeRequestCount;
+                sampleRps = timeDiff > 0 ? countDiff / timeDiff : 0;
+            }
+
+            samplesWithRates.Add(sample with { RequestsPerSecond = Math.Round(sampleRps, 2) });
+        }
 
         return new ApiLoadTestResult(
             TotalRequests: _totalRequests,
@@ -72,8 +103,7 @@ internal sealed class MetricsAggregator
             P95RequestDurationMs: Math.Round(p95Duration, 2),
             P99RequestDurationMs: Math.Round(p99Duration, 2),
             RequestsPerSecond: Math.Round(requestsPerSecond, 2),
-            // ConcurrentBag doesn't preserve insertion order, so sort by timestamp
-            ThroughputSamples: _throughputSamples.OrderBy(s => s.Timestamp).ToArray());
+            ThroughputSamples: samplesWithRates);
     }
 
     private static double CalculatePercentile(List<double> values, double percentile)

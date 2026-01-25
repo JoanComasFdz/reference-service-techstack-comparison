@@ -62,7 +62,14 @@ public sealed class DockerMonitoringSystem : SystemBase
         if (_host == null)
             throw new InvalidOperationException("System not initialized");
 
+        // Phase 1: Start the IHost (BackgroundServices activate and WAIT for signal)
         await _host.StartAsync(cancellationToken);
+
+        // Phase 2: Signal each monitor to start collecting (triggers the deferred start)
+        await Task.WhenAll(
+            PostgresMonitor.StartMonitoringAsync(cancellationToken),
+            RabbitMqMonitor.StartMonitoringAsync(cancellationToken)
+        );
     }
 
     /// <summary>

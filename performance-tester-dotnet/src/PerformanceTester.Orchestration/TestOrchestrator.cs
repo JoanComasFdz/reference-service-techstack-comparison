@@ -19,6 +19,7 @@ namespace PerformanceTester.Orchestration;
 public class TestOrchestrator : ITestOrchestrator
 {
     private readonly IHost _host;
+    private readonly IHostApplicationLifetime _hostLifetime;
     private readonly ILogger<TestOrchestrator> _logger;
 
     // Phase 1: Infrastructure
@@ -41,6 +42,7 @@ public class TestOrchestrator : ITestOrchestrator
 
     public TestOrchestrator(
         IHost host,
+        IHostApplicationLifetime hostLifetime,
         ILogger<TestOrchestrator> logger,
         IServiceDiscovery serviceDiscovery,
         IDatabase database,
@@ -56,6 +58,7 @@ public class TestOrchestrator : ITestOrchestrator
         IChartGenerator chartGenerator)
     {
         _host = host ?? throw new ArgumentNullException(nameof(host));
+        _hostLifetime = hostLifetime ?? throw new ArgumentNullException(nameof(hostLifetime));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _serviceDiscovery = serviceDiscovery ?? throw new ArgumentNullException(nameof(serviceDiscovery));
         _database = database ?? throw new ArgumentNullException(nameof(database));
@@ -214,13 +217,41 @@ public class TestOrchestrator : ITestOrchestrator
             serviceProcessId.Value);
 
         // Step 2: Start IHost (all BackgroundServices start, ProcessMonitor waits)
-        _logger.LogInformation("Starting monitoring services...");
-        await _host.StartAsync(cancellationToken);
-        _logger.LogInformation("All monitoring services started");
+        // Check if host is already started (e.g., by System.CommandLine.Hosting in CLI)
+        // IHostApplicationLifetime.ApplicationStarted is cancelled when the host has started
+        if (_hostLifetime.ApplicationStarted.IsCancellationRequested)
+        {
+            _logger.LogInformation("Host already started, monitoring services are running");
+        }
+        else
+        {
+            _logger.LogInformation("Starting monitoring services...");
+            await _host.StartAsync(cancellationToken);
+            _logger.LogInformation("All monitoring services started");
+        }
 
         // Step 3: Start process monitoring (deferred start pattern)
         _processMonitor.StartMonitoring(serviceProcessId.Value);
         _logger.LogInformation("Process monitoring started for PID {ProcessId}", serviceProcessId.Value);
+
+        // Step 3.5: Warm up Docker API and start monitoring
+        // Docker monitoring starts early (like Python) to capture the entire test lifecycle
+        // First call is slow (~2-3 seconds), so warmup before starting monitors
+        // Run in parallel for all monitors
+        var dockerMonitorsList = _dockerMonitors.ToList();
+        _logger.LogInformation("Warming up Docker API for {Count} monitors: {Names}...",
+            dockerMonitorsList.Count,
+            string.Join(", ", dockerMonitorsList.Select(m => m.ContainerName)));
+        var warmupTasks = dockerMonitorsList.Select(m => m.WarmupAsync(cancellationToken));
+        await Task.WhenAll(warmupTasks);
+        _logger.LogInformation("Docker API warmup complete");
+
+        // Step 3.6: Start Docker container monitoring (before clearing DB/queues)
+        // This matches Python's approach: monitoring starts early and captures the entire test
+        _logger.LogInformation("Starting Docker container monitors...");
+        var dockerStartTasks = dockerMonitorsList.Select(m => m.StartMonitoringAsync(cancellationToken));
+        await Task.WhenAll(dockerStartTasks);
+        _logger.LogInformation("Docker container monitors started (first samples collected)");
 
         // Step 4: Clear database
         _logger.LogInformation("Clearing database {Database}...", config.DatabaseName);
@@ -354,6 +385,9 @@ public class TestOrchestrator : ITestOrchestrator
         _logger.LogInformation(
             "Starting event throughput test with {Count} events",
             config.EventCount);
+
+        // Docker monitors already started in Setup phase (like Python)
+        // This ensures monitoring captures the entire test lifecycle
 
         var startTime = DateTime.UtcNow;
         var stopwatch = Stopwatch.StartNew();

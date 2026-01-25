@@ -80,17 +80,13 @@ public partial class Program
             })
             .UseSerilog((context, services, loggerConfig) =>
             {
+                // Console and File sinks are configured in appsettings.json
+                // Do NOT add WriteTo.Console() or WriteTo.File() here - it causes duplicate logging
                 loggerConfig
                     .ReadFrom.Configuration(context.Configuration)
                     .Enrich.FromLogContext()
                     .Enrich.WithMachineName()
-                    .Enrich.WithThreadId()
-                    .WriteTo.Console(
-                        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
-                    .WriteTo.File(
-                        path: "logs/performance-tester-.log",
-                        rollingInterval: RollingInterval.Day,
-                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}");
+                    .Enrich.WithThreadId();
             })
             .ConfigureServices((context, services) =>
             {

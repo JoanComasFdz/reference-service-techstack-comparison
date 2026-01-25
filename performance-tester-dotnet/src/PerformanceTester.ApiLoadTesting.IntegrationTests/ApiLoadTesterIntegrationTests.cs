@@ -61,10 +61,79 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
             duration: TimeSpan.FromSeconds(5),
             virtualUsers: 2);
 
-        // Assert
+        // Assert - Enhanced with semantic checks
         Asserting.That(result)
             .HasNoFailedRequests()
-            .HasThroughputSamples();
+            .HasThroughputSamples()
+            .HasCalculatedThroughputRates();  // Catches the hardcoded-zero bug
+    }
+
+    [Fact]
+    public async Task StartTestAsync_WhenTestCompletes_ThroughputSamplesShouldHaveCalculatedRPS()
+    {
+        // Arrange - use longer duration to ensure multiple samples
+        using var server = new TestHttpServer(port: 9010);
+
+        // Act
+        var result = await System.ApiLoadTesting.LoadTester.StartTestAsync(
+            targetUrl: server.BaseUrl,
+            duration: TimeSpan.FromSeconds(5),
+            virtualUsers: 2);
+
+        // Assert - This test would have caught the bug!
+        Asserting.That(result)
+            .AllMetricsHaveNonNegativeValues()
+            .HasThroughputSamples()
+            .HasCalculatedThroughputRates()
+            .ThroughputSamplesAreConsistentWithOverallRPS();
+    }
+
+    [Fact]
+    public async Task StartTestAsync_ThroughputSampleRPS_ShouldMatchCumulativeCountDeltas()
+    {
+        // Arrange
+        using var server = new TestHttpServer(port: 9011);
+
+        // Act
+        var result = await System.ApiLoadTesting.LoadTester.StartTestAsync(
+            targetUrl: server.BaseUrl,
+            duration: TimeSpan.FromSeconds(5),
+            virtualUsers: 2);
+
+        // Assert - First verify we have valid data
+        Assert.True(result.TotalRequests > 0, "Test must produce requests");
+        Assert.NotEmpty(result.ThroughputSamples);
+
+        // Verify RPS calculation is based on cumulative count deltas
+        var samples = result.ThroughputSamples.OrderBy(s => s.Timestamp).ToList();
+
+        // Check that at least some samples have calculated RPS
+        var samplesWithRps = samples.Where(s => s.RequestsPerSecond > 0).ToList();
+        Assert.True(samplesWithRps.Count > 0,
+            "At least some samples should have non-zero RPS");
+
+        // For samples with RPS > 0, verify the delta calculation is reasonable
+        for (int i = 1; i < samples.Count; i++)
+        {
+            var current = samples[i];
+            var previous = samples[i - 1];
+
+            var timeDiff = (current.Timestamp - previous.Timestamp).TotalSeconds;
+            var countDiff = current.CumulativeRequestCount - previous.CumulativeRequestCount;
+
+            // Skip validation if no time passed or no requests in interval
+            if (timeDiff <= 0 || countDiff <= 0)
+                continue;
+
+            var expectedRps = countDiff / timeDiff;
+
+            // Allow 5% tolerance + small absolute tolerance for rounding
+            var tolerance = expectedRps * 0.05 + 0.5;
+            Assert.True(Math.Abs(current.RequestsPerSecond - expectedRps) <= tolerance,
+                $"Sample {i}: Expected RPS ~{expectedRps:F2} based on delta " +
+                $"(countDiff={countDiff}, timeDiff={timeDiff:F2}s), " +
+                $"but got {current.RequestsPerSecond:F2}");
+        }
     }
 
     [Fact]

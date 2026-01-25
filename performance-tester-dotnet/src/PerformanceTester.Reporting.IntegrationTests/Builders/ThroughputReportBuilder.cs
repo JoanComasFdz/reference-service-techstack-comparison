@@ -116,8 +116,8 @@ public class ThroughputReportBuilder
             {
                 Timestamp = timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff+00:00"),
                 ElapsedSeconds = Math.Round(elapsed, 3),
-                ThroughputRate = Math.Round(rate, 2),
-                CumulativeCount = (int)(rate * (i + 1))
+                EventsPerSecond = Math.Round(rate, 2),
+                TotalEvents = (int)(rate * (i + 1))
             });
         }
 
@@ -138,8 +138,8 @@ public class ThroughputReportBuilder
             {
                 Timestamp = timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff+00:00"),
                 ElapsedSeconds = Math.Round(elapsed, 3),
-                ThroughputRate = Math.Round(rate, 2),
-                CumulativeCount = (i + 1) * 10
+                EventsPerSecond = Math.Round(rate, 2),
+                TotalEvents = (i + 1) * 10
             });
         }
 
