@@ -1,4 +1,5 @@
 using JoanComasFdz.AssertingThat;
+using PerformanceTester.EventConsuming;
 using PerformanceTester.EventConsuming.IntegrationTests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
@@ -87,10 +88,8 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
     public async Task StartTrackingEventsAsync_WhenSlowButProgressing_ShouldNotTimeout()
     {
         // Arrange - Test inactivity timeout reset behavior
-        // Note: Using 10s timeout with 2s delays provides 8s margin for robustness under system load
-        // (RabbitMQ latency, timer drift, resource contention when running with other tests)
         const int eventCount = 5;
-        const int inactivityTimeoutSeconds = 10;  // Increased from 3s to 10s for robustness
+        const int inactivityTimeoutSeconds = 10;
         var queueName = GenerateQueueName();
 
         // Create EventConsuming with unique queue name
@@ -104,21 +103,32 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
         // Start BackgroundServices
         await System.EventConsuming.StartAsync();
 
-        // Wait for RabbitMQ consumer registration to complete (prevents race condition)
-        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        // Create phase awaiter for deterministic synchronization
+        var phaseAwaiter = new ConsumerPhaseAwaiter();
 
-        // Start tracking
+        // Start tracking (returns awaitable task)
         var trackingTask = System.EventConsuming.Consumer.StartTrackingEventsAsync(
             expectedCount: eventCount,
-            inactivityTimeout: TimeSpan.FromSeconds(inactivityTimeoutSeconds));
+            inactivityTimeout: TimeSpan.FromSeconds(inactivityTimeoutSeconds),
+            progress: phaseAwaiter);
+
+        // Wait for tracking to actually start before publishing
+        // This replaces the arbitrary Task.Delay(500ms)
+        await phaseAwaiter.WaitForTrackingStartedAsync(timeout: TimeSpan.FromSeconds(10));
 
         // Act - Publish events slowly (one every 2 seconds) but within inactivity timeout
         for (int i = 0; i < eventCount; i++)
         {
             await System.EventPublisher.PublishEventsAsync(1);
+
+            // Wait for event to be received before continuing
+            // This ensures the inactivity timer is properly reset
+            await phaseAwaiter.WaitForEventCountAsync(i + 1, timeout: TimeSpan.FromSeconds(15));
+
             if (i < eventCount - 1)
             {
-                await Task.Delay(TimeSpan.FromSeconds(2)); // Slower than inactivity timeout per event
+                // Simulate slow publisher - delay between events
+                await Task.Delay(TimeSpan.FromSeconds(2));
             }
         }
 
@@ -128,8 +138,12 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
         // Stop BackgroundServices
         await System.EventConsuming.StopAsync();
 
-        // Assert - Should complete successfully (timeout resets on each event)
-        // Success is indicated by trackingTask completing without exception
+        // Assert - Verify phase sequence
+        phaseAwaiter.AssertPhasesReceivedInOrder(
+            (ConsumerPhase.TrackingStarted, ConsumerPhaseState.Starting),
+            (ConsumerPhase.TargetReached, ConsumerPhaseState.Completed));
+
+        phaseAwaiter.AssertEventCountAtLeast(eventCount);
     }
 
     [Fact]
@@ -165,7 +179,8 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
     [Fact]
     public async Task GetThroughputSamples_AfterConsuming_ShouldReturnValidSamples()
     {
-        // Arrange - Use 200 events to ensure throughput samples are collected (500ms sampling interval)
+        // Arrange - Use enough events to ensure throughput samples are collected
+        // The 500ms sampling interval means we need events spread over at least 1 second
         const int eventCount = 200;
         var queueName = GenerateQueueName();
 
@@ -180,21 +195,34 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
         // Start BackgroundServices
         await System.EventConsuming.StartAsync();
 
+        // Create phase awaiter for deterministic synchronization
+        var phaseAwaiter = new ConsumerPhaseAwaiter();
+
         // Start tracking
         var trackingTask = System.EventConsuming.Consumer.StartTrackingEventsAsync(
             expectedCount: eventCount,
-            inactivityTimeout: TimeSpan.FromSeconds(30));
+            inactivityTimeout: TimeSpan.FromSeconds(30),
+            progress: phaseAwaiter);
+
+        // Wait for tracking to start
+        await phaseAwaiter.WaitForTrackingStartedAsync(timeout: TimeSpan.FromSeconds(10));
 
         // Publish CloudEvents
         await System.EventPublisher.PublishEventsAsync(eventCount);
 
-        // Wait for completion
+        // Wait for completion using phase event (not timing assumption)
+        await phaseAwaiter.WaitForTargetReachedAsync(timeout: TimeSpan.FromSeconds(30));
         await trackingTask;
 
         // Stop BackgroundServices (allows metrics collection to drain channel)
         await System.EventConsuming.StopAsync();
 
-        // Assert - Chain assertions for readability
+        // Assert - Verify phase sequence completed correctly
+        phaseAwaiter.AssertPhasesReceivedInOrder(
+            (ConsumerPhase.TrackingStarted, ConsumerPhaseState.Starting),
+            (ConsumerPhase.TargetReached, ConsumerPhaseState.Completed));
+
+        // Verify throughput data
         Asserting.That(System.EventConsuming.MetricsCollector)
             .HasThroughputSamples()
             .HasValidThroughputData();

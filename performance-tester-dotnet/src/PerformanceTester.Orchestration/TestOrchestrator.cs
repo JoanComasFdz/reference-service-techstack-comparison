@@ -322,6 +322,7 @@ public class TestOrchestrator : ITestOrchestrator
             var consumerTask = _eventConsumer.StartTrackingEventsAsync(
                 config.WarmupEventCount,
                 config.WarmupInactivityTimeoutOrDefault,
+                progress: null,
                 cancellationToken);
 
             // Publish warmup events
@@ -421,6 +422,7 @@ public class TestOrchestrator : ITestOrchestrator
         var consumerTask = _eventConsumer.StartTrackingEventsAsync(
             config.EventCount,
             config.InactivityTimeoutOrDefault,
+            progress: null,
             cancellationToken);
 
         var publisherTask = _eventPublisher.PublishEventsAsync(

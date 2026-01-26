@@ -35,6 +35,9 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
     private TimeSpan _inactivityTimeout;
     private CancellationToken _trackingCancellationToken;
 
+    // Progress reporter for StartTrackingEventsAsync (stored for OnMessageReceivedAsync use)
+    private IProgress<ConsumerPhaseInfo>? _progress;
+
     // RabbitMQ connection state
     private IConnection? _connection;
     private IChannel? _channel;
@@ -56,7 +59,9 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
     }
 
     /// <inheritdoc />
-    public async Task ConnectAsync(CancellationToken cancellationToken = default)
+    public async Task ConnectAsync(
+        IProgress<ConsumerPhaseInfo>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         await _connectionLock.WaitAsync(cancellationToken);
         try
@@ -67,6 +72,7 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
             }
 
             _logger.LogInformation("EventConsumer connecting to RabbitMQ...");
+            progress?.Report(ConsumerPhaseInfo.Starting(ConsumerPhase.Connecting, "Connecting to RabbitMQ"));
 
             // Create connection
             var factory = new ConnectionFactory { Uri = new Uri(_connectionString) };
@@ -121,12 +127,16 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
                 cancellationToken: cancellationToken);
 
             _logger.LogInformation("✓ Consumer started, listening for events...");
+            progress?.Report(ConsumerPhaseInfo.Completed(ConsumerPhase.ConsumerRegistered,
+                $"Consumer registered on queue '{_queueName}'"));
 
             _isConnected = true;
+            progress?.Report(ConsumerPhaseInfo.Completed(ConsumerPhase.Connected, "Connected to RabbitMQ"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ Failed to connect to RabbitMQ");
+            progress?.Report(ConsumerPhaseInfo.Failed(ConsumerPhase.Connecting, ex.Message));
 
             // Cleanup on failure
             if (_channel != null)
@@ -151,7 +161,9 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
     }
 
     /// <inheritdoc />
-    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
+    public async Task DisconnectAsync(
+        IProgress<ConsumerPhaseInfo>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         await _connectionLock.WaitAsync(cancellationToken);
         try
@@ -163,6 +175,7 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
             }
 
             _logger.LogInformation("EventConsumer disconnecting from RabbitMQ...");
+            progress?.Report(ConsumerPhaseInfo.Starting(ConsumerPhase.Disconnecting, "Disconnecting from RabbitMQ"));
 
             // Generate final throughput sample to capture any remaining events
             var finalSample = _throughputTracker.GetFinalSample();
@@ -197,10 +210,12 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
 
             _isConnected = false;
             _logger.LogInformation("✓ EventConsumer disconnected");
+            progress?.Report(ConsumerPhaseInfo.Completed(ConsumerPhase.Disconnecting, "Disconnected from RabbitMQ"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ Error during disconnect");
+            progress?.Report(ConsumerPhaseInfo.Failed(ConsumerPhase.Disconnecting, ex.Message));
             throw;
         }
         finally
@@ -213,6 +228,7 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
     public Task StartTrackingEventsAsync(
         int expectedCount,
         TimeSpan inactivityTimeout,
+        IProgress<ConsumerPhaseInfo>? progress = null,
         CancellationToken cancellationToken = default)
     {
         if (expectedCount < 1)
@@ -236,7 +252,14 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
         _inactivityTimeout = inactivityTimeout;
         _trackingCancellationToken = cancellationToken;
         _trackingCompletionSource = new TaskCompletionSource<bool>();
-        _lastEventReceivedTime = DateTime.UtcNow;        
+        _lastEventReceivedTime = DateTime.UtcNow;
+
+        // Store progress reporter for OnMessageReceivedAsync to use
+        _progress = progress;
+
+        // Report tracking started
+        progress?.Report(ConsumerPhaseInfo.Starting(ConsumerPhase.TrackingStarted,
+            $"Tracking {expectedCount} events with {inactivityTimeout.TotalSeconds}s inactivity timeout"));
 
         // Start inactivity timer (checks every 1 second)
         _inactivityTimer = new Timer(
@@ -297,9 +320,10 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
             _logger.LogInformation("EventConsumer starting...");
 
             // Connect if not already connected (supports both explicit ConnectAsync and BackgroundService patterns)
+            // NOTE: When called via BackgroundService, no progress parameter is passed
             if (!_isConnected)
             {
-                await ConnectAsync(stoppingToken);
+                await ConnectAsync(progress: null, cancellationToken: stoppingToken);
             }
 
             // Keep running until cancellation
@@ -316,8 +340,8 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
         }
         finally
         {
-            // Disconnect and cleanup
-            await DisconnectAsync();
+            // Disconnect and cleanup (no progress passed from BackgroundService)
+            await DisconnectAsync(progress: null);
         }
     }
 
@@ -330,6 +354,7 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
         _inactivityTimer = null;
         Interlocked.Exchange(ref _receivedEventCount, 0);
         _trackingCompletionSource = null;
+        _progress = null;
     }
 
     private async Task OnMessageReceivedAsync(object sender, BasicDeliverEventArgs eventArgs)
@@ -357,6 +382,11 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
                 await _throughputChannel.Writer.WriteAsync(sample, _trackingCancellationToken);
             }
 
+            // Report event received (every event so tests can wait for specific counts)
+            _progress?.Report(ConsumerPhaseInfo.Completed(ConsumerPhase.EventReceived,
+                eventCount: count,
+                message: $"Received event {count}/{_expectedCount}"));
+
             // Log progress every 1000 events
             if (count % 1000 == 0)
             {
@@ -367,6 +397,11 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
             if (_trackingCompletionSource != null && count >= _expectedCount)
             {
                 _logger.LogInformation("✓ Target count reached: {Current}/{Expected} events", count, _expectedCount);
+
+                // Report target reached
+                _progress?.Report(ConsumerPhaseInfo.Completed(ConsumerPhase.TargetReached,
+                    eventCount: count,
+                    message: $"Target reached: {count} events"));
 
                 // Write final throughput sample to capture any remaining events not yet sampled
                 // (e.g., if all events processed in < 500ms sampling interval)
