@@ -274,7 +274,7 @@ public class TestOrchestrator : ITestOrchestrator
         // Step 3.6: Start Docker container monitoring (before clearing DB/queues)
         // This matches Python's approach: monitoring starts early and captures the entire test
         _logger.LogInformation("Starting Docker container monitors...");
-        var dockerStartTasks = dockerMonitorsList.Select(m => m.StartMonitoringAsync(cancellationToken));
+        var dockerStartTasks = dockerMonitorsList.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
         await Task.WhenAll(dockerStartTasks);
         _logger.LogInformation("Docker container monitors started (first samples collected)");
 

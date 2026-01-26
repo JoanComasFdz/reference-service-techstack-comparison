@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -57,7 +56,11 @@ public sealed class DockerMonitoringSystem : SystemBase
     /// <summary>
     /// Starts all BackgroundServices (begins monitoring).
     /// </summary>
-    public async Task StartMonitoringAsync(CancellationToken cancellationToken = default)
+    /// <param name="progress">Optional progress reporter for phase notifications from all monitors.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task StartMonitoringAsync(
+        IProgress<DockerMonitorPhaseInfo>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         if (_host == null)
             throw new InvalidOperationException("System not initialized");
@@ -66,9 +69,10 @@ public sealed class DockerMonitoringSystem : SystemBase
         await _host.StartAsync(cancellationToken);
 
         // Phase 2: Signal each monitor to start collecting (triggers the deferred start)
+        // Pass the same progress reporter to both monitors
         await Task.WhenAll(
-            PostgresMonitor.StartMonitoringAsync(cancellationToken),
-            RabbitMqMonitor.StartMonitoringAsync(cancellationToken)
+            PostgresMonitor.StartMonitoringAsync(progress, cancellationToken),
+            RabbitMqMonitor.StartMonitoringAsync(progress, cancellationToken)
         );
     }
 
@@ -82,39 +86,6 @@ public sealed class DockerMonitoringSystem : SystemBase
             return; // Already stopped or never started
 
         await _host.StopAsync(cancellationToken);
-    }
-
-    /// <summary>
-    /// Waits until both monitors have collected at least one sample.
-    /// Polls every 100ms until samples are available or timeout is reached.
-    /// </summary>
-    /// <param name="timeout">Maximum time to wait for samples. Defaults to 10 seconds.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="TimeoutException">Thrown if samples are not collected within timeout.</exception>
-    public async Task WaitForSamplesAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default)
-    {
-        var effectiveTimeout = timeout ?? TimeSpan.FromSeconds(10);
-        var stopwatch = Stopwatch.StartNew();
-
-        while (stopwatch.Elapsed < effectiveTimeout)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var postgresCount = PostgresMonitor.GetCollectedMetrics().Count;
-            var rabbitMqCount = RabbitMqMonitor.GetCollectedMetrics().Count;
-
-            if (postgresCount > 0 && rabbitMqCount > 0)
-            {
-                return; // Both monitors have samples
-            }
-
-            await Task.Delay(100, cancellationToken);
-        }
-
-        throw new TimeoutException(
-            $"Monitors did not collect samples within {effectiveTimeout.TotalSeconds}s. " +
-            $"PostgreSQL: {PostgresMonitor.GetCollectedMetrics().Count}, " +
-            $"RabbitMQ: {RabbitMqMonitor.GetCollectedMetrics().Count}");
     }
 
     /// <summary>

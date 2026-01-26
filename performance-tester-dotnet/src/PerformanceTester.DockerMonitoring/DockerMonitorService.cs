@@ -20,6 +20,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
     private readonly TaskCompletionSource _startSignal = new();
     private readonly TaskCompletionSource _firstSampleCollected = new();
 
+    private IProgress<DockerMonitorPhaseInfo>? _progress;
     private bool _started;
 
     public string ContainerName => _containerName;
@@ -49,12 +50,22 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
     }
 
     /// <inheritdoc />
-    public async Task StartMonitoringAsync(CancellationToken cancellationToken = default)
+    public async Task StartMonitoringAsync(
+        IProgress<DockerMonitorPhaseInfo>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         if (_started)
             throw new InvalidOperationException($"Monitoring has already been started for container {_containerName}");
 
         _started = true;
+        _progress = progress;  // Store for use in ExecuteAsync
+
+        // Report phase: MonitoringRequested/Starting
+        _progress?.Report(DockerMonitorPhaseInfo.Starting(
+            DockerMonitorPhase.MonitoringRequested,
+            _containerName,
+            message: $"Starting monitoring for container {_containerName}"));
+
         _startSignal.TrySetResult();
         _logger.LogInformation("StartMonitoring called for container {ContainerName}, waiting for first sample...", _containerName);
 
@@ -134,6 +145,13 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             _logger.LogInformation(
                 "Docker monitor completed for container: {ContainerName}, collected {Count} samples",
                 _containerName, _collectedMetrics.Count);
+
+            // Report phase: MonitoringStopped/Completed
+            _progress?.Report(DockerMonitorPhaseInfo.Completed(
+                DockerMonitorPhase.MonitoringStopped,
+                _containerName,
+                sampleCount: _collectedMetrics.Count,
+                message: $"Monitoring stopped for {_containerName}, collected {_collectedMetrics.Count} samples"));
         }
     }
 
@@ -159,6 +177,12 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             _logger.LogWarning("Container {ContainerName} not found, skipping sample",
                 _containerName);
             _firstSampleCollected.TrySetResult();
+
+            // Report phase: ContainerNotFound/Completed
+            _progress?.Report(DockerMonitorPhaseInfo.Completed(
+                DockerMonitorPhase.ContainerNotFound,
+                _containerName,
+                message: $"Container {_containerName} not found"));
             return;
         }
 
@@ -175,12 +199,29 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         // Store metrics directly (thread-safe)
         _collectedMetrics.Add(metrics);
 
-        // Signal that the first sample has been collected
-        _firstSampleCollected.TrySetResult();
+        var currentCount = _collectedMetrics.Count;
+
+        // Signal first sample and report phases
+        var isFirstSample = _firstSampleCollected.TrySetResult();
+        if (isFirstSample)
+        {
+            _progress?.Report(DockerMonitorPhaseInfo.Completed(
+                DockerMonitorPhase.FirstSampleCollected,
+                _containerName,
+                sampleCount: currentCount,
+                message: $"First sample collected for {_containerName}"));
+        }
+
+        // Always report SampleCollected with current count
+        _progress?.Report(DockerMonitorPhaseInfo.Completed(
+            DockerMonitorPhase.SampleCollected,
+            _containerName,
+            sampleCount: currentCount,
+            message: $"Sample #{currentCount} collected"));
 
         _logger.LogDebug(
             "Sample #{SampleCount} for container {ContainerName} at {Timestamp:HH:mm:ss.fff} - CPU: {Cpu}%, Memory: {Memory}MB",
-            _collectedMetrics.Count, _containerName, metrics.Timestamp, metrics.CpuPercent, metrics.MemoryMB);
+            currentCount, _containerName, metrics.Timestamp, metrics.CpuPercent, metrics.MemoryMB);
     }
 
     /// <summary>

@@ -1,6 +1,7 @@
 using JoanComasFdz.AssertingThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using PerformanceTester.DockerMonitoring;
 using PerformanceTester.DockerMonitoring.IntegrationTests.Infrastructure;
 using Xunit.Abstractions;
 
@@ -19,12 +20,16 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     [Fact]
     public async Task StartMonitoringAsync_WhenCalled_ShouldStartBackgroundServices()
     {
-        // Act
-        await System.StartMonitoringAsync();
+        // Arrange
+        var phaseAwaiter = new DockerMonitorPhaseAwaiter();
 
-        // Give monitors time to collect some samples
-        // Docker stats API is slow (each call ~2-3 seconds with our 100ms delay)
-        await Task.Delay(TimeSpan.FromSeconds(3));
+        // Act
+        await System.StartMonitoringAsync(phaseAwaiter);
+
+        // Wait for at least 1 sample from each container (deterministic)
+        await phaseAwaiter.WaitForSampleCountAsync(
+            ["performance-tester-postgres", "performance-tester-rabbitmq"],
+            minimumSampleCount: 1);
 
         await System.StopMonitoringAsync();
 
@@ -40,11 +45,13 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     public async Task StopMonitoringAsync_WhenCalled_ShouldCompleteGracefully()
     {
         // Arrange
-        await System.StartMonitoringAsync();
+        var phaseAwaiter = new DockerMonitorPhaseAwaiter();
+        await System.StartMonitoringAsync(phaseAwaiter);
 
-        // Wait for samples to be collected (deterministic, avoids race condition)
-        // Docker stats API latency is variable (200ms-3s), so we poll instead of fixed delay
-        await System.WaitForSamplesAsync();
+        // Wait for first sample (deterministic, no polling)
+        await phaseAwaiter.WaitForSampleCountAsync(
+            ["performance-tester-postgres", "performance-tester-rabbitmq"],
+            minimumSampleCount: 1);
 
         // Act
         await System.StopMonitoringAsync();
@@ -61,23 +68,25 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     public async Task DockerMonitorService_ShouldCollectMetricsAtRegularIntervals()
     {
         // Arrange
-        await System.StartMonitoringAsync();
+        var phaseAwaiter = new DockerMonitorPhaseAwaiter();
+        await System.StartMonitoringAsync(phaseAwaiter);
 
-        // Act - collect for 5 seconds with 500ms interval
-        // First tick after 500ms, then ~8-9 more samples possible
-        // But Docker stats API takes ~200ms per call, so realistic is ~5-7 samples
-        await Task.Delay(TimeSpan.FromSeconds(5));
+        // Act - Wait for exactly 3 samples (enough to verify interval collection)
+        await phaseAwaiter.WaitForSampleCountAsync("performance-tester-postgres", minimumSampleCount: 3);
+        await phaseAwaiter.WaitForSampleCountAsync("performance-tester-rabbitmq", minimumSampleCount: 3);
+
         await System.StopMonitoringAsync();
 
-        // Assert - be very conservative (Docker stats API is slow, ~2-3 samples realistic)
-        Asserting.That(System.PostgresMonitor).HasMinimumSampleCount(expectedMinimum: 2);
-        Asserting.That(System.RabbitMqMonitor).HasMinimumSampleCount(expectedMinimum: 2);
+        // Assert - now we know we have at least 3 samples
+        Asserting.That(System.PostgresMonitor).HasMinimumSampleCount(expectedMinimum: 3);
+        Asserting.That(System.RabbitMqMonitor).HasMinimumSampleCount(expectedMinimum: 3);
     }
 
     [Fact]
     public async Task DockerMonitorService_ShouldHandleContainerNotFound_Gracefully()
     {
         // Arrange - add monitoring for non-existent container
+        var phaseAwaiter = new DockerMonitorPhaseAwaiter();
         var builder = Host.CreateApplicationBuilder();
         builder.Services.AddDockerMonitoring("nonexistent-container");
         var host = builder.Build();
@@ -86,10 +95,20 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
 
         // Act - should not throw
         await host.StartAsync();
-        await Task.Delay(TimeSpan.FromSeconds(1));
+
+        // FIX: Actually trigger the monitor to start (was missing in original test!)
+        await nonexistentContainerMonitor.StartMonitoringAsync(phaseAwaiter);
+
+        // Wait for ContainerNotFound phase (deterministic)
+        await phaseAwaiter.WaitForPhaseAsync(
+            "nonexistent-container",
+            DockerMonitorPhase.ContainerNotFound,
+            DockerMonitorPhaseState.Completed);
+
         await host.StopAsync();
 
-        // Assert - no exceptions thrown
+        // Assert - verify the phase was received and no metrics collected
+        phaseAwaiter.AssertContainerNotFoundReceived("nonexistent-container");
         Asserting.That(nonexistentContainerMonitor).HasNotCollectedMetrics();
     }
 
@@ -97,8 +116,14 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     public async Task DockerMonitorService_ShouldCalculateCpuPercent_Correctly()
     {
         // Arrange
-        await System.StartMonitoringAsync();
-        await Task.Delay(TimeSpan.FromSeconds(2));
+        var phaseAwaiter = new DockerMonitorPhaseAwaiter();
+        await System.StartMonitoringAsync(phaseAwaiter);
+
+        // Wait for at least 1 sample to validate CPU calculations
+        await phaseAwaiter.WaitForSampleCountAsync(
+            ["performance-tester-postgres", "performance-tester-rabbitmq"],
+            minimumSampleCount: 1);
+
         await System.StopMonitoringAsync();
 
         // Assert
@@ -110,8 +135,14 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     public async Task DockerMonitorService_ShouldCalculateMemoryMB_Correctly()
     {
         // Arrange
-        await System.StartMonitoringAsync();
-        await Task.Delay(TimeSpan.FromSeconds(2));
+        var phaseAwaiter = new DockerMonitorPhaseAwaiter();
+        await System.StartMonitoringAsync(phaseAwaiter);
+
+        // Wait for at least 1 sample to validate memory calculations
+        await phaseAwaiter.WaitForSampleCountAsync(
+            ["performance-tester-postgres", "performance-tester-rabbitmq"],
+            minimumSampleCount: 1);
+
         await System.StopMonitoringAsync();
 
         // Assert
@@ -123,8 +154,14 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     public async Task GetCollectedMetrics_ShouldReturnChronologicalOrder()
     {
         // Arrange
-        await System.StartMonitoringAsync();
-        await Task.Delay(TimeSpan.FromSeconds(2));
+        var phaseAwaiter = new DockerMonitorPhaseAwaiter();
+        await System.StartMonitoringAsync(phaseAwaiter);
+
+        // Wait for at least 2 samples to verify chronological order
+        await phaseAwaiter.WaitForSampleCountAsync(
+            ["performance-tester-postgres", "performance-tester-rabbitmq"],
+            minimumSampleCount: 2);
+
         await System.StopMonitoringAsync();
 
         // Assert

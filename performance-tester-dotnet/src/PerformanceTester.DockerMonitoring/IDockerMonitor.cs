@@ -28,10 +28,13 @@ public interface IDockerMonitor
     /// This method blocks until the first sample is collected, ensuring metrics are aligned
     /// with the test start time.
     /// </remarks>
+    /// <param name="progress">Optional progress reporter for phase notifications.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Task that completes when the first sample has been collected.</returns>
     /// <exception cref="InvalidOperationException">Thrown if monitoring has already been started.</exception>
-    Task StartMonitoringAsync(CancellationToken cancellationToken = default);
+    Task StartMonitoringAsync(
+        IProgress<DockerMonitorPhaseInfo>? progress = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets all collected metrics for this container.
