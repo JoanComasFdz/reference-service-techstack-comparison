@@ -12,8 +12,11 @@ public interface IProcessMonitor
     /// Must be called after IHost.StartAsync() and before monitoring can begin.
     /// </summary>
     /// <param name="processId">Process ID to monitor.</param>
+    /// <param name="progress">Optional progress reporter for phase notifications.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if processId is not positive.</exception>
     /// <exception cref="InvalidOperationException">Thrown if monitoring has already been started.</exception>
+    /// <returns>Task that completes when the first sample has been collected.</returns>
     /// <remarks>
     /// This method enables deferred process monitoring where the process ID is not known
     /// at DI registration time. Common in orchestration scenarios where:
@@ -21,9 +24,15 @@ public interface IProcessMonitor
     /// 2. IHost is started
     /// 3. Service under test is launched
     /// 4. Process ID is discovered
-    /// 5. Monitoring begins via StartMonitoring()
+    /// 5. Monitoring begins via StartMonitoringAsync()
+    ///
+    /// The method returns after the first sample is collected, ensuring the caller
+    /// can proceed knowing monitoring has actually started.
     /// </remarks>
-    void StartMonitoring(int processId);
+    Task StartMonitoringAsync(
+        int processId,
+        IProgress<ProcessMonitorPhaseInfo>? progress = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the process ID being monitored.

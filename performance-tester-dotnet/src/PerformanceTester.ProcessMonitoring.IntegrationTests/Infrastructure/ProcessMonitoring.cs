@@ -53,7 +53,7 @@ public sealed class ProcessMonitoring : IAsyncDisposable
 
     /// <summary>
     /// Starts all BackgroundServices (ProcessMonitorService).
-    /// BackgroundService will wait for StartMonitoring() to be called before beginning monitoring.
+    /// BackgroundService will wait for StartMonitoringAsync() to be called before beginning monitoring.
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -62,13 +62,19 @@ public sealed class ProcessMonitoring : IAsyncDisposable
     }
 
     /// <summary>
-    /// Starts monitoring the specified process.
+    /// Starts monitoring the specified process asynchronously.
     /// Must be called after StartAsync() and before monitoring can begin.
     /// </summary>
     /// <param name="processId">Process ID to monitor.</param>
-    public void StartMonitoring(int processId)
+    /// <param name="progress">Optional progress reporter for phase notifications.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Task that completes when the first sample has been collected.</returns>
+    public async Task StartMonitoringAsync(
+        int processId,
+        IProgress<ProcessMonitorPhaseInfo>? progress = null,
+        CancellationToken cancellationToken = default)
     {
-        Monitor.StartMonitoring(processId);
+        await Monitor.StartMonitoringAsync(processId, progress, cancellationToken);
     }
 
     /// <summary>

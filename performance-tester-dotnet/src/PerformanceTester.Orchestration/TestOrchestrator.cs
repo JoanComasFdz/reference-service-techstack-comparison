@@ -256,7 +256,7 @@ public class TestOrchestrator : ITestOrchestrator
         }
 
         // Step 3: Start process monitoring (deferred start pattern)
-        _processMonitor.StartMonitoring(serviceProcessId.Value);
+        await _processMonitor.StartMonitoringAsync(serviceProcessId.Value, cancellationToken: cancellationToken);
         _logger.LogInformation("Process monitoring started for PID {ProcessId}", serviceProcessId.Value);
 
         // Step 3.5: Warm up Docker API and start monitoring

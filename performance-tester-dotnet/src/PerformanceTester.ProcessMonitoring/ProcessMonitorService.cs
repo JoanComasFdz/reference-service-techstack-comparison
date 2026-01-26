@@ -9,7 +9,7 @@ namespace PerformanceTester.ProcessMonitoring;
 /// BackgroundService that monitors process resource usage and stores metrics in memory.
 /// Samples CPU, memory, and thread count at regular intervals using PeriodicTimer.
 /// Implements IProcessMonitor to provide access to collected metrics.
-/// Supports deferred start pattern - process ID is provided via StartMonitoring() after service starts.
+/// Supports deferred start pattern - process ID is provided via StartMonitoringAsync() after service starts.
 /// </summary>
 internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
 {
@@ -17,7 +17,10 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
     private readonly ILogger<ProcessMonitorService> _logger;
     private readonly ConcurrentBag<ProcessMetrics> _collectedMetrics = new();
     private readonly TaskCompletionSource<int> _processIdSource = new();
+    private readonly TaskCompletionSource _firstSampleCollected = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    // volatile ensures visibility across threads - set in StartMonitoringAsync, read in ExecuteAsync
+    private volatile IProgress<ProcessMonitorPhaseInfo>? _progress;
     private int? _processId;
 
     /// <inheritdoc />
@@ -35,7 +38,10 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
     }
 
     /// <inheritdoc />
-    public void StartMonitoring(int processId)
+    public async Task StartMonitoringAsync(
+        int processId,
+        IProgress<ProcessMonitorPhaseInfo>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         if (processId <= 0)
             throw new ArgumentOutOfRangeException(nameof(processId), processId, "Process ID must be positive");
@@ -44,8 +50,21 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
             throw new InvalidOperationException($"Monitoring has already been started for process {_processId.Value}");
 
         _processId = processId;
+        _progress = progress;
+
+        // Report phase: MonitoringRequested/Starting
+        _progress?.Report(ProcessMonitorPhaseInfo.Starting(
+            ProcessMonitorPhase.MonitoringRequested,
+            processId,
+            message: $"Starting monitoring for process {processId}"));
+
         _processIdSource.TrySetResult(processId);
-        _logger.LogInformation("StartMonitoring called for PID {ProcessId}", processId);
+        _logger.LogInformation("StartMonitoringAsync called for PID {ProcessId}, waiting for first sample...", processId);
+
+        // Wait for the first sample to be collected
+        await _firstSampleCollected.Task.WaitAsync(cancellationToken);
+
+        _logger.LogInformation("First sample collected for PID {ProcessId}", processId);
     }
 
     /// <inheritdoc />
@@ -61,7 +80,7 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
 
         try
         {
-            _logger.LogInformation("ProcessMonitor BackgroundService started, waiting for StartMonitoring() call...");
+            _logger.LogInformation("ProcessMonitor BackgroundService started, waiting for StartMonitoringAsync() call...");
 
             // Wait for StartMonitoring() to be called with process ID
             int processId;
@@ -71,7 +90,7 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("ProcessMonitor stopped before StartMonitoring() was called");
+                _logger.LogInformation("ProcessMonitor stopped before StartMonitoringAsync() was called");
                 return;
             }
 
@@ -90,6 +109,13 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
             catch (ArgumentException ex)
             {
                 _logger.LogError(ex, "❌ Process {ProcessId} not found", processId);
+                _firstSampleCollected.TrySetResult(); // Unblock caller
+
+                // Report phase: ProcessNotFound/Completed
+                _progress?.Report(ProcessMonitorPhaseInfo.Completed(
+                    ProcessMonitorPhase.ProcessNotFound,
+                    processId,
+                    message: $"Process {processId} not found"));
                 return;
             }
 
@@ -108,6 +134,13 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
                     if (process.HasExited)
                     {
                         _logger.LogWarning("⚠️ Process {ProcessId} has exited", processId);
+
+                        // Report phase: ProcessExited/Completed
+                        _progress?.Report(ProcessMonitorPhaseInfo.Completed(
+                            ProcessMonitorPhase.ProcessExited,
+                            processId,
+                            sampleCount: _collectedMetrics.Count,
+                            message: $"Process {processId} has exited"));
                         break;
                     }
 
@@ -129,11 +162,38 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
 
                     // Store metrics directly (thread-safe)
                     _collectedMetrics.Add(metrics);
+
+                    var currentCount = _collectedMetrics.Count;
+
+                    // Signal first sample and report phases
+                    var isFirstSample = _firstSampleCollected.TrySetResult();
+                    if (isFirstSample)
+                    {
+                        _progress?.Report(ProcessMonitorPhaseInfo.Completed(
+                            ProcessMonitorPhase.FirstSampleCollected,
+                            processId,
+                            sampleCount: currentCount,
+                            message: $"First sample collected for PID {processId}"));
+                    }
+
+                    // Always report SampleCollected with current count
+                    _progress?.Report(ProcessMonitorPhaseInfo.Completed(
+                        ProcessMonitorPhase.SampleCollected,
+                        processId,
+                        sampleCount: currentCount,
+                        message: $"Sample #{currentCount} collected"));
                 }
                 catch (InvalidOperationException)
                 {
                     // Process no longer exists (HasExited threw)
                     _logger.LogWarning("⚠️ Process {ProcessId} terminated during sampling", processId);
+
+                    // Report phase: ProcessExited/Completed
+                    _progress?.Report(ProcessMonitorPhaseInfo.Completed(
+                        ProcessMonitorPhase.ProcessExited,
+                        processId,
+                        sampleCount: _collectedMetrics.Count,
+                        message: $"Process {processId} terminated during sampling"));
                     break;
                 }
                 catch (Exception ex)
@@ -151,11 +211,24 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ ProcessMonitor failed");
+
+            // Ensure caller is unblocked even on unexpected failure
+            _firstSampleCollected.TrySetException(ex);
             throw;
         }
         finally
         {
             _logger.LogInformation("✓ ProcessMonitor completed: {Count} samples collected", _collectedMetrics.Count);
+
+            // Report phase: MonitoringStopped/Completed (use _processId field which may be null if never started)
+            if (_processId.HasValue)
+            {
+                _progress?.Report(ProcessMonitorPhaseInfo.Completed(
+                    ProcessMonitorPhase.MonitoringStopped,
+                    _processId.Value,
+                    sampleCount: _collectedMetrics.Count,
+                    message: $"Monitoring stopped for PID {_processId.Value}, collected {_collectedMetrics.Count} samples"));
+            }
 
             // Dispose process handle
             process?.Dispose();

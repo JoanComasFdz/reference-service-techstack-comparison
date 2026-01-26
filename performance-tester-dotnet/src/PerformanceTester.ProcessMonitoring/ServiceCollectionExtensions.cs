@@ -22,7 +22,7 @@ public static class ServiceCollectionExtensions
     /// - As IProcessMonitor - Provides public API for retrieving collected metrics
     ///
     /// BackgroundService will start automatically when IHost.StartAsync() is called,
-    /// but will wait for IProcessMonitor.StartMonitoring(processId) to be called before
+    /// but will wait for IProcessMonitor.StartMonitoringAsync(processId) to be called before
     /// beginning process monitoring. This deferred start pattern is necessary for orchestration
     /// scenarios where the process ID is not known at DI registration time.
     ///
@@ -31,7 +31,7 @@ public static class ServiceCollectionExtensions
     /// 2. var host = builder.Build();
     /// 3. await host.StartAsync();  // BackgroundService starts but waits
     /// 4. var monitor = host.Services.GetRequiredService&lt;IProcessMonitor&gt;();
-    /// 5. monitor.StartMonitoring(processId);  // Now monitoring begins
+    /// 5. await monitor.StartMonitoringAsync(processId);  // Now monitoring begins
     /// </remarks>
     public static IServiceCollection AddProcessMonitoring(
         this IServiceCollection services,

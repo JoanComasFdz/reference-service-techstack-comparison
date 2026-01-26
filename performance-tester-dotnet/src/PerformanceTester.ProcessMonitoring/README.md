@@ -71,7 +71,7 @@ await host.StartAsync(cancellationToken);
 
 // Start monitoring a specific process (discovered or known)
 int processId = 1234;  // From service discovery or known value
-monitor.StartMonitoring(processId);
+await monitor.StartMonitoringAsync(processId);
 
 // Run your test workload here
 // Monitoring happens in background continuously
@@ -119,7 +119,7 @@ var processId = await serviceDiscovery.FindServiceProcessIdAsync(
 
 // 4. Start monitoring the discovered process
 var monitor = host.Services.GetRequiredService<IProcessMonitor>();
-monitor.StartMonitoring(processId);
+await monitor.StartMonitoringAsync(processId);
 
 // 5. Run test workload
 // ...

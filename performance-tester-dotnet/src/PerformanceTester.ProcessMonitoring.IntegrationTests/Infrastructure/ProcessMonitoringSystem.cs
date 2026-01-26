@@ -25,7 +25,7 @@ public sealed class ProcessMonitoringSystem : IntegrationTesting.System
     /// <summary>
     /// Creates ProcessMonitoring facade with specified sampling interval.
     /// Call this in test Arrange phase with test-specific parameters.
-    /// Process ID is provided later via StartMonitoring() method.
+    /// Process ID is provided later via StartMonitoringAsync() method.
     /// </summary>
     /// <param name="samplingInterval">Sampling interval for metrics collection (default: 500ms).</param>
     /// <remarks>
@@ -37,7 +37,7 @@ public sealed class ProcessMonitoringSystem : IntegrationTesting.System
     /// Process ID is not provided here because it uses the deferred start pattern.
     /// After calling CreateProcessMonitoring(), tests must:
     /// 1. await System.ProcessMonitoring.StartAsync()
-    /// 2. System.ProcessMonitoring.StartMonitoring(processId)
+    /// 2. await System.ProcessMonitoring.StartMonitoringAsync(processId)
     /// </remarks>
     public void CreateProcessMonitoring(TimeSpan? samplingInterval = null)
     {

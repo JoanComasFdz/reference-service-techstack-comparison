@@ -22,17 +22,18 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         // Start BackgroundServices
         await System.ProcessMonitoring.StartAsync();
 
-        // Start monitoring the current process
-        System.ProcessMonitoring.StartMonitoring(currentProcessId);
+        // Create phase awaiter for deterministic synchronization
+        var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
-        // Act - Let it monitor for 1 second
-        await Task.Delay(TimeSpan.FromSeconds(1));
+        // Start monitoring the current process (waits for first sample - returns after first sample collected)
+        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter);
 
         // Stop BackgroundServices (allows metrics collection to complete)
         await System.ProcessMonitoring.StopAsync();
 
         // Assert
         Asserting.That(System.ProcessMonitoring.Monitor).HasCollectedMetrics();
+        phaseAwaiter.AssertFirstSampleCollectedReceived();
     }
 
     [Fact]
@@ -45,17 +46,21 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         // Start BackgroundService
         await System.ProcessMonitoring.StartAsync();
 
-        // Start monitoring the current process
-        System.ProcessMonitoring.StartMonitoring(currentProcessId);
+        // Create phase awaiter for deterministic synchronization
+        var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
-        // Act - Monitor for 500ms (should get ~10 samples)
-        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        // Start monitoring the current process
+        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter);
+
+        // Act - Wait for exactly 5 samples (deterministic, no timing assumption)
+        await phaseAwaiter.WaitForSampleCountAsync(minimumSampleCount: 5);
 
         // Stop monitoring
         await System.ProcessMonitoring.StopAsync();
 
-        // Assert - Should have at least 5 samples (conservative, allows for timing variance)
+        // Assert - Verify we have at least 5 samples
         Asserting.That(System.ProcessMonitoring.Monitor).HasAtLeastMetrics(5);
+        phaseAwaiter.AssertSampleCountAtLeast(5);
     }
 
     [Fact]
@@ -66,18 +71,24 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(100));
 
         await System.ProcessMonitoring.StartAsync();
-        System.ProcessMonitoring.StartMonitoring(currentProcessId);
 
-        // Act - Monitor and generate some load
-        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        // Create phase awaiter for deterministic synchronization
+        var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
-        // Do some work to ensure CPU usage
+        // Start monitoring
+        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter);
+
+        // Wait for first sample before generating load
+        await phaseAwaiter.WaitForSampleCountAsync(minimumSampleCount: 1);
+
+        // Act - Generate some CPU load
         for (int i = 0; i < 1000000; i++)
         {
             _ = Math.Sqrt(i);
         }
 
-        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        // Wait for more samples after load (to capture CPU metrics during load)
+        await phaseAwaiter.WaitForSampleCountAsync(minimumSampleCount: 3);
 
         await System.ProcessMonitoring.StopAsync();
 
@@ -93,10 +104,15 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(100));
 
         await System.ProcessMonitoring.StartAsync();
-        System.ProcessMonitoring.StartMonitoring(currentProcessId);
 
-        // Act
-        await Task.Delay(TimeSpan.FromSeconds(1));
+        // Create phase awaiter for deterministic synchronization
+        var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
+
+        // Start monitoring
+        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter);
+
+        // Act - Wait for at least 3 samples to verify chronological order
+        await phaseAwaiter.WaitForSampleCountAsync(minimumSampleCount: 3);
 
         await System.ProcessMonitoring.StopAsync();
 
