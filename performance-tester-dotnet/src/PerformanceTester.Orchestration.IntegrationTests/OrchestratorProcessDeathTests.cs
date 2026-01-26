@@ -167,8 +167,8 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
     /// </summary>
     /// <remarks>
     /// This test configures the service to complete event publishing successfully,
-    /// then terminate after a short delay, simulating a crash during API testing.
-    /// The ConfigurableReferenceService will stop responding to HTTP requests after disconnect.
+    /// then uses PhaseAwaiter to deterministically wait for the API phase to start
+    /// before simulating service death by disconnecting the HTTP listener.
     /// </remarks>
     [Fact]
     public async Task RunTestAsync_WhenServiceDiesDuringApiPhase_ShouldAbortApiTest()
@@ -178,24 +178,18 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
         const int eventCount = 10;
         const int warmupEventCount = 10;
 
-        // Configure service to complete events, then we'll terminate it during API phase
-        // Total events = warmupEventCount + eventCount = 20
-        // Terminate after completing all events (21 to ensure all events processed)
-        // But the HTTP listener will be down, causing API failures
+        // Configure service to complete events successfully
         System.ConfigurableReferenceService.ConfigurePublication(
             eventCount: eventCount,
             warmupEventCount: warmupEventCount);
 
-        // Configure intermittent failures that will escalate to consecutive failures
-        // after a few successful requests, simulating gradual service degradation
-        System.ConfigurableReferenceService.ConfigureIntermittentFailures(failEveryNthRequest: 1); // All requests fail
+        // NOTE: Do NOT configure intermittent failures here!
+        // The service should work normally until we disconnect it during API phase.
 
         await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: testPort);
         await System.WaitForServiceHealthyAsync(port: testPort);
 
-        // Reconfigure HTTP to succeed initially, then we'll make it fail
-        // Actually, for this test we configure all HTTP requests to succeed during warmup,
-        // but then the service "dies" by returning errors consistently
+        // Configure HTTP to succeed (service is healthy until we disconnect it)
         System.ConfigurableReferenceService.ConfigureHttpResponse(statusCode: 200);
 
         var config = new TestConfigurationBuilder()
@@ -207,20 +201,29 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
             .WithDatabaseName(OrchestrationSystem.IntegrationTestDatabaseName)
             .Build();
 
+        // Create phase awaiter for deterministic phase detection
+        var phaseAwaiter = new PhaseAwaiter();
+
         try
         {
-            // Start the test in a separate task
+            // Start the test with progress reporting
             var testTask = Task.Run(async () =>
             {
-                return await System.Orchestration.Orchestrator.RunTestAsync(config);
+                return await System.Orchestration.Orchestrator.RunTestAsync(
+                    config,
+                    progress: phaseAwaiter);
             });
 
-            // Wait for events to complete (should be quick with 10 events)
-            // Then simulate service death by making HTTP always fail
-            await Task.Delay(TimeSpan.FromSeconds(3));
+            // DETERMINISTIC: Wait for API phase to actually start
+            Output.WriteLine("Waiting for API phase to start...");
+            await phaseAwaiter.WaitForPhaseStartAsync(TestPhase.ApiTest, timeout: TimeSpan.FromSeconds(30));
+            Output.WriteLine("API phase started - now simulating service death");
+
+            // Give API test time to make some successful requests before we kill the service
+            // k6 needs time to start up and make initial requests
+            await Task.Delay(TimeSpan.FromSeconds(2));
 
             // Simulate service death by disconnecting (HTTP listener stops)
-            // Note: This will cause all subsequent HTTP requests to fail
             Output.WriteLine("Simulating service death by disconnecting...");
             await System.ConfigurableReferenceService.DisconnectAsync();
 
@@ -233,17 +236,18 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
             Assert.NotNull(report.Results.Phase3Api.AbortReason);
             Assert.Contains("consecutive", report.Results.Phase3Api.AbortReason!, StringComparison.OrdinalIgnoreCase);
 
-            // Should have some successful requests before death
-            // Note: May have 0 successes if service died very quickly
-            Output.WriteLine($"API test aborted. Success count: {report.Results.Phase3Api.SuccessCount}, Error count: {report.Results.Phase3Api.ErrorCount}");
+            Output.WriteLine($"API test aborted. Success count: {report.Results.Phase3Api.SuccessCount}, " +
+                            $"Error count: {report.Results.Phase3Api.ErrorCount}");
             Output.WriteLine($"Abort reason: {report.Results.Phase3Api.AbortReason}");
 
+            // Should have SOME successes before death, and errors after
+            Assert.True(report.Results.Phase3Api.SuccessCount > 0,
+                "Should have some successful requests before service death");
             Assert.True(report.Results.Phase3Api.ErrorCount > 0,
                 "Should have errors after service death");
         }
         finally
         {
-            // Cleanup - service may already be disconnected
             try
             {
                 await System.ConfigurableReferenceService.DisconnectAsync();

@@ -77,6 +77,7 @@ public class TestOrchestrator : ITestOrchestrator
     /// <inheritdoc />
     public async Task<TestReport> RunTestAsync(
         TestConfiguration configuration,
+        IProgress<PhaseInfo>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(configuration);
@@ -91,23 +92,37 @@ public class TestOrchestrator : ITestOrchestrator
             testRunId,
             configuration.ServicePort);
 
+        // Track current phase for accurate failure reporting
+        var currentPhase = TestPhase.Setup;
+
         try
         {
             // Phase 0: Setup
+            progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
             var serviceProcessId = await ExecuteSetupPhaseAsync(configuration, testRunId, cancellationToken);
+            progress?.Report(PhaseInfo.Completed(TestPhase.Setup, $"Setup complete, service PID: {serviceProcessId}"));
 
-            // Phase 0.5: Warmup (failures are logged but don't abort)
+            // Phase 0.5: Warmup (failures abort the test)
+            currentPhase = TestPhase.Warmup;
+            progress?.Report(PhaseInfo.Starting(TestPhase.Warmup, $"Starting warmup with {configuration.WarmupEventCount} events"));
             var warmupStartTime = DateTime.UtcNow;
             await ExecuteWarmupPhaseAsync(configuration, cancellationToken);
             var warmupEndTime = DateTime.UtcNow;
+            progress?.Report(PhaseInfo.Completed(TestPhase.Warmup, "Warmup complete"));
 
             // Phase 1: Event Throughput Test (CONCURRENT publish/consume)
+            currentPhase = TestPhase.EventTest;
+            progress?.Report(PhaseInfo.Starting(TestPhase.EventTest, $"Starting event test with {configuration.EventCount} events"));
             var (publishMetrics, eventTestStartTime, eventTestEndTime) =
                 await ExecuteEventTestPhaseAsync(configuration, cancellationToken);
+            progress?.Report(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));
 
             // Phase 2: API Load Test
+            currentPhase = TestPhase.ApiTest;
+            progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDurationOrDefault.TotalSeconds}s"));
             var (apiResult, apiTestStartTime, apiTestEndTime) =
                 await ExecuteApiTestPhaseAsync(configuration, cancellationToken);
+            progress?.Report(PhaseInfo.Completed(TestPhase.ApiTest, $"API test complete: {apiResult.RequestsPerSecond:F2} req/s"));
 
             var testEndTime = DateTime.UtcNow;
 
@@ -136,10 +151,13 @@ public class TestOrchestrator : ITestOrchestrator
             };
 
             // Phase 3: Reporting (stops monitors, collects metrics, generates reports)
+            currentPhase = TestPhase.Reporting;
+            progress?.Report(PhaseInfo.Starting(TestPhase.Reporting, "Starting metrics collection and report generation"));
             var testReport = await ExecuteReportingPhaseAsync(
                 testResult,
                 configuration,
                 cancellationToken);
+            progress?.Report(PhaseInfo.Completed(TestPhase.Reporting, "Report generation complete"));
 
             _logger.LogInformation(
                 "Performance test run {TestRunId} completed successfully in {Duration:F2}s",
@@ -155,6 +173,9 @@ public class TestOrchestrator : ITestOrchestrator
                 "Performance test run {TestRunId} failed: {Message}",
                 testRunId,
                 ex.Message);
+
+            // Report failure with the actual phase that failed
+            progress?.Report(PhaseInfo.Failed(currentPhase, ex.Message));
 
             // Ensure monitoring services are stopped
             try

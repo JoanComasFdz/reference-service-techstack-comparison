@@ -17,11 +17,13 @@ public interface ITestOrchestrator
     /// Runs a complete performance test with the specified configuration.
     /// </summary>
     /// <param name="configuration">Test configuration parameters</param>
+    /// <param name="progress">Optional progress reporter for phase transitions.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Complete test report with all metrics and analysis</returns>
     /// <exception cref="TimeoutException">Service not found on port within timeout</exception>
     /// <exception cref="InvalidOperationException">Test phase failed</exception>
     Task<TestReport> RunTestAsync(
         TestConfiguration configuration,
+        IProgress<PhaseInfo>? progress = null,
         CancellationToken cancellationToken = default);
 }

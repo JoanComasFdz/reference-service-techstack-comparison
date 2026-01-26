@@ -177,7 +177,7 @@ public static class TestCommand
             consoleWriter.WriteHeader("Running Performance Test");
             progressReporter.Start();
 
-            var report = await orchestrator.RunTestAsync(config, cancellationToken);
+            var report = await orchestrator.RunTestAsync(config, cancellationToken: cancellationToken);
 
             progressReporter.Stop();
 

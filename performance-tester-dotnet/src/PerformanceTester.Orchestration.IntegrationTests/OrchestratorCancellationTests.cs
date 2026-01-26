@@ -42,7 +42,7 @@ public sealed class OrchestratorCancellationTests(ITestOutputHelper output)
             // - Consumer: TaskCanceledException (from TrySetCanceled)
             await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             {
-                await System.Orchestration.Orchestrator.RunTestAsync(config, cts.Token);
+                await System.Orchestration.Orchestrator.RunTestAsync(config, cancellationToken: cts.Token);
             });
         }
         finally
@@ -82,7 +82,7 @@ public sealed class OrchestratorCancellationTests(ITestOutputHelper output)
             // When cancelled during API phase, the orchestrator should stop gracefully.
             await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             {
-                await System.Orchestration.Orchestrator.RunTestAsync(config, cts.Token);
+                await System.Orchestration.Orchestrator.RunTestAsync(config, cancellationToken: cts.Token);
             });
         }
         finally
