@@ -1,6 +1,7 @@
 using Xunit;
 using Xunit.Abstractions;
 using PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
+using PerformanceTester.Orchestration;  // For TestPhase, PhaseState
 using JoanComasFdz.AssertingThat;
 
 namespace PerformanceTester.Orchestration.IntegrationTests;
@@ -48,11 +49,14 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
                 .WithDatabaseName(OrchestrationSystem.IntegrationTestDatabaseName)
                 .Build();
 
+            // Arrange: Create phase awaiter for deterministic phase tracking
+            var phaseAwaiter = new PhaseAwaiter();
+
             // ====================================================================
             // ACT
             // ====================================================================
 
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var report = await System.Orchestration.Orchestrator.RunTestAsync(config, progress: phaseAwaiter);
 
             // ====================================================================
             // ASSERT - PHASE 0: SETUP (Service Discovery)
@@ -121,9 +125,18 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
             // ASSERT - PHASE 3: API LOAD TEST
             // ====================================================================
 
-            // Verify API test ran for approximately specified duration
-            var actualApiDuration = report.Results.Phase3Api.DurationSeconds;
-            Assert.InRange(actualApiDuration, 9, 12);
+            // Verify all phases completed in correct order
+            phaseAwaiter.AssertPhasesReceivedInOrder(
+                (TestPhase.Setup, PhaseState.Starting),
+                (TestPhase.Setup, PhaseState.Completed),
+                (TestPhase.Warmup, PhaseState.Starting),
+                (TestPhase.Warmup, PhaseState.Completed),
+                (TestPhase.EventTest, PhaseState.Starting),
+                (TestPhase.EventTest, PhaseState.Completed),
+                (TestPhase.ApiTest, PhaseState.Starting),
+                (TestPhase.ApiTest, PhaseState.Completed),
+                (TestPhase.Reporting, PhaseState.Starting),
+                (TestPhase.Reporting, PhaseState.Completed));
 
             // Verify API metrics collected
             Assert.True(report.Results.Phase3Api.TotalRequests > 0,

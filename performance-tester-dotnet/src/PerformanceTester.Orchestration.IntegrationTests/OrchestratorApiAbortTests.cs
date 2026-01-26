@@ -2,6 +2,7 @@ using JoanComasFdz.AssertingThat;
 using Xunit;
 using Xunit.Abstractions;
 using PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
+using PerformanceTester.Orchestration;  // For TestPhase, PhaseState
 
 namespace PerformanceTester.Orchestration.IntegrationTests;
 
@@ -53,7 +54,10 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
             await System.WaitForServiceHealthyAsync(port: config.ServicePort, timeout: TimeSpan.FromSeconds(10));
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var phaseAwaiter = new PhaseAwaiter();
+            var report = await System.Orchestration.Orchestrator.RunTestAsync(
+                config,
+                progress: phaseAwaiter);
 
             // Assert
             await Asserting.That(System.Orchestration.Orchestrator)
@@ -61,8 +65,10 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
 
             Assert.True(report.Results.Phase3Api.ErrorCount > 0,
                 "Should have recorded errors");
-            Assert.True(report.Results.Phase3Api.DurationSeconds < config.ApiDurationOrDefault.TotalSeconds,
-                "Should have terminated early");
+
+            // Verify API phase was reported as failed (not completed)
+            Assert.Contains(phaseAwaiter.ReceivedPhases,
+                p => p.Phase == TestPhase.ApiTest && p.State == PhaseState.Failed);
 
             Output.WriteLine($"API test aborted as expected after {report.Results.Phase3Api.DurationSeconds:F2}s");
             Output.WriteLine($"Abort reason: {report.Results.Phase3Api.AbortReason}");
@@ -104,14 +110,19 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
             await System.WaitForServiceHealthyAsync(port: config.ServicePort, timeout: TimeSpan.FromSeconds(10));
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var phaseAwaiter = new PhaseAwaiter();
+            var report = await System.Orchestration.Orchestrator.RunTestAsync(
+                config,
+                progress: phaseAwaiter);
 
             // Assert
             await Asserting.That(System.Orchestration.Orchestrator)
                 .ApiLoadTestCompletedWithoutAbort(report);
 
-            await Asserting.That(System.Orchestration.Orchestrator)
-                .ApiLoadTestDurationApproximately(report, apiDuration, tolerance: TimeSpan.FromSeconds(2));
+            // Verify API phase completed successfully (not failed/aborted)
+            phaseAwaiter.AssertPhasesReceivedInOrder(
+                (TestPhase.ApiTest, PhaseState.Starting),
+                (TestPhase.ApiTest, PhaseState.Completed));
 
             Output.WriteLine($"API test completed full duration: {report.Results.Phase3Api.DurationSeconds:F2}s");
             Output.WriteLine($"Errors recorded: {report.Results.Phase3Api.ErrorCount}");

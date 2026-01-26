@@ -32,7 +32,7 @@ public sealed class PhaseAwaiter : IProgress<PhaseInfo>
     /// <param name="phase">The phase to wait for.</param>
     /// <param name="timeout">Maximum time to wait.</param>
     /// <returns>A task that completes when the phase starts.</returns>
-    public static Task WaitForPhaseStartAsync(TestPhase phase, TimeSpan? timeout = null)
+    public Task WaitForPhaseStartAsync(TestPhase phase, TimeSpan? timeout = null)
         => WaitForPhaseAsync(phase, PhaseState.Starting, timeout);
 
     /// <summary>
@@ -41,7 +41,7 @@ public sealed class PhaseAwaiter : IProgress<PhaseInfo>
     /// <param name="phase">The phase to wait for.</param>
     /// <param name="timeout">Maximum time to wait.</param>
     /// <returns>A task that completes when the phase completes.</returns>
-    public static Task WaitForPhaseCompleteAsync(TestPhase phase, TimeSpan? timeout = null)
+    public Task WaitForPhaseCompleteAsync(TestPhase phase, TimeSpan? timeout = null)
         => WaitForPhaseAsync(phase, PhaseState.Completed, timeout);
 
     /// <summary>
