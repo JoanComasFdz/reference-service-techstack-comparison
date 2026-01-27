@@ -30,22 +30,21 @@ internal sealed class ProcessCpuCalculator
     /// <summary>
     /// Calculates CPU percentage since last sample.
     /// First call initializes state and returns 0.0.
-    /// Subsequent calls return CPU usage as percentage (0-100 per core).
+    /// Subsequent calls return CPU usage as percentage of total CPU capacity.
     /// </summary>
     /// <param name="process">Process to sample.</param>
-    /// <returns>CPU percentage (0-100 per core, can exceed 100 on multi-core systems).</returns>
+    /// <returns>CPU percentage (0 to 100 * core_count, representing total CPU capacity).</returns>
     /// <remarks>
-    /// <para><strong>Formula:</strong> (CPUTimeDelta / ElapsedTimeDelta / CoreCount) * 100</para>
+    /// <para><strong>Formula:</strong> (CPUTimeDelta / ElapsedTimeDelta) * 100</para>
     /// <para>
-    /// Example: If 200ms of CPU time was used in 1000ms elapsed on 4-core system:
-    /// (200ms / 1000ms / 4) * 100 = 5% per core average
+    /// Example on a 4-core system: If 200ms of CPU time was used in 1000ms elapsed:
+    /// (200ms / 1000ms) * 100 = 20% of total capacity (max 400% on 4-core)
     /// </para>
-    /// <para><strong>Why This Differs from Docker Container CPU:</strong></para>
+    /// <para><strong>Matches Python psutil behavior:</strong></para>
     /// <para>
-    /// Process monitoring normalizes by dividing by core count (per-core average).
-    /// Docker monitoring scales by multiplying by core count (total capacity).
-    /// This is because processes measure CPU time vs wall-clock time,
-    /// while containers measure CPU time vs system CPU time (cgroup accounting).
+    /// psutil.Process().cpu_percent() returns CPU utilization as percentage of
+    /// total system CPU capacity, where 100% = full use of one core, 400% = full
+    /// use of all 4 cores on a 4-core system.
     /// </para>
     /// </remarks>
     public double Sample(Process process)
@@ -74,10 +73,10 @@ internal sealed class ProcessCpuCalculator
             return 0.0;
         }
 
-        // Calculate percentage (per core)
-        var cpuPercent = (cpuDelta / timeDelta / Environment.ProcessorCount) * 100.0;
+        // Calculate percentage (total CPU capacity, matches Python psutil)
+        var cpuPercent = (cpuDelta / timeDelta) * 100.0;
 
-        // Clamp to reasonable range (0-100 * cores)
+        // Clamp to reasonable range (0 to 100 * cores)
         var maxPercent = Environment.ProcessorCount * 100.0;
         if (cpuPercent < 0) cpuPercent = 0;
         if (cpuPercent > maxPercent) cpuPercent = maxPercent;
