@@ -268,9 +268,36 @@ internal sealed class ChartGenerator : IChartGenerator
 
         if (data == null || data.Samples.Count == 0)
         {
-            // Empty subplot with labels
+            // Empty subplot with full formatting (same as populated plots)
+            // Explicitly enable axes for empty plots
+            plot.Axes.Left.IsVisible = true;
+            plot.Axes.Right.IsVisible = true;
+
+            // Set default axis limits since there's no data to auto-scale from
+            plot.Axes.SetLimitsY(0, 100);
+            plot.Axes.Right.Min = 0;
+            plot.Axes.Right.Max = 1000;
+
             plot.Axes.Left.Label.Text = cpuLabel;
+            plot.Axes.Left.Label.ForeColor = cpuColor;
+            plot.Axes.Left.Label.Bold = true;
+            plot.Axes.Left.Label.FontSize = 26;
+
             plot.Axes.Right.Label.Text = ramLabel;
+            plot.Axes.Right.Label.ForeColor = ramColor;
+            plot.Axes.Right.Label.Bold = true;
+            plot.Axes.Right.Label.FontSize = 26;
+
+            // Enable grid (Y-axis only)
+            plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#cccccc").WithAlpha(0.3);
+
+            // Configure legend (even for empty plots, for consistency)
+            plot.ShowLegend(Edge.Right);
+            plot.Legend.OutlineColor = Colors.Transparent;
+            plot.Legend.ShadowColor = Colors.Transparent;
+            plot.Legend.FontSize = 22;
+            plot.Legend.Orientation = Orientation.Vertical;
+            plot.Legend.InterItemPadding = new PixelPadding(0, 0, 15, 0);
 
             // Still configure time axis and layout for empty plots
             plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 50));

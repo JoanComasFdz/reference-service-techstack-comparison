@@ -680,15 +680,15 @@ public sealed class ChartGeneratorTests : IntegrationTest
         using var bitmap = SKBitmap.Decode(outputPath);
         Assert.NotNull(bitmap);
 
-        // 14 inches × 150 DPI = 2100 pixels
-        // 16 inches × 150 DPI = 2400 pixels
-        Assert.Equal(2100, bitmap.Width);
-        Assert.Equal(2400, bitmap.Height);
+        // Width: 2400 pixels (increased for legend space)
+        // Height: 2500 pixels (580px throughput + 4×480px resource plots)
+        Assert.Equal(2400, bitmap.Width);
+        Assert.Equal(2500, bitmap.Height);
 
         var fileSizeKb = new FileInfo(outputPath).Length / 1024;
 
         Output.WriteLine($"PNG dimensions: {bitmap.Width}×{bitmap.Height} pixels");
-        Output.WriteLine($"Expected: 2100×2400 pixels (14\"×16\" at 150 DPI)");
+        Output.WriteLine($"Expected: 2400×2500 pixels");
         Output.WriteLine($"File size: {fileSizeKb:N0} KB");
     }
 
