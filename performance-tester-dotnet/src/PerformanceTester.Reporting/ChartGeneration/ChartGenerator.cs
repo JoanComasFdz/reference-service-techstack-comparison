@@ -24,8 +24,9 @@ internal sealed class ChartGenerator : IChartGenerator
     };
 
     // Individual subplot dimensions (width × height)
-    private const int PlotWidth = 2100;
-    private const int PlotHeight = 480; // 2400 total / 5 subplots = 480 each
+    private const int PlotWidth = 2400;
+    private const int PlotHeight = 480;
+    private const int ThroughputPlotHeight = 580; // Taller to fit 2 legend items with stats
 
     public ChartGenerator(ILogger<ChartGenerator> logger)
     {
@@ -127,12 +128,14 @@ internal sealed class ChartGenerator : IChartGenerator
         var humanDate = testReport.TestDate.ToString("MMMM dd, yyyy");
         var humanTime = testReport.TestDate.ToString("HH:mm:ss");
         var title = $"Performance Metrics - {testReport.MonitoredProcess.Name} - {humanDate} at {humanTime}";
-        plots[0].Title(title);
+        plots[0].Axes.Title.Label.Text = title;
+        plots[0].Axes.Title.Label.FontSize = 36;
+        plots[0].Axes.Title.Label.Bold = true;
 
         // Only show X-axis label on bottom plot
         plots[4].Axes.Bottom.Label.Text = "Time";
         plots[4].Axes.Bottom.Label.Bold = true;
-        plots[4].Axes.Bottom.Label.FontSize = 11;
+        plots[4].Axes.Bottom.Label.FontSize = 26;
 
         // Configure tick label rotation (45 degrees) on the bottom plot only
         plots[4].Axes.Bottom.TickLabelStyle.Rotation = 45;
@@ -142,7 +145,8 @@ internal sealed class ChartGenerator : IChartGenerator
         SyncXAxisLimits(plots);
 
         // Render each plot to a bitmap
-        var bitmaps = plots.Select(p => RenderPlotToBitmap(p)).ToList();
+        // Render plots with different heights (throughput plot is taller)
+        var bitmaps = plots.Select((p, i) => RenderPlotToBitmap(p, i == 0 ? ThroughputPlotHeight : PlotHeight)).ToList();
 
         // Combine bitmaps vertically
         CombineBitmapsVertically(bitmaps, outputPath);
@@ -165,7 +169,7 @@ internal sealed class ChartGenerator : IChartGenerator
         var plot = new Plot();
         plot.Axes.Left.Label.Text = "Throughput (per second)";
         plot.Axes.Left.Label.Bold = true;
-        plot.Axes.Left.Label.FontSize = 11;
+        plot.Axes.Left.Label.FontSize = 26;
 
         // Enable grid (Y-axis only)
         plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#cccccc").WithAlpha(0.3);
@@ -180,20 +184,13 @@ internal sealed class ChartGenerator : IChartGenerator
                 .Select(s => s.ThroughputRate)
                 .ToArray();
 
-            // Primary line with fill - just the series name
+            // Primary line with fill - include stats in legend
             var eventsScatter = plot.Add.Scatter(timestamps, rates);
             eventsScatter.Color = ChartColors.EventsPrimary;
             eventsScatter.LineWidth = 2f;
             eventsScatter.FillY = true;
             eventsScatter.FillYColor = ChartColors.EventsPrimary.WithAlpha(0.3);
-            eventsScatter.LegendText = "Consumed Events/sec";
-
-            // Average line - with stats
-            var eventsAvg = plot.Add.HorizontalLine(eventsData.Summary.AvgRate);
-            eventsAvg.Color = ChartColors.EventsAverage;
-            eventsAvg.LineWidth = 1.5f;
-            eventsAvg.LinePattern = LinePattern.Dashed;
-            eventsAvg.LegendText = FormatThroughputLegend(
+            eventsScatter.LegendText = "Consumed Events/sec\n" + FormatThroughputLegend(
                 "Events",
                 eventsData.Summary.AvgRate,
                 eventsData.Summary.AvgResponseTimeMs,
@@ -202,6 +199,12 @@ internal sealed class ChartGenerator : IChartGenerator
                 (int)Math.Round(eventsData.Summary.AvgRate),
                 eventsData.Summary.StdDevRate,
                 eventsData.Summary.CvRate);
+
+            // Average line (no legend entry)
+            var eventsAvg = plot.Add.HorizontalLine(eventsData.Summary.AvgRate);
+            eventsAvg.Color = ChartColors.EventsAverage;
+            eventsAvg.LineWidth = 1.5f;
+            eventsAvg.LinePattern = LinePattern.Dashed;
         }
 
         // Plot API throughput
@@ -214,20 +217,13 @@ internal sealed class ChartGenerator : IChartGenerator
                 .Select(s => s.ThroughputRate)
                 .ToArray();
 
-            // Primary line with fill - just the series name
+            // Primary line with fill - include stats in legend
             var apiScatter = plot.Add.Scatter(timestamps, rates);
             apiScatter.Color = ChartColors.ApiPrimary;
             apiScatter.LineWidth = 2f;
             apiScatter.FillY = true;
             apiScatter.FillYColor = ChartColors.ApiPrimary.WithAlpha(0.3);
-            apiScatter.LegendText = "API calls/sec";
-
-            // Average line - with stats
-            var apiAvg = plot.Add.HorizontalLine(apiData.Summary.AvgRate);
-            apiAvg.Color = ChartColors.ApiAverage;
-            apiAvg.LineWidth = 1.5f;
-            apiAvg.LinePattern = LinePattern.Dashed;
-            apiAvg.LegendText = FormatThroughputLegend(
+            apiScatter.LegendText = "API calls/sec\n" + FormatThroughputLegend(
                 "API",
                 apiData.Summary.AvgRate,
                 apiData.Summary.AvgResponseTimeMs,
@@ -236,14 +232,22 @@ internal sealed class ChartGenerator : IChartGenerator
                 (int)Math.Round(apiData.Summary.AvgRate),
                 apiData.Summary.StdDevRate,
                 apiData.Summary.CvRate);
+
+            // Average line (no legend entry)
+            var apiAvg = plot.Add.HorizontalLine(apiData.Summary.AvgRate);
+            apiAvg.Color = ChartColors.ApiAverage;
+            apiAvg.LineWidth = 1.5f;
+            apiAvg.LinePattern = LinePattern.Dashed;
         }
 
         // Configure legend outside the plot area on the right
         plot.ShowLegend(Edge.Right);
         plot.Legend.OutlineColor = Colors.Transparent;
         plot.Legend.ShadowColor = Colors.Transparent;
-        plot.Legend.FontSize = 11;
-        plot.Layout.Fixed(new PixelPadding(left: 60, right: 300, bottom: 50, top: 50));
+        plot.Legend.FontSize = 22;
+        plot.Legend.Orientation = Orientation.Vertical;
+        plot.Legend.InterItemPadding = new PixelPadding(0, 0, 15, 0); // Add vertical spacing between items
+        plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 50));
 
         // Apply custom time tick generator for X-axis (HH:mm:ss format)
         ConfigureTimeAxis(plot);
@@ -269,7 +273,7 @@ internal sealed class ChartGenerator : IChartGenerator
             plot.Axes.Right.Label.Text = ramLabel;
 
             // Still configure time axis and layout for empty plots
-            plot.Layout.Fixed(new PixelPadding(left: 60, right: 300, bottom: 50, top: 50));
+            plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 50));
             ConfigureTimeAxis(plot);
             return plot;
         }
@@ -278,7 +282,7 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Axes.Left.Label.Text = cpuLabel;
         plot.Axes.Left.Label.ForeColor = cpuColor;
         plot.Axes.Left.Label.Bold = true;
-        plot.Axes.Left.Label.FontSize = 11;
+        plot.Axes.Left.Label.FontSize = 26;
 
         var timestamps = data.Samples
             .Select(s => DateTime.Parse(s.Timestamp).ToOADate())
@@ -287,58 +291,56 @@ internal sealed class ChartGenerator : IChartGenerator
             .Select(s => s.CpuPercent)
             .ToArray();
 
-        // CPU primary line with fill - simple label like Python
+        // CPU primary line with fill - include stats in legend
         var cpuScatter = plot.Add.Scatter(timestamps, cpuValues);
         cpuScatter.Color = cpuColor;
         cpuScatter.LineWidth = 2f;
         cpuScatter.FillY = true;
         cpuScatter.FillYColor = cpuColor.WithAlpha(0.3);
-        cpuScatter.LegendText = "CPU %";
-
-        // CPU average line - stats in legend like Python
-        var cpuAvgLine = plot.Add.HorizontalLine(data.CpuSummary.Avg);
-        cpuAvgLine.Color = cpuAvgColor;
-        cpuAvgLine.LineWidth = 1.5f;
-        cpuAvgLine.LinePattern = LinePattern.Dashed;
-        cpuAvgLine.LegendText = FormatResourceLegend(
+        cpuScatter.LegendText = "CPU %\n" + FormatResourceLegend(
             data.CpuSummary.Avg,
             data.CpuSummary.Min,
             data.CpuSummary.Max,
             data.CpuSummary.Mode,
             data.CpuSummary.Unit);
 
+        // CPU average line (no legend entry)
+        var cpuAvgLine = plot.Add.HorizontalLine(data.CpuSummary.Avg);
+        cpuAvgLine.Color = cpuAvgColor;
+        cpuAvgLine.LineWidth = 1.5f;
+        cpuAvgLine.LinePattern = LinePattern.Dashed;
+
         // RIGHT AXIS: RAM MB
         var ramValues = data.Samples
             .Select(s => s.MemoryMb)
             .ToArray();
 
-        // RAM primary line with fill - simple label like Python
+        // RAM primary line with fill - include stats in legend
         var ramScatter = plot.Add.Scatter(timestamps, ramValues);
         ramScatter.Color = ramColor;
         ramScatter.LineWidth = 2f;
         ramScatter.Axes.YAxis = plot.Axes.Right; // Use right axis
         ramScatter.FillY = true;
         ramScatter.FillYColor = ramColor.WithAlpha(0.2); // Less alpha for RAM
-        ramScatter.LegendText = "RAM";
-
-        // RAM average line - stats in legend like Python
-        var ramAvgLine = plot.Add.HorizontalLine(data.MemorySummary.Avg);
-        ramAvgLine.Color = ramAvgColor;
-        ramAvgLine.LineWidth = 1.5f;
-        ramAvgLine.LinePattern = LinePattern.Dashed;
-        ramAvgLine.Axes.YAxis = plot.Axes.Right;
-        ramAvgLine.LegendText = FormatResourceLegend(
+        ramScatter.LegendText = "RAM\n" + FormatResourceLegend(
             data.MemorySummary.Avg,
             data.MemorySummary.Min,
             data.MemorySummary.Max,
             data.MemorySummary.Mode,
             data.MemorySummary.Unit);
 
+        // RAM average line (no legend entry)
+        var ramAvgLine = plot.Add.HorizontalLine(data.MemorySummary.Avg);
+        ramAvgLine.Color = ramAvgColor;
+        ramAvgLine.LineWidth = 1.5f;
+        ramAvgLine.LinePattern = LinePattern.Dashed;
+        ramAvgLine.Axes.YAxis = plot.Axes.Right;
+
         // Configure right axis
         plot.Axes.Right.Label.Text = ramLabel;
         plot.Axes.Right.Label.ForeColor = ramColor;
         plot.Axes.Right.Label.Bold = true;
-        plot.Axes.Right.Label.FontSize = 11;
+        plot.Axes.Right.Label.FontSize = 26;
 
         // Enable grid (Y-axis only)
         plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#cccccc").WithAlpha(0.3);
@@ -347,8 +349,10 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.ShowLegend(Edge.Right);
         plot.Legend.OutlineColor = Colors.Transparent;
         plot.Legend.ShadowColor = Colors.Transparent;
-        plot.Legend.FontSize = 11;
-        plot.Layout.Fixed(new PixelPadding(left: 60, right: 300, bottom: 50, top: 50));
+        plot.Legend.FontSize = 22;
+        plot.Legend.Orientation = Orientation.Vertical;
+        plot.Legend.InterItemPadding = new PixelPadding(0, 0, 15, 0); // Add vertical spacing between items
+        plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 50));
 
         // Apply custom time tick generator for X-axis (HH:mm:ss format)
         ConfigureTimeAxis(plot);
@@ -399,7 +403,7 @@ internal sealed class ChartGenerator : IChartGenerator
 
         var consumeText = plot.Add.Text(consumeLabel, consumeMidTime.ToOADate(), labelYPosition);
         consumeText.LabelFontColor = ChartColors.ConsumePhase;
-        consumeText.LabelFontSize = 9;
+        consumeText.LabelFontSize = 22;
         consumeText.LabelBold = true;
         consumeText.LabelAlignment = Alignment.UpperCenter;
 
@@ -415,7 +419,7 @@ internal sealed class ChartGenerator : IChartGenerator
 
         var apiText = plot.Add.Text(apiLabel, apiMidTime.ToOADate(), labelYPosition);
         apiText.LabelFontColor = ChartColors.ApiPhase;
-        apiText.LabelFontSize = 9;
+        apiText.LabelFontSize = 22;
         apiText.LabelBold = true;
         apiText.LabelAlignment = Alignment.UpperCenter;
     }
@@ -449,9 +453,9 @@ internal sealed class ChartGenerator : IChartGenerator
         }
     }
 
-    private SKBitmap RenderPlotToBitmap(Plot plot)
+    private SKBitmap RenderPlotToBitmap(Plot plot, int height)
     {
-        var image = plot.GetImage(PlotWidth, PlotHeight);
+        var image = plot.GetImage(PlotWidth, height);
         return SKBitmap.Decode(image.GetImageBytes());
     }
 
@@ -810,12 +814,12 @@ internal sealed class ChartGenerator : IChartGenerator
         double stdDev,
         double cv)
     {
-        return $"{prefix} Avg: {avg:F1} ({responseTimeMs:F2}ms)\n" +
+        return $"Avg: {avg:F1} ({responseTimeMs:F2}ms)\n" +
                $"Min: {min:F1}\n" +
                $"Max: {max:F1}\n" +
                $"Mode: {mode}\n" +
                $"Std Dev: {stdDev:F1}\n" +
-               $"CV: {cv:F1}%";
+               $"CV: {cv:F1}%\n";
     }
 
     /// <summary>
@@ -847,6 +851,6 @@ internal sealed class ChartGenerator : IChartGenerator
         return $"Avg: {avg:F1} {unit}\n" +
                $"Min: {min:F1} {unit}\n" +
                $"Max: {max:F1} {unit}\n" +
-               $"Mode: {mode} {unit}";
+               $"Mode: {mode} {unit}\n";
     }
 }
