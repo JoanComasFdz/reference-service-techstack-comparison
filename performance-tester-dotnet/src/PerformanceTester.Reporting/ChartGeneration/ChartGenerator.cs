@@ -615,34 +615,52 @@ internal sealed class ChartGenerator : IChartGenerator
                 }
             }
 
-            // Parse summary - handle flat structure (avg_cpu_percent, etc.)
+            // Parse summary - read avg/peak from JSON, compute min/mode from samples (like Python)
             ResourceSummary cpuSummary;
             ResourceSummary memorySummary;
+
+            // Extract CPU and memory values from samples for min/mode calculation
+            var cpuValues = samples.Select(s => s.CpuPercent).ToList();
+            var memoryValues = samples.Select(s => s.MemoryMb).ToList();
 
             if (root.TryGetProperty("summary", out var summary))
             {
                 cpuSummary = new ResourceSummary
                 {
                     Avg = summary.TryGetProperty("avg_cpu_percent", out var avgCpu) ? avgCpu.GetDouble() : 0,
-                    Min = 0, // Not in summary
+                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
                     Max = summary.TryGetProperty("peak_cpu_percent", out var peakCpu) ? peakCpu.GetDouble() : 0,
-                    Mode = 0,
+                    Mode = CalculateMode(cpuValues),
                     Unit = "%"
                 };
                 memorySummary = new ResourceSummary
                 {
                     Avg = summary.TryGetProperty("avg_memory_mb", out var avgMem) ? avgMem.GetDouble() : 0,
-                    Min = 0, // Not in summary
+                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
                     Max = summary.TryGetProperty("peak_memory_mb", out var peakMem) ? peakMem.GetDouble() : 0,
-                    Mode = 0,
+                    Mode = CalculateMode(memoryValues),
                     Unit = "MB"
                 };
             }
             else
             {
                 // Fallback for system-metrics which may have different structure
-                cpuSummary = new ResourceSummary { Avg = 0, Min = 0, Max = 0, Mode = 0, Unit = "%" };
-                memorySummary = new ResourceSummary { Avg = 0, Min = 0, Max = 0, Mode = 0, Unit = "MB" };
+                cpuSummary = new ResourceSummary
+                {
+                    Avg = 0,
+                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
+                    Max = 0,
+                    Mode = CalculateMode(cpuValues),
+                    Unit = "%"
+                };
+                memorySummary = new ResourceSummary
+                {
+                    Avg = 0,
+                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
+                    Max = 0,
+                    Mode = CalculateMode(memoryValues),
+                    Unit = "MB"
+                };
             }
 
             return new ResourceMetricsReport
@@ -698,54 +716,72 @@ internal sealed class ChartGenerator : IChartGenerator
                 }
             }
 
-            // Parse summary - handle nested cpu_summary/memory_summary OR flat structure
+            // Parse summary - read avg/peak from JSON, compute min/mode from samples (like Python)
             ResourceSummary cpuSummary;
             ResourceSummary memorySummary;
 
+            // Extract CPU and memory values from samples for min/mode calculation
+            var cpuValues = samples.Select(s => s.CpuPercent).ToList();
+            var memoryValues = samples.Select(s => s.MemoryMb).ToList();
+
             if (root.TryGetProperty("cpu_summary", out var cpuSum) && root.TryGetProperty("memory_summary", out var memSum))
             {
-                // Nested structure
+                // Nested structure - read avg/max from JSON, compute min/mode from samples
                 cpuSummary = new ResourceSummary
                 {
                     Avg = cpuSum.TryGetProperty("avg", out var avgCpu) ? avgCpu.GetDouble() : 0,
-                    Min = cpuSum.TryGetProperty("min", out var minCpu) ? minCpu.GetDouble() : 0,
+                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
                     Max = cpuSum.TryGetProperty("max", out var maxCpu) ? maxCpu.GetDouble() : 0,
-                    Mode = cpuSum.TryGetProperty("mode", out var modeCpu) ? modeCpu.GetInt32() : 0,
+                    Mode = CalculateMode(cpuValues),
                     Unit = cpuSum.TryGetProperty("unit", out var unitCpu) ? unitCpu.GetString() ?? "%" : "%"
                 };
                 memorySummary = new ResourceSummary
                 {
                     Avg = memSum.TryGetProperty("avg", out var avgMem) ? avgMem.GetDouble() : 0,
-                    Min = memSum.TryGetProperty("min", out var minMem) ? minMem.GetDouble() : 0,
+                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
                     Max = memSum.TryGetProperty("max", out var maxMem) ? maxMem.GetDouble() : 0,
-                    Mode = memSum.TryGetProperty("mode", out var modeMem) ? modeMem.GetInt32() : 0,
+                    Mode = CalculateMode(memoryValues),
                     Unit = memSum.TryGetProperty("unit", out var unitMem) ? unitMem.GetString() ?? "MB" : "MB"
                 };
             }
             else if (root.TryGetProperty("summary", out var summary))
             {
-                // Flat structure
+                // Flat structure - read avg/peak from JSON, compute min/mode from samples
                 cpuSummary = new ResourceSummary
                 {
                     Avg = summary.TryGetProperty("avg_cpu_percent", out var avgCpu) ? avgCpu.GetDouble() : 0,
-                    Min = 0,
+                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
                     Max = summary.TryGetProperty("peak_cpu_percent", out var peakCpu) ? peakCpu.GetDouble() : 0,
-                    Mode = 0,
+                    Mode = CalculateMode(cpuValues),
                     Unit = "%"
                 };
                 memorySummary = new ResourceSummary
                 {
-                    Avg = summary.TryGetProperty("avg_memory_mb", out var avgMem) ? avgMem.GetDouble() : 0,
-                    Min = 0,
-                    Max = summary.TryGetProperty("peak_memory_mb", out var peakMem) ? peakMem.GetDouble() : 0,
-                    Mode = 0,
+                    Avg = summary.TryGetProperty("avg_memory_rss_mb", out var avgMem) ? avgMem.GetDouble() : 0,
+                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
+                    Max = summary.TryGetProperty("peak_memory_rss_mb", out var peakMem) ? peakMem.GetDouble() : 0,
+                    Mode = CalculateMode(memoryValues),
                     Unit = "MB"
                 };
             }
             else
             {
-                cpuSummary = new ResourceSummary { Avg = 0, Min = 0, Max = 0, Mode = 0, Unit = "%" };
-                memorySummary = new ResourceSummary { Avg = 0, Min = 0, Max = 0, Mode = 0, Unit = "MB" };
+                cpuSummary = new ResourceSummary
+                {
+                    Avg = 0,
+                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
+                    Max = 0,
+                    Mode = CalculateMode(cpuValues),
+                    Unit = "%"
+                };
+                memorySummary = new ResourceSummary
+                {
+                    Avg = 0,
+                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
+                    Max = 0,
+                    Mode = CalculateMode(memoryValues),
+                    Unit = "MB"
+                };
             }
 
             return new ResourceMetricsReport
@@ -780,6 +816,25 @@ internal sealed class ChartGenerator : IChartGenerator
                $"Mode: {mode}\n" +
                $"Std Dev: {stdDev:F1}\n" +
                $"CV: {cv:F1}%";
+    }
+
+    /// <summary>
+    /// Calculate mode (most common value) from a list of doubles, rounded to nearest integer.
+    /// Matches Python's calculate_mode() implementation.
+    /// </summary>
+    private static int CalculateMode(List<double> values)
+    {
+        if (values.Count == 0)
+            return 0;
+
+        // Round each value and find the most common
+        var rounded = values.Select(v => (int)Math.Round(v));
+        return rounded
+            .GroupBy(x => x)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key) // For consistency when tied
+            .First()
+            .Key;
     }
 
     private string FormatResourceLegend(

@@ -12,4 +12,10 @@ public interface IMetricsCollector
     /// </summary>
     /// <returns>Read-only collection of all event throughput samples captured during test.</returns>
     IReadOnlyCollection<EventThroughputSample> GetThroughputSamples();
+
+    /// <summary>
+    /// Clears all collected throughput samples.
+    /// Call this before starting the measured test phase to discard warmup samples.
+    /// </summary>
+    void ClearSamples();
 }

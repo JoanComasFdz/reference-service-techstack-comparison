@@ -30,6 +30,17 @@ internal sealed class MetricsCollectorService : BackgroundService, IMetricsColle
         return _samples.OrderBy(s => s.Timestamp).ToArray();
     }
 
+    /// <inheritdoc />
+    public void ClearSamples()
+    {
+        // ConcurrentBag doesn't have a Clear method, so we drain it
+        while (_samples.TryTake(out _))
+        {
+        }
+
+        _logger.LogDebug("Throughput samples cleared");
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try

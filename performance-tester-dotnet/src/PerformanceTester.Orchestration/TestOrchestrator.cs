@@ -114,7 +114,7 @@ public class TestOrchestrator : ITestOrchestrator
             currentPhase = TestPhase.EventTest;
             progress?.Report(PhaseInfo.Starting(TestPhase.EventTest, $"Starting event test with {configuration.EventCount} events"));
             var (publishMetrics, eventTestStartTime, eventTestEndTime) =
-                await ExecuteEventTestPhaseAsync(configuration, cancellationToken);
+                await ExecuteEventTestPhaseAsync(configuration, serviceProcessId, cancellationToken);
             progress?.Report(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));
 
             // Phase 2: API Load Test
@@ -255,14 +255,8 @@ public class TestOrchestrator : ITestOrchestrator
             _logger.LogInformation("All monitoring services started");
         }
 
-        // Step 3: Start process monitoring (deferred start pattern)
-        await _processMonitor.StartMonitoringAsync(serviceProcessId.Value, cancellationToken: cancellationToken);
-        _logger.LogInformation("Process monitoring started for PID {ProcessId}", serviceProcessId.Value);
-
-        // Step 3.5: Warm up Docker API and start monitoring
-        // Docker monitoring starts early (like Python) to capture the entire test lifecycle
-        // First call is slow (~2-3 seconds), so warmup before starting monitors
-        // Run in parallel for all monitors
+        // Step 3: Warm up Docker API (first call is slow ~2-3 seconds)
+        // We do this in setup so the delay doesn't affect the measured test
         var dockerMonitorsList = _dockerMonitors.ToList();
         _logger.LogInformation("Warming up Docker API for {Count} monitors: {Names}...",
             dockerMonitorsList.Count,
@@ -270,13 +264,6 @@ public class TestOrchestrator : ITestOrchestrator
         var warmupTasks = dockerMonitorsList.Select(m => m.WarmupAsync(cancellationToken));
         await Task.WhenAll(warmupTasks);
         _logger.LogInformation("Docker API warmup complete");
-
-        // Step 3.6: Start Docker container monitoring (before clearing DB/queues)
-        // This matches Python's approach: monitoring starts early and captures the entire test
-        _logger.LogInformation("Starting Docker container monitors...");
-        var dockerStartTasks = dockerMonitorsList.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
-        await Task.WhenAll(dockerStartTasks);
-        _logger.LogInformation("Docker container monitors started (first samples collected)");
 
         // Step 4: Clear database
         _logger.LogInformation("Clearing database {Database}...", config.DatabaseName);
@@ -404,6 +391,7 @@ public class TestOrchestrator : ITestOrchestrator
     private async Task<(PublishMetrics PublishMetrics, DateTime StartTime, DateTime EndTime)>
         ExecuteEventTestPhaseAsync(
             TestConfiguration config,
+            int serviceProcessId,
             CancellationToken cancellationToken)
     {
         using var _ = LogContext.PushProperty("Phase", "EventTest");
@@ -412,8 +400,21 @@ public class TestOrchestrator : ITestOrchestrator
             "Starting event throughput test with {Count} events",
             config.EventCount);
 
-        // Docker monitors already started in Setup phase (like Python)
-        // This ensures monitoring captures the entire test lifecycle
+        // Clear any warmup samples before starting the measured test
+        _metricsCollector.ClearSamples();
+        _logger.LogDebug("Cleared warmup throughput samples");
+
+        // Start monitoring just before the measured test begins
+        // This ensures chart data starts at the same time as the test phases
+        _logger.LogInformation("Starting process monitoring for PID {ProcessId}...", serviceProcessId);
+        await _processMonitor.StartMonitoringAsync(serviceProcessId, cancellationToken: cancellationToken);
+        _logger.LogInformation("Process monitoring started");
+
+        _logger.LogInformation("Starting Docker container monitors...");
+        var dockerMonitorsList = _dockerMonitors.ToList();
+        var dockerStartTasks = dockerMonitorsList.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
+        await Task.WhenAll(dockerStartTasks);
+        _logger.LogInformation("Docker container monitors started (first samples collected)");
 
         var startTime = DateTime.UtcNow;
         var stopwatch = Stopwatch.StartNew();
