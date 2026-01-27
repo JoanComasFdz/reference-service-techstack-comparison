@@ -1,12 +1,13 @@
 using System.Collections.Concurrent;
+using Docker.DotNet.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
-/// BackgroundService that monitors Docker container resource usage.
-/// Samples CPU and memory metrics at regular intervals and stores them in memory.
+/// BackgroundService that monitors Docker container resource usage using streaming mode.
+/// Docker pushes stats continuously (~1s); we sample at configurable intervals.
 /// Implements IDockerMonitor to provide access to collected metrics.
 /// Supports deferred start pattern - waits for StartMonitoring() before collecting metrics.
 /// </summary>
@@ -19,6 +20,25 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
     private readonly ConcurrentBag<DockerMetrics> _collectedMetrics = new();
     private readonly TaskCompletionSource _startSignal = new();
     private readonly TaskCompletionSource _firstSampleCollected = new();
+    private readonly TaskCompletionSource _firstValidStatsReceived = new();
+
+    // Streaming state
+    private ContainerStatsResponse? _latestStats;
+    private DateTime _latestStatsTimestamp;
+    private readonly Lock _statsLock = new();
+
+    // Connection success signaling (for streaming loop to detect success)
+    private TaskCompletionSource? _pendingConnectionSuccess;
+
+    // Reconnection state
+    private volatile int _consecutiveFailures;
+    private TimeSpan _currentBackoffDelay = StreamingConstants.InitialReconnectDelay;
+    private readonly Lock _backoffLock = new();
+
+    private Task? _streamingTask;
+    private CancellationTokenSource? _streamingCts;
+    private volatile bool _hasReceivedValidStats;
+    private volatile bool _streamingFailed;
 
     private IProgress<DockerMonitorPhaseInfo>? _progress;
     private bool _started;
@@ -42,9 +62,14 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
     {
         _logger.LogDebug("Warming up Docker API for container {ContainerName}...", _containerName);
 
-        // Make a test call to warm up the Docker client connection
-        // This ensures the first real call during the test is fast
-        await _dockerClient.GetContainerStatsAsync(_containerName, cancellationToken);
+        // Warm up container ID resolution (will be cached)
+        var containerId = await _dockerClient.GetContainerIdAsync(_containerName, cancellationToken);
+
+        if (containerId != null)
+        {
+            // Make a test snapshot call to warm up the Docker client connection
+            await _dockerClient.GetContainerStatsAsync(_containerName, cancellationToken);
+        }
 
         _logger.LogDebug("Docker API warmup complete for container {ContainerName}", _containerName);
     }
@@ -58,16 +83,16 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             throw new InvalidOperationException($"Monitoring has already been started for container {_containerName}");
 
         _started = true;
-        _progress = progress;  // Store for use in ExecuteAsync
+        _progress = progress;
 
-        // Report phase: MonitoringRequested/Starting
         _progress?.Report(DockerMonitorPhaseInfo.Starting(
             DockerMonitorPhase.MonitoringRequested,
             _containerName,
-            message: $"Starting monitoring for container {_containerName}"));
+            message: $"Starting streaming monitor for container {_containerName}"));
 
         _startSignal.TrySetResult();
-        _logger.LogInformation("StartMonitoring called for container {ContainerName}, waiting for first sample...", _containerName);
+        _logger.LogInformation("StartMonitoring called for container {ContainerName}, waiting for first sample...",
+            _containerName);
 
         // Wait for the first sample to be collected
         await _firstSampleCollected.Task.WaitAsync(cancellationToken);
@@ -100,179 +125,360 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             return;
         }
 
-        _logger.LogInformation(
-            "Docker monitor starting for container: {ContainerName}, interval: {Interval}ms",
-            _containerName, _samplingInterval.TotalMilliseconds);
+        // Resolve container ID once
+        string? containerId;
+        try
+        {
+            containerId = await _dockerClient.GetContainerIdAsync(_containerName, stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to resolve container {ContainerName}", _containerName);
+            _firstSampleCollected.TrySetResult(); // Unblock caller
+            _progress?.Report(DockerMonitorPhaseInfo.Failed(
+                DockerMonitorPhase.StreamFailed,
+                _containerName,
+                message: $"Failed to resolve container: {ex.Message}"));
+            return;
+        }
 
-        // Use PeriodicTimer for accurate intervals (preferred over Task.Delay loop)
+        if (containerId == null)
+        {
+            _logger.LogWarning("Container {ContainerName} not found, cannot start monitoring", _containerName);
+            _firstSampleCollected.TrySetResult(); // Unblock caller
+            _progress?.Report(DockerMonitorPhaseInfo.Failed(
+                DockerMonitorPhase.StreamFailed,
+                _containerName,
+                message: $"Container '{_containerName}' not found"));
+            return;
+        }
+
+        _logger.LogInformation(
+            "Docker monitor starting streaming for container: {ContainerName} (ID: {ContainerId}), sampling interval: {Interval}ms",
+            _containerName, containerId[..12], _samplingInterval.TotalMilliseconds);
+
+        // Start streaming in background task with reconnection support
+        _streamingCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        _streamingTask = Task.Run(
+            () => RunStreamingLoopWithReconnectionAsync(containerId, _streamingCts.Token),
+            stoppingToken);
+
+        // Wait for first valid stats from stream
+        try
+        {
+            await _firstValidStatsReceived.Task.WaitAsync(StreamingConstants.FirstStatsTimeout, stoppingToken);
+        }
+        catch (TimeoutException)
+        {
+            _logger.LogWarning(
+                "Timeout waiting for first valid stats from container {ContainerName} after {Timeout}s",
+                _containerName, StreamingConstants.FirstStatsTimeout.TotalSeconds);
+        }
+
+        // Sampling loop - read latest stats at configured interval
         using var timer = new PeriodicTimer(_samplingInterval);
 
         try
         {
-            // Sample-first pattern: collect initial sample immediately before entering timer loop
-            // This ensures we capture data from the very start of monitoring
-            await SampleContainerAsync(stoppingToken);
+            // Take immediate first sample
+            TakeSample();
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                // Wait for next tick
                 await timer.WaitForNextTickAsync(stoppingToken);
 
-                // Sample container stats
-                await SampleContainerAsync(stoppingToken);
+                // Check if streaming has failed permanently
+                if (_streamingFailed)
+                {
+                    _logger.LogWarning(
+                        "Streaming has failed for container {ContainerName}, stopping sampling loop",
+                        _containerName);
+                    break;
+                }
+
+                TakeSample();
             }
         }
         catch (OperationCanceledException)
         {
             _logger.LogInformation(
-                "Docker monitor stopping for container: {ContainerName}, attempting final sample...",
+                "Docker monitor stopping for container: {ContainerName}",
                 _containerName);
-
-            // Try to collect one final sample with a fresh token and timeout
-            // This ensures we capture data even when the cancellation token was triggered
-            // while a Docker API call was in flight (which takes 2-3 seconds)
-            await TryCollectFinalSampleAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "Docker monitor failed for container: {ContainerName}",
-                _containerName);
-            throw;
         }
         finally
         {
+            // Stop streaming and dispose CTS
+            _streamingCts?.Cancel();
+
+            try
+            {
+                if (_streamingTask != null)
+                    await _streamingTask.WaitAsync(StreamingConstants.StreamingShutdownTimeout);
+            }
+            catch { /* Ignore timeout or exceptions */ }
+
+            _streamingCts?.Dispose();
+
             _logger.LogInformation(
                 "Docker monitor completed for container: {ContainerName}, collected {Count} samples",
                 _containerName, _collectedMetrics.Count);
 
-            // Report phase: MonitoringStopped/Completed
-            _progress?.Report(DockerMonitorPhaseInfo.Completed(
-                DockerMonitorPhase.MonitoringStopped,
-                _containerName,
-                sampleCount: _collectedMetrics.Count,
-                message: $"Monitoring stopped for {_containerName}, collected {_collectedMetrics.Count} samples"));
+            // Report completion (success case only - failures reported elsewhere)
+            if (!_streamingFailed)
+            {
+                _progress?.Report(DockerMonitorPhaseInfo.Completed(
+                    DockerMonitorPhase.MonitoringCompleted,
+                    _containerName,
+                    sampleCount: _collectedMetrics.Count,
+                    message: $"Monitoring completed, collected {_collectedMetrics.Count} samples"));
+            }
         }
     }
 
     /// <summary>
-    /// Samples container stats and stores the metrics.
+    /// Background task that manages the streaming connection with automatic reconnection.
+    /// This method owns all connection lifecycle phase reporting.
     /// </summary>
-    private async Task SampleContainerAsync(CancellationToken stoppingToken)
+    private async Task RunStreamingLoopWithReconnectionAsync(
+        string initialContainerId,
+        CancellationToken cancellationToken)
     {
-        // Record timestamp BEFORE the Docker API call
-        // This ensures the timestamp reflects when we started sampling, not when we finished
-        // (Docker API calls can take 1-3 seconds)
-        var sampleTimestamp = DateTime.UtcNow;
+        var currentContainerId = initialContainerId;
 
-        var stats = await _dockerClient.GetContainerStatsAsync(
-            _containerName,
-            stoppingToken);
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            // === REPORT: Connecting ===
+            _progress?.Report(DockerMonitorPhaseInfo.Starting(
+                DockerMonitorPhase.StreamConnecting,
+                _containerName,
+                message: _consecutiveFailures > 0
+                    ? $"Reconnecting to {_containerName} (attempt {_consecutiveFailures + 1})..."
+                    : $"Connecting to {_containerName}..."));
+
+            // Create fresh TCS for this connection attempt
+            var connectionSuccessTcs = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _pendingConnectionSuccess = connectionSuccessTcs;
+            _hasReceivedValidStats = false;
+
+            try
+            {
+                // Start streaming in nested task so we can race against success signal
+                using var streamCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                var streamTask = Task.Run(async () =>
+                {
+                    await _dockerClient.StartStatsStreamAsync(
+                        currentContainerId,
+                        OnStatsReceived,
+                        streamCts.Token);
+                }, cancellationToken);
+
+                // Race: connection success vs stream failure
+                var completedTask = await Task.WhenAny(
+                    connectionSuccessTcs.Task,
+                    streamTask);
+
+                if (completedTask == connectionSuccessTcs.Task
+                    && connectionSuccessTcs.Task.IsCompletedSuccessfully)
+                {
+                    // === REPORT: Connected ===
+                    var wasReconnecting = _consecutiveFailures > 0;
+                    _progress?.Report(DockerMonitorPhaseInfo.Completed(
+                        DockerMonitorPhase.StreamConnected,
+                        _containerName,
+                        message: wasReconnecting
+                            ? $"Reconnected to {_containerName}"
+                            : $"Connected to {_containerName}"));
+
+                    // Reset failure tracking on successful connection
+                    _consecutiveFailures = 0;
+                    lock (_backoffLock)
+                    {
+                        _currentBackoffDelay = StreamingConstants.InitialReconnectDelay;
+                    }
+
+                    // Now wait for stream to end (cancellation or error)
+                    try
+                    {
+                        await streamTask;
+                        // Stream ended without exception (unexpected for Stream=true)
+                        _logger.LogWarning(
+                            "Stats stream ended unexpectedly for container {ContainerName}",
+                            _containerName);
+                        break;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Normal shutdown - exit loop
+                        break;
+                    }
+                    // Other exceptions fall through to outer catch for reconnection
+                }
+                else
+                {
+                    // Stream task completed before success signal - must be error
+                    await streamTask; // Re-throws the exception
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Streaming cancelled for container {ContainerName}", _containerName);
+                break;
+            }
+            catch (Exception ex)
+            {
+                _consecutiveFailures++;
+                _dockerClient.InvalidateContainerCache(_containerName);
+
+                if (_consecutiveFailures > StreamingConstants.MaxReconnectAttempts)
+                {
+                    // === REPORT: Failed Permanently ===
+                    _logger.LogError(ex,
+                        "Streaming failed permanently after {Failures} attempts for container {ContainerName}",
+                        _consecutiveFailures, _containerName);
+
+                    _progress?.Report(DockerMonitorPhaseInfo.Failed(
+                        DockerMonitorPhase.StreamFailed,
+                        _containerName,
+                        message: $"Connection failed permanently after {_consecutiveFailures} attempts"));
+
+                    _streamingFailed = true;
+                    break;
+                }
+
+                // Calculate backoff delay
+                TimeSpan delayToUse;
+                lock (_backoffLock)
+                {
+                    delayToUse = _currentBackoffDelay;
+                    var jitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 500));
+                    _currentBackoffDelay = TimeSpan.FromTicks(Math.Min(
+                        _currentBackoffDelay.Ticks * 2,
+                        StreamingConstants.MaxReconnectDelay.Ticks)) + jitter;
+                }
+
+                // === REPORT: Disconnected (will retry) ===
+                _logger.LogWarning(ex,
+                    "Stream disconnected for container {ContainerName}, " +
+                    "reconnecting in {Delay:F1}s (attempt {Count}/{Max})",
+                    _containerName, delayToUse.TotalSeconds,
+                    _consecutiveFailures, StreamingConstants.MaxReconnectAttempts);
+
+                _progress?.Report(DockerMonitorPhaseInfo.Failed(
+                    DockerMonitorPhase.StreamDisconnected,
+                    _containerName,
+                    message: $"Disconnected, retrying in {delayToUse.TotalSeconds:F1}s " +
+                             $"(attempt {_consecutiveFailures}/{StreamingConstants.MaxReconnectAttempts})"));
+
+                try
+                {
+                    await Task.Delay(delayToUse, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+
+                // Try to resolve new container ID (may have restarted)
+                var newContainerId = await _dockerClient.GetContainerIdAsync(
+                    _containerName, cancellationToken);
+
+                if (newContainerId == null)
+                {
+                    _logger.LogWarning(
+                        "Container {ContainerName} not found during reconnection",
+                        _containerName);
+                    // Continue loop - will increment failure count on next iteration
+                    continue;
+                }
+
+                currentContainerId = newContainerId;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handles stats pushed by Docker. Signals connection success via TCS.
+    /// Does NOT report phases - that's the streaming loop's responsibility.
+    /// </summary>
+    private void OnStatsReceived(ContainerStatsResponse stats)
+    {
+        // Validate first stats (PreCPUStats must be valid for CPU calculation)
+        if (!_hasReceivedValidStats)
+        {
+            if (!DockerClientWrapper.HasValidPreCpuStats(stats))
+            {
+                _logger.LogDebug(
+                    "Skipping stats with invalid PreCPUStats for container {ContainerName}",
+                    _containerName);
+                return;
+            }
+
+            _hasReceivedValidStats = true;
+
+            // Signal to ExecuteAsync that we can start sampling
+            _firstValidStatsReceived.TrySetResult();
+
+            // Signal to streaming loop that connection succeeded
+            // (streaming loop will report the StreamConnected phase)
+            _pendingConnectionSuccess?.TrySetResult();
+        }
+
+        // Store latest stats for sampling loop to read
+        lock (_statsLock)
+        {
+            _latestStats = stats;
+            _latestStatsTimestamp = DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// Takes a sample from the latest streamed stats.
+    /// Called from the sampling loop on a periodic timer.
+    /// Does NOT report phases - sampling is an internal implementation detail.
+    /// </summary>
+    private void TakeSample()
+    {
+        ContainerStatsResponse? stats;
+        DateTime timestamp;
+
+        lock (_statsLock)
+        {
+            stats = _latestStats;
+            timestamp = _latestStatsTimestamp;
+        }
 
         if (stats == null)
         {
-            // Container not found - log and continue
-            // This allows container to start after monitor
-            // Still signal first sample to avoid blocking StartMonitoringAsync
-            _logger.LogWarning("Container {ContainerName} not found, skipping sample",
-                _containerName);
-            _firstSampleCollected.TrySetResult();
-
-            // Report phase: ContainerNotFound/Completed
-            _progress?.Report(DockerMonitorPhaseInfo.Completed(
-                DockerMonitorPhase.ContainerNotFound,
-                _containerName,
-                message: $"Container {_containerName} not found"));
+            _logger.LogDebug("No stats available for container {ContainerName}, skipping sample", _containerName);
             return;
         }
 
-        // Calculate metrics
+        // Check if stats are stale (stream may have disconnected)
+        var statsAge = DateTime.UtcNow - timestamp;
+        if (statsAge > StreamingConstants.StaleStatsThreshold)
+        {
+            _logger.LogWarning("Stats for container {ContainerName} are stale ({Age:F1}s old)",
+                _containerName, statsAge.TotalSeconds);
+        }
+
         var metrics = new DockerMetrics
         {
-            Timestamp = sampleTimestamp,
+            Timestamp = DateTime.UtcNow,
             ContainerId = stats.ID,
             ContainerName = _containerName,
             CpuPercent = DockerClientWrapper.CalculateCpuPercent(stats),
             MemoryMB = Math.Round(stats.MemoryStats.Usage / 1024.0 / 1024.0, 2)
         };
 
-        // Store metrics directly (thread-safe)
         _collectedMetrics.Add(metrics);
 
-        var currentCount = _collectedMetrics.Count;
-
-        // Signal first sample and report phases
-        var isFirstSample = _firstSampleCollected.TrySetResult();
-        if (isFirstSample)
-        {
-            _progress?.Report(DockerMonitorPhaseInfo.Completed(
-                DockerMonitorPhase.FirstSampleCollected,
-                _containerName,
-                sampleCount: currentCount,
-                message: $"First sample collected for {_containerName}"));
-        }
-
-        // Always report SampleCollected with current count
-        _progress?.Report(DockerMonitorPhaseInfo.Completed(
-            DockerMonitorPhase.SampleCollected,
-            _containerName,
-            sampleCount: currentCount,
-            message: $"Sample #{currentCount} collected"));
+        // Signal first sample (unblocks StartMonitoringAsync)
+        _firstSampleCollected.TrySetResult();
 
         _logger.LogDebug(
-            "Sample #{SampleCount} for container {ContainerName} at {Timestamp:HH:mm:ss.fff} - CPU: {Cpu}%, Memory: {Memory}MB",
-            currentCount, _containerName, metrics.Timestamp, metrics.CpuPercent, metrics.MemoryMB);
-    }
-
-    /// <summary>
-    /// Attempts to collect a final sample when the monitor is being stopped.
-    /// Uses a fresh cancellation token with a 5-second timeout to avoid getting stuck.
-    /// This ensures we capture data even when the original cancellation token was triggered
-    /// while a Docker API call was in flight.
-    /// </summary>
-    private async Task TryCollectFinalSampleAsync()
-    {
-        try
-        {
-            using var finalSampleCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-
-            var sampleTimestamp = DateTime.UtcNow;
-            var stats = await _dockerClient.GetContainerStatsAsync(_containerName, finalSampleCts.Token);
-
-            if (stats == null)
-            {
-                _logger.LogDebug(
-                    "Container {ContainerName} not found for final sample",
-                    _containerName);
-                return;
-            }
-
-            var metrics = new DockerMetrics
-            {
-                Timestamp = sampleTimestamp,
-                ContainerId = stats.ID,
-                ContainerName = _containerName,
-                CpuPercent = DockerClientWrapper.CalculateCpuPercent(stats),
-                MemoryMB = Math.Round(stats.MemoryStats.Usage / 1024.0 / 1024.0, 2)
-            };
-
-            _collectedMetrics.Add(metrics);
-
-            _logger.LogInformation(
-                "Final sample #{SampleCount} collected for container {ContainerName} at {Timestamp:HH:mm:ss.fff} - CPU: {Cpu}%, Memory: {Memory}MB",
-                _collectedMetrics.Count, _containerName, metrics.Timestamp, metrics.CpuPercent, metrics.MemoryMB);
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogWarning(
-                "Final sample collection timed out for container {ContainerName}",
-                _containerName);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Failed to collect final sample for container {ContainerName}",
-                _containerName);
-        }
+            "Sample #{Count} for container {ContainerName} - CPU: {Cpu}%, Memory: {Memory}MB",
+            _collectedMetrics.Count, _containerName, metrics.CpuPercent, metrics.MemoryMB);
     }
 }

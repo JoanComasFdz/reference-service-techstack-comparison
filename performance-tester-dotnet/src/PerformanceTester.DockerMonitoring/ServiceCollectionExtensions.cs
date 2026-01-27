@@ -15,14 +15,15 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">Service collection.</param>
     /// <param name="containerName">Name of container to monitor (e.g., "performancetest-rabbitmq").</param>
-    /// <param name="samplingInterval">How often to sample metrics (default: 3000ms).</param>
+    /// <param name="samplingInterval">How often to sample metrics (default: 500ms to match process monitoring).</param>
     /// <returns>Service collection for chaining.</returns>
     public static IServiceCollection AddDockerMonitoring(
         this IServiceCollection services,
         string containerName,
         TimeSpan? samplingInterval = null)
     {
-        var interval = samplingInterval ?? TimeSpan.FromMilliseconds(3000);
+        // Changed from 3000ms to 500ms (matches process monitoring)
+        var interval = samplingInterval ?? TimeSpan.FromMilliseconds(500);
 
         // Register Docker client wrapper (shared across all container monitors)
         // Only register once if not already registered

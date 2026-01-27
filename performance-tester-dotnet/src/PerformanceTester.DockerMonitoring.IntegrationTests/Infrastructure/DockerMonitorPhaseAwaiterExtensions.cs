@@ -82,33 +82,52 @@ public static class DockerMonitorPhaseAwaiterExtensions
     }
 
     /// <summary>
-    /// Asserts that at least the specified number of samples were collected for a container.
+    /// Asserts that a specific phase was received for a container.
     /// </summary>
-    public static void AssertSampleCountAtLeast(
+    public static void AssertPhaseReceived(
         this DockerMonitorPhaseAwaiter awaiter,
         string containerName,
-        int minimumCount)
+        DockerMonitorPhase phase)
     {
-        var currentCount = awaiter.GetSampleCount(containerName);
-        Assert.True(
-            currentCount >= minimumCount,
-            $"Expected at least {minimumCount} samples for {containerName}, but got {currentCount}");
+        var found = awaiter.ReceivedPhases.Any(p =>
+            p.ContainerName == containerName &&
+            p.Phase == phase);
+
+        if (!found)
+        {
+            var actualPhases = string.Join(", ", awaiter.ReceivedPhases
+                .Where(p => p.ContainerName == containerName)
+                .Select(p => $"{p.Phase}/{p.State}"));
+
+            throw new Xunit.Sdk.XunitException(
+                $"Expected phase '{phase}' for container '{containerName}' was not received. " +
+                $"Actual phases: [{actualPhases}]");
+        }
     }
 
     /// <summary>
-    /// Asserts that the ContainerNotFound phase was received for a specific container.
+    /// Asserts that a specific phase with a specific state was received for a container.
     /// </summary>
-    public static void AssertContainerNotFoundReceived(
+    public static void AssertPhaseReceived(
         this DockerMonitorPhaseAwaiter awaiter,
-        string containerName)
+        string containerName,
+        DockerMonitorPhase phase,
+        DockerMonitorPhaseState state)
     {
-        var received = awaiter.ReceivedPhases;
-        var found = received.Any(p =>
+        var found = awaiter.ReceivedPhases.Any(p =>
             p.ContainerName == containerName &&
-            p.Phase == DockerMonitorPhase.ContainerNotFound);
+            p.Phase == phase &&
+            p.State == state);
 
-        Assert.True(found,
-            $"Expected ContainerNotFound phase for {containerName}, but it was not received. " +
-            $"Received phases: [{string.Join(", ", received.Select(p => $"{p.ContainerName}:{p.Phase}/{p.State}"))}]");
+        if (!found)
+        {
+            var actualPhases = string.Join(", ", awaiter.ReceivedPhases
+                .Where(p => p.ContainerName == containerName)
+                .Select(p => $"{p.Phase}/{p.State}"));
+
+            throw new Xunit.Sdk.XunitException(
+                $"Expected phase '{phase}/{state}' for container '{containerName}' was not received. " +
+                $"Actual phases: [{actualPhases}]");
+        }
     }
 }

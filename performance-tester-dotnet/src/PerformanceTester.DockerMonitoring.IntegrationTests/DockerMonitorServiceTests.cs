@@ -9,7 +9,8 @@ namespace PerformanceTester.DockerMonitoring.IntegrationTests;
 
 /// <summary>
 /// Integration tests for DockerMonitorService BackgroundService.
-/// Tests lifecycle management and metrics collection with real Docker containers.
+/// Tests lifecycle management and metrics collection with real Docker containers
+/// using streaming mode.
 /// </summary>
 public sealed class DockerMonitorServiceTests : IntegrationTest
 {
@@ -26,10 +27,15 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         // Act
         await System.StartMonitoringAsync(phaseAwaiter);
 
-        // Wait for at least 1 sample from each container (deterministic)
-        await phaseAwaiter.WaitForSampleCountAsync(
-            ["performance-tester-postgres", "performance-tester-rabbitmq"],
-            minimumSampleCount: 1);
+        // Wait for connection (lifecycle phase)
+        await phaseAwaiter.WaitForPhaseAsync(
+            "performance-tester-postgres",
+            DockerMonitorPhase.StreamConnected,
+            DockerMonitorPhaseState.Completed);
+
+        // Wait for samples (explicit, per-monitor)
+        await System.PostgresMonitor.WaitForSampleCountAsync(1);
+        await System.RabbitMqMonitor.WaitForSampleCountAsync(1);
 
         await System.StopMonitoringAsync();
 
@@ -48,10 +54,9 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
         await System.StartMonitoringAsync(phaseAwaiter);
 
-        // Wait for first sample (deterministic, no polling)
-        await phaseAwaiter.WaitForSampleCountAsync(
-            ["performance-tester-postgres", "performance-tester-rabbitmq"],
-            minimumSampleCount: 1);
+        // Wait for first sample (explicit, per-monitor)
+        await System.PostgresMonitor.WaitForSampleCountAsync(1);
+        await System.RabbitMqMonitor.WaitForSampleCountAsync(1);
 
         // Act
         await System.StopMonitoringAsync();
@@ -71,9 +76,9 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
         await System.StartMonitoringAsync(phaseAwaiter);
 
-        // Act - Wait for exactly 3 samples (enough to verify interval collection)
-        await phaseAwaiter.WaitForSampleCountAsync("performance-tester-postgres", minimumSampleCount: 3);
-        await phaseAwaiter.WaitForSampleCountAsync("performance-tester-rabbitmq", minimumSampleCount: 3);
+        // Act - Wait for exactly 3 samples (explicit, per-monitor)
+        await System.PostgresMonitor.WaitForSampleCountAsync(3);
+        await System.RabbitMqMonitor.WaitForSampleCountAsync(3);
 
         await System.StopMonitoringAsync();
 
@@ -96,19 +101,21 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         // Act - should not throw
         await host.StartAsync();
 
-        // FIX: Actually trigger the monitor to start (was missing in original test!)
+        // Trigger the monitor to start
         await nonexistentContainerMonitor.StartMonitoringAsync(phaseAwaiter);
 
-        // Wait for ContainerNotFound phase (deterministic)
+        // Wait for StreamFailed phase (container not found is now reported as StreamFailed)
         await phaseAwaiter.WaitForPhaseAsync(
             "nonexistent-container",
-            DockerMonitorPhase.ContainerNotFound,
-            DockerMonitorPhaseState.Completed);
+            DockerMonitorPhase.StreamFailed,
+            DockerMonitorPhaseState.Failed);
 
         await host.StopAsync();
 
         // Assert - verify the phase was received and no metrics collected
-        phaseAwaiter.AssertContainerNotFoundReceived("nonexistent-container");
+        phaseAwaiter.AssertPhaseReceived(
+            "nonexistent-container",
+            DockerMonitorPhase.StreamFailed);
         Asserting.That(nonexistentContainerMonitor).HasNotCollectedMetrics();
     }
 
@@ -120,9 +127,8 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         await System.StartMonitoringAsync(phaseAwaiter);
 
         // Wait for at least 1 sample to validate CPU calculations
-        await phaseAwaiter.WaitForSampleCountAsync(
-            ["performance-tester-postgres", "performance-tester-rabbitmq"],
-            minimumSampleCount: 1);
+        await System.PostgresMonitor.WaitForSampleCountAsync(1);
+        await System.RabbitMqMonitor.WaitForSampleCountAsync(1);
 
         await System.StopMonitoringAsync();
 
@@ -139,9 +145,8 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         await System.StartMonitoringAsync(phaseAwaiter);
 
         // Wait for at least 1 sample to validate memory calculations
-        await phaseAwaiter.WaitForSampleCountAsync(
-            ["performance-tester-postgres", "performance-tester-rabbitmq"],
-            minimumSampleCount: 1);
+        await System.PostgresMonitor.WaitForSampleCountAsync(1);
+        await System.RabbitMqMonitor.WaitForSampleCountAsync(1);
 
         await System.StopMonitoringAsync();
 
@@ -158,14 +163,59 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         await System.StartMonitoringAsync(phaseAwaiter);
 
         // Wait for at least 2 samples to verify chronological order
-        await phaseAwaiter.WaitForSampleCountAsync(
-            ["performance-tester-postgres", "performance-tester-rabbitmq"],
-            minimumSampleCount: 2);
+        await System.PostgresMonitor.WaitForSampleCountAsync(2);
+        await System.RabbitMqMonitor.WaitForSampleCountAsync(2);
 
         await System.StopMonitoringAsync();
 
         // Assert
         Asserting.That(System.PostgresMonitor).HasMetricsInChronologicalOrder();
         Asserting.That(System.RabbitMqMonitor).HasMetricsInChronologicalOrder();
+    }
+
+    [Fact]
+    public async Task ShouldReportStreamConnectedPhase()
+    {
+        // Arrange
+        var phaseAwaiter = new DockerMonitorPhaseAwaiter();
+
+        // Act
+        await System.StartMonitoringAsync(phaseAwaiter);
+
+        await phaseAwaiter.WaitForPhaseAsync(
+            "performance-tester-postgres",
+            DockerMonitorPhase.StreamConnected,
+            DockerMonitorPhaseState.Completed);
+
+        await System.StopMonitoringAsync();
+
+        // Assert - verify lifecycle phases were received
+        phaseAwaiter.AssertPhaseReceived(
+            "performance-tester-postgres",
+            DockerMonitorPhase.StreamConnecting);
+        phaseAwaiter.AssertPhaseReceived(
+            "performance-tester-postgres",
+            DockerMonitorPhase.StreamConnected);
+    }
+
+    [Fact]
+    public async Task ShouldReportMonitoringCompletedOnNormalShutdown()
+    {
+        // Arrange
+        var phaseAwaiter = new DockerMonitorPhaseAwaiter();
+        await System.StartMonitoringAsync(phaseAwaiter);
+
+        await System.PostgresMonitor.WaitForSampleCountAsync(2);
+
+        // Act
+        await System.StopMonitoringAsync();
+
+        // Allow time for completion phase to be reported
+        await Task.Delay(100);
+
+        // Assert
+        phaseAwaiter.AssertPhaseReceived(
+            "performance-tester-postgres",
+            DockerMonitorPhase.MonitoringCompleted);
     }
 }

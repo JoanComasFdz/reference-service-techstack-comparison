@@ -2,6 +2,7 @@ namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
 /// Represents the phases in Docker container monitoring lifecycle.
+/// These are high-level lifecycle phases, not internal implementation details.
 /// </summary>
 public enum DockerMonitorPhase
 {
@@ -11,24 +12,30 @@ public enum DockerMonitorPhase
     MonitoringRequested,
 
     /// <summary>
-    /// First metrics sample has been collected.
+    /// Attempting to connect to Docker stats stream.
     /// </summary>
-    FirstSampleCollected,
+    StreamConnecting,
 
     /// <summary>
-    /// A sample has been collected (reported after each sample).
+    /// Successfully connected and receiving stats from Docker.
     /// </summary>
-    SampleCollected,
+    StreamConnected,
 
     /// <summary>
-    /// Container was not found during sampling.
+    /// Connection to Docker lost, will attempt reconnection.
     /// </summary>
-    ContainerNotFound,
+    StreamDisconnected,
 
     /// <summary>
-    /// Monitoring has stopped.
+    /// Connection failed permanently (max retries exceeded, container not found, etc.).
+    /// Check the Message property for details.
     /// </summary>
-    MonitoringStopped
+    StreamFailed,
+
+    /// <summary>
+    /// Monitoring completed successfully (normal shutdown).
+    /// </summary>
+    MonitoringCompleted
 }
 
 /// <summary>
@@ -61,7 +68,7 @@ public enum DockerMonitorPhaseState
 /// <param name="Phase">The phase that is transitioning.</param>
 /// <param name="State">The state of the transition (Starting, Completed, Failed).</param>
 /// <param name="ContainerName">Name of the container being monitored.</param>
-/// <param name="SampleCount">Current total sample count (for SampleCollected phase).</param>
+/// <param name="SampleCount">Current total sample count.</param>
 /// <param name="Message">Optional descriptive message.</param>
 /// <param name="Timestamp">When the phase occurred.</param>
 public readonly record struct DockerMonitorPhaseInfo(
