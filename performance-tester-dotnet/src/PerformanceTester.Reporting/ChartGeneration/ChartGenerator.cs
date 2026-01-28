@@ -28,6 +28,10 @@ internal sealed class ChartGenerator : IChartGenerator
     private const int PlotHeight = 480;
     private const int ThroughputPlotHeight = 580; // Taller to fit 2 legend items with stats
 
+    // Font configuration - use DejaVu Sans for cross-platform consistency
+    // (SkiaSharp on some Linux systems doesn't use fontconfig properly)
+    private const string ChartFontName = "DejaVu Sans";
+
     public ChartGenerator(ILogger<ChartGenerator> logger)
     {
         _logger = logger;
@@ -130,12 +134,14 @@ internal sealed class ChartGenerator : IChartGenerator
         var title = $"Performance Metrics - {testReport.MonitoredProcess.Name} - {humanDate} at {humanTime}";
         plots[0].Axes.Title.Label.Text = title;
         plots[0].Axes.Title.Label.FontSize = 36;
+        plots[0].Axes.Title.Label.FontName = ChartFontName;
         plots[0].Axes.Title.Label.Bold = true;
 
         // Only show X-axis label on bottom plot
         plots[4].Axes.Bottom.Label.Text = "Time";
         plots[4].Axes.Bottom.Label.Bold = true;
         plots[4].Axes.Bottom.Label.FontSize = 26;
+        plots[4].Axes.Bottom.Label.FontName = ChartFontName;
 
         // Configure tick label rotation (45 degrees) on the bottom plot only
         plots[4].Axes.Bottom.TickLabelStyle.Rotation = 45;
@@ -170,6 +176,7 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Axes.Left.Label.Text = "Throughput (per second)";
         plot.Axes.Left.Label.Bold = true;
         plot.Axes.Left.Label.FontSize = 26;
+        plot.Axes.Left.Label.FontName = ChartFontName;
 
         // Enable grid (Y-axis only)
         plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#cccccc").WithAlpha(0.3);
@@ -245,6 +252,7 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Legend.OutlineColor = Colors.Transparent;
         plot.Legend.ShadowColor = Colors.Transparent;
         plot.Legend.FontSize = 22;
+        plot.Legend.FontName = ChartFontName;
         plot.Legend.Orientation = Orientation.Vertical;
         plot.Legend.InterItemPadding = new PixelPadding(0, 0, 15, 0); // Add vertical spacing between items
         plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 50));
@@ -282,11 +290,13 @@ internal sealed class ChartGenerator : IChartGenerator
             plot.Axes.Left.Label.ForeColor = cpuColor;
             plot.Axes.Left.Label.Bold = true;
             plot.Axes.Left.Label.FontSize = 26;
+            plot.Axes.Left.Label.FontName = ChartFontName;
 
             plot.Axes.Right.Label.Text = ramLabel;
             plot.Axes.Right.Label.ForeColor = ramColor;
             plot.Axes.Right.Label.Bold = true;
             plot.Axes.Right.Label.FontSize = 26;
+            plot.Axes.Right.Label.FontName = ChartFontName;
 
             // Enable grid (Y-axis only)
             plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#cccccc").WithAlpha(0.3);
@@ -296,6 +306,7 @@ internal sealed class ChartGenerator : IChartGenerator
             plot.Legend.OutlineColor = Colors.Transparent;
             plot.Legend.ShadowColor = Colors.Transparent;
             plot.Legend.FontSize = 22;
+            plot.Legend.FontName = ChartFontName;
             plot.Legend.Orientation = Orientation.Vertical;
             plot.Legend.InterItemPadding = new PixelPadding(0, 0, 15, 0);
 
@@ -310,6 +321,7 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Axes.Left.Label.ForeColor = cpuColor;
         plot.Axes.Left.Label.Bold = true;
         plot.Axes.Left.Label.FontSize = 26;
+        plot.Axes.Left.Label.FontName = ChartFontName;
 
         var timestamps = data.Samples
             .Select(s => DateTime.Parse(s.Timestamp).ToOADate())
@@ -368,6 +380,7 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Axes.Right.Label.ForeColor = ramColor;
         plot.Axes.Right.Label.Bold = true;
         plot.Axes.Right.Label.FontSize = 26;
+        plot.Axes.Right.Label.FontName = ChartFontName;
 
         // Enable grid (Y-axis only)
         plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#cccccc").WithAlpha(0.3);
@@ -377,6 +390,7 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Legend.OutlineColor = Colors.Transparent;
         plot.Legend.ShadowColor = Colors.Transparent;
         plot.Legend.FontSize = 22;
+        plot.Legend.FontName = ChartFontName;
         plot.Legend.Orientation = Orientation.Vertical;
         plot.Legend.InterItemPadding = new PixelPadding(0, 0, 15, 0); // Add vertical spacing between items
         plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 50));
@@ -431,6 +445,7 @@ internal sealed class ChartGenerator : IChartGenerator
         var consumeText = plot.Add.Text(consumeLabel, consumeMidTime.ToOADate(), labelYPosition);
         consumeText.LabelFontColor = ChartColors.ConsumePhase;
         consumeText.LabelFontSize = 22;
+        consumeText.LabelFontName = ChartFontName;
         consumeText.LabelBold = true;
         consumeText.LabelAlignment = Alignment.UpperCenter;
 
@@ -447,6 +462,7 @@ internal sealed class ChartGenerator : IChartGenerator
         var apiText = plot.Add.Text(apiLabel, apiMidTime.ToOADate(), labelYPosition);
         apiText.LabelFontColor = ChartColors.ApiPhase;
         apiText.LabelFontSize = 22;
+        apiText.LabelFontName = ChartFontName;
         apiText.LabelBold = true;
         apiText.LabelAlignment = Alignment.UpperCenter;
     }
