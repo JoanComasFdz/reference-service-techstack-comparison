@@ -21,6 +21,7 @@ internal sealed class ApiLoadTestService : IApiLoadTester
         TimeSpan duration,
         int virtualUsers,
         int maxConsecutiveFailures = 3,
+        string? scriptDirectory = null,
         CancellationToken cancellationToken = default)
     {
         // Validate parameters
@@ -47,7 +48,14 @@ internal sealed class ApiLoadTestService : IApiLoadTester
         var scriptContent = K6ScriptGenerator.GenerateScript(targetUrl, durationString, virtualUsers, maxConsecutiveFailures);
 
         // Write script to temporary file
-        var scriptPath = Path.Combine(Path.GetTempPath(), $"k6-script-{Guid.NewGuid():N}.js");
+        // Use provided directory, or fall back to user's home directory (avoids /tmp which snap can't access)
+        var scriptDir = scriptDirectory ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".cache",
+            "performance-tester",
+            "k6");
+        Directory.CreateDirectory(scriptDir);
+        var scriptPath = Path.Combine(scriptDir, $"k6-script-{Guid.NewGuid():N}.js");
         await File.WriteAllTextAsync(scriptPath, scriptContent, cancellationToken);
         _logger.LogInformation("✓ Generated k6 script: {ScriptPath}", scriptPath);
 

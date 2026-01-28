@@ -474,6 +474,7 @@ public class TestOrchestrator : ITestOrchestrator
             config.ApiDurationOrDefault,
             config.ApiWorkers,
             config.MaxConsecutiveApiFailures,
+            config.ResultsFolder,
             cancellationToken);
 
         var endTime = DateTime.UtcNow;
