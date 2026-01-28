@@ -343,9 +343,11 @@ check_mise_tools() {
         print_info "Install with: mise install bun@1.3.1"
     fi
 
-    # Check .NET (installed via Dockerfile, not mise)
+    # Check .NET (managed by mise)
     print_info "Checking .NET 9..."
-    if command -v dotnet &> /dev/null; then
+    if mise list dotnet 2>/dev/null | grep -q "dotnet"; then
+        check_tool_version "dotnet" "9.0" "dotnet --version"
+    elif command -v dotnet &> /dev/null; then
         local dotnet_version
         dotnet_version=$(dotnet --version 2>/dev/null)
         if [[ "$dotnet_version" == 9.* ]]; then
@@ -355,7 +357,7 @@ check_mise_tools() {
         fi
     else
         print_failure ".NET is not installed"
-        print_info "Rebuild container to install .NET SDK"
+        print_info "Install with: mise install dotnet@9.0.306"
     fi
 }
 
@@ -415,12 +417,16 @@ check_mise_runtime_management() {
         fi
     fi
 
-    # Test .NET runtime management (system installation)
+    # Test .NET runtime management
     print_info "Testing .NET runtime management..."
     if command -v dotnet &> /dev/null; then
-        local dotnet_root="${DOTNET_ROOT:-/usr/share/dotnet}"
-        if [[ -d "$dotnet_root" ]]; then
-            print_success "DOTNET_ROOT: $dotnet_root (system)"
+        local dotnet_root="${DOTNET_ROOT:-}"
+        if [[ -n "$dotnet_root" ]] && [[ -d "$dotnet_root" ]]; then
+            if mise list dotnet 2>/dev/null | grep -q "dotnet"; then
+                print_success "DOTNET_ROOT: $dotnet_root (mise)"
+            else
+                print_success "DOTNET_ROOT: $dotnet_root (system)"
+            fi
         else
             print_info "DOTNET_ROOT not explicitly set (using default)"
         fi

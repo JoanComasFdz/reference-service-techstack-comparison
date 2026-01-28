@@ -254,6 +254,30 @@ install_all_mise_tools() {
         return 1
     fi
 
+    # If system dotnet 9.x is already available (e.g., devcontainer), tell mise
+    # to skip it via .mise.local.toml so we don't redundantly download ~500MB
+    if command -v dotnet &>/dev/null && [[ "$(dotnet --version 2>/dev/null)" == 9.* ]]; then
+        log_info "dotnet $(dotnet --version) available on system, configuring mise to skip dotnet install"
+        local local_config="${ROOT_DIR}/.mise.local.toml"
+
+        if [[ -f "$local_config" ]] && grep -q 'disable_tools.*dotnet' "$local_config"; then
+            log_info "mise already configured to skip dotnet in .mise.local.toml"
+        elif [[ -f "$local_config" ]] && grep -q '\[settings\]' "$local_config"; then
+            # Settings section exists, add disable_tools under it
+            sed -i '/\[settings\]/a disable_tools = ["dotnet"]' "$local_config"
+            log "✓ Updated .mise.local.toml to skip dotnet installation"
+        else
+            # Create or append settings section
+            {
+                echo ""
+                echo "# Auto-generated: system dotnet detected, skipping mise dotnet install"
+                echo "[settings]"
+                echo 'disable_tools = ["dotnet"]'
+            } >> "$local_config"
+            log "✓ Created .mise.local.toml to skip dotnet installation"
+        fi
+    fi
+
     # Install all tools defined in .mise.toml
     log_info "Running: mise install"
     log_info "This may take several minutes depending on your connection..."
