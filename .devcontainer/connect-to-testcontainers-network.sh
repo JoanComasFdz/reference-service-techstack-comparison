@@ -5,7 +5,40 @@
 set -e
 
 NETWORK_NAME="performance-tester-testcontainers-network"
-CONTAINER_NAME="reference-service-techstack-comparison"
+
+# Get the current container ID dynamically using multiple methods
+# Method 1: cgroup v1 format (older Docker/containerd)
+if [ -z "$CONTAINER_ID" ] && [ -f /proc/self/cgroup ]; then
+    CONTAINER_ID=$(grep -oE '[0-9a-f]{64}' /proc/self/cgroup 2>/dev/null | head -1)
+fi
+
+# Method 2: cgroup v2 format - look in mountinfo
+if [ -z "$CONTAINER_ID" ] && [ -f /proc/self/mountinfo ]; then
+    CONTAINER_ID=$(grep -oE '/docker/containers/[0-9a-f]{64}' /proc/self/mountinfo 2>/dev/null | head -1 | grep -oE '[0-9a-f]{64}')
+fi
+
+# Method 3: cpuset file
+if [ -z "$CONTAINER_ID" ] && [ -f /proc/1/cpuset ]; then
+    CONTAINER_ID=$(grep -oE '[0-9a-f]{64}' /proc/1/cpuset 2>/dev/null | head -1)
+fi
+
+# Method 4: Query Docker socket directly for container with our hostname
+if [ -z "$CONTAINER_ID" ] && [ -S /var/run/docker.sock ]; then
+    MY_HOSTNAME=$(hostname)
+    CONTAINER_ID=$(docker inspect --format '{{.Id}}' "$MY_HOSTNAME" 2>/dev/null || true)
+fi
+
+# Method 5: Fallback to hostname (often the short container ID)
+if [ -z "$CONTAINER_ID" ]; then
+    CONTAINER_ID=$(hostname)
+fi
+
+if [ -z "$CONTAINER_ID" ]; then
+    echo "ERROR: Could not determine container ID" >&2
+    exit 1
+fi
+
+echo "Detected container ID: $CONTAINER_ID"
 
 # Ensure network exists (create if missing)
 if ! docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
@@ -15,7 +48,7 @@ fi
 
 # Try to connect container to network
 # Capture both stdout and stderr
-OUTPUT=$(docker network connect "$NETWORK_NAME" "$CONTAINER_NAME" 2>&1) || {
+OUTPUT=$(docker network connect "$NETWORK_NAME" "$CONTAINER_ID" 2>&1) || {
     EXIT_CODE=$?
 
     # Check if error is "already connected" or "already exists" (expected, ignore)
@@ -30,4 +63,4 @@ OUTPUT=$(docker network connect "$NETWORK_NAME" "$CONTAINER_NAME" 2>&1) || {
     exit $EXIT_CODE
 }
 
-echo "Successfully connected $CONTAINER_NAME to $NETWORK_NAME"
+echo "Successfully connected $CONTAINER_ID to $NETWORK_NAME"

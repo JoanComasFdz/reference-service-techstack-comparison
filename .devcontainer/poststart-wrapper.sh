@@ -38,13 +38,16 @@ else
 fi
 
 log "Step 3: Running connect-to-testcontainers-network.sh..."
+# Fix docker socket permissions (needed for Windows Docker Desktop)
+sudo /bin/chmod 666 /var/run/docker.sock 2>/dev/null || true
 if bash /workspace/.devcontainer/connect-to-testcontainers-network.sh >> "$LOGFILE" 2>&1; then
     log "✓ connect-to-testcontainers-network.sh completed successfully"
 else
     EXIT_CODE=$?
-    log "✗ connect-to-testcontainers-network.sh FAILED with exit code $EXIT_CODE"
-    log "Check $LOGFILE for details"
-    exit $EXIT_CODE
+    log "⚠ connect-to-testcontainers-network.sh failed with exit code $EXIT_CODE (non-fatal)"
+    log "  Testcontainers network setup is optional - devcontainer will work without it"
+    log "  Check $LOGFILE for details if you need testcontainers support"
+    # Don't exit - this is not critical for devcontainer operation
 fi
 
 log "========================================="
