@@ -295,10 +295,16 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
         else
         {
             // Native Linux: use /proc/stat for CPU and /proc/meminfo for memory
-            // Fail clearly if readers fail - no fallbacks
+            // Fail clearly if readers are not initialized or fail - no fallbacks
+            if (_cpuReader is null)
+                throw new InvalidOperationException("CPU reader not initialized for Linux platform. This indicates a bug in SystemMonitorService initialization.");
+
+            if (_memoryReader is null)
+                throw new InvalidOperationException("Memory reader not initialized for Linux platform. This indicates a bug in SystemMonitorService initialization.");
+
             try
             {
-                cpuPercent = _cpuReader!.Sample();
+                cpuPercent = _cpuReader.Sample();
                 if (double.IsNaN(cpuPercent) || cpuPercent < 0)
                 {
                     throw SystemMonitoringException.LinuxCpuReadFailed();
@@ -315,7 +321,7 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
 
             try
             {
-                var memory = _memoryReader!.Read();
+                var memory = _memoryReader.Read();
                 if (memory.TotalMb <= 0)
                 {
                     throw SystemMonitoringException.LinuxMemoryReadFailed();
