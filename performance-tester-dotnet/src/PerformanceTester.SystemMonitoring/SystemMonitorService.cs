@@ -7,8 +7,10 @@ namespace PerformanceTester.SystemMonitoring;
 /// <summary>
 /// BackgroundService that monitors system-wide CPU and memory usage.
 /// Implements deferred start pattern: waits for StartMonitoringAsync() call.
-/// Uses /proc/stat for CPU and /proc/meminfo for memory.
-/// Has special WSL2 handling for accurate Windows host memory.
+///
+/// Platform behavior:
+/// - Windows native or WSL2: Queries Windows host for both CPU and memory via PowerShell
+/// - Native Linux: Uses /proc/stat for CPU and /proc/meminfo for memory
 /// </summary>
 internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
 {
@@ -31,6 +33,11 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
     /// <inheritdoc />
     public int CpuCount { get; }
 
+    /// <summary>
+    /// Gets whether this system should use Windows queries (native Windows or WSL2).
+    /// </summary>
+    private bool UseWindowsQueries { get; }
+
     public SystemMonitorService(
         TimeSpan samplingInterval,
         ILogger<SystemMonitorService> logger)
@@ -45,9 +52,15 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
         IsWsl2 = Wsl2Detector.IsWsl2();
         CpuCount = Environment.ProcessorCount;
 
-        if (IsWsl2)
+        // Use Windows queries for both Windows native and WSL2
+        UseWindowsQueries = OperatingSystem.IsWindows() || IsWsl2;
+
+        if (UseWindowsQueries)
         {
-            _logger.LogInformation("Detected WSL2 environment - will query Windows host for memory");
+            var environment = OperatingSystem.IsWindows() ? "Windows" : "WSL2";
+            var psPath = PowerShellHelper.GetPowerShellPath();
+            _logger.LogInformation("Detected {Environment} environment - will query Windows host for CPU and memory via {PowerShellPath}",
+                environment, psPath);
         }
     }
 
@@ -94,17 +107,20 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
                 return;
             }
 
-            _logger.LogInformation("SystemMonitor starting, sampling every {IntervalMs}ms, CPU cores: {CpuCount}, WSL2: {IsWsl2}",
+            _logger.LogInformation("SystemMonitor starting, sampling every {IntervalMs}ms, CPU cores: {CpuCount}, UseWindowsQueries: {UseWindows}",
                 _samplingInterval.TotalMilliseconds,
                 CpuCount,
-                IsWsl2);
+                UseWindowsQueries);
 
-            // Initialize readers
-            _cpuReader = new ProcStatReader();
-            _memoryReader = new ProcMeminfoReader();
+            // Always initialize Linux readers (needed as fallback even for Windows/WSL2)
+            if (OperatingSystem.IsLinux())
+            {
+                _cpuReader = new ProcStatReader();
+                _memoryReader = new ProcMeminfoReader();
 
-            // Initialize CPU reader (first sample returns 0.0)
-            _cpuReader.Sample();
+                // Initialize CPU reader (first sample returns 0.0)
+                _cpuReader.Sample();
+            }
 
             _monitoringStartTime = DateTimeOffset.UtcNow;
 
@@ -141,9 +157,30 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
                             message: $"Collected {currentCount} samples"));
                     }
                 }
+                catch (SystemMonitoringException ex)
+                {
+                    // Fatal monitoring error - stop with clear message
+                    _logger.LogError("SYSTEM MONITORING FAILED on {Platform}: {Message}",
+                        ex.Platform, ex.Message);
+                    _logger.LogError("Cannot continue without {MetricType} metrics. Stopping system monitor.", ex.MetricType);
+
+                    _progress?.Report(SystemMonitorPhaseInfo.Failed(
+                        SystemMonitorPhase.MonitoringStopped,
+                        sampleCount: _collectedMetrics.Count,
+                        message: $"FATAL: {ex.Platform} {ex.MetricType} monitoring failed - {ex.Message}"));
+
+                    _firstSampleCollected.TrySetException(ex);
+                    throw; // Re-throw to propagate the failure
+                }
+                catch (OperationCanceledException)
+                {
+                    // Normal cancellation (e.g., test ending) - don't log as error
+                    throw;
+                }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error sampling system metrics");
+                    // Unexpected error - log but continue trying (might be transient)
+                    _logger.LogWarning(ex, "Unexpected error sampling system metrics, will retry next interval");
                 }
             }
 
@@ -151,6 +188,9 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
         }
         catch (OperationCanceledException)
         {
+            // Normal cancellation (e.g., test ending)
+            // Try to collect final sample before stopping
+            await CollectFinalSampleAsync();
             _logger.LogInformation("SystemMonitor cancelled");
         }
         catch (Exception ex)
@@ -178,38 +218,81 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
         var timestamp = DateTimeOffset.UtcNow;
         var elapsedSeconds = (timestamp - _monitoringStartTime).TotalSeconds;
 
-        // Sample CPU from /proc/stat
-        var cpuPercent = _cpuReader!.Sample();
-
-        // Sample memory
+        double cpuPercent;
         double memoryUsedMb, memoryTotalMb, memoryPercent;
 
-        if (IsWsl2)
+        if (UseWindowsQueries)
         {
-            // Query Windows host for accurate memory
-            var windowsMemory = await WindowsMemoryQuery.QueryAsync(cancellationToken);
-            if (windowsMemory != null)
+            // Query Windows host for CPU and memory (in parallel for better performance)
+            var cpuTask = WindowsCpuQuery.QueryAsync(cancellationToken, _logger);
+            var memoryTask = WindowsMemoryQuery.QueryAsync(cancellationToken, _logger);
+            await Task.WhenAll(cpuTask, memoryTask);
+
+            var windowsCpu = await cpuTask;
+            var windowsMemory = await memoryTask;
+
+            // If cancellation was requested, don't treat query failures as errors
+            // (they likely failed due to the cancellation, not a real monitoring issue)
+            if (cancellationToken.IsCancellationRequested)
             {
-                memoryTotalMb = windowsMemory.TotalMb;
-                memoryUsedMb = windowsMemory.UsedMb;
-                memoryPercent = windowsMemory.Percent;
+                cancellationToken.ThrowIfCancellationRequested();
             }
-            else
+
+            // Fail clearly if Windows queries fail - no fallbacks, no 0 values
+            if (!windowsCpu.HasValue)
             {
-                // Fallback to /proc/meminfo if PowerShell fails
-                var linuxMemory = _memoryReader!.Read();
-                memoryTotalMb = linuxMemory.TotalMb;
-                memoryUsedMb = linuxMemory.UsedMb;
-                memoryPercent = linuxMemory.Percent;
+                throw SystemMonitoringException.WindowsCpuQueryFailed(IsWsl2);
             }
+            cpuPercent = windowsCpu.Value;
+
+            if (windowsMemory == null)
+            {
+                throw SystemMonitoringException.WindowsMemoryQueryFailed(IsWsl2);
+            }
+            memoryTotalMb = windowsMemory.TotalMb;
+            memoryUsedMb = windowsMemory.UsedMb;
+            memoryPercent = windowsMemory.Percent;
         }
         else
         {
-            // Native Linux: use /proc/meminfo
-            var memory = _memoryReader!.Read();
-            memoryTotalMb = memory.TotalMb;
-            memoryUsedMb = memory.UsedMb;
-            memoryPercent = memory.Percent;
+            // Native Linux: use /proc/stat for CPU and /proc/meminfo for memory
+            // Fail clearly if readers fail - no fallbacks
+            try
+            {
+                cpuPercent = _cpuReader!.Sample();
+                if (double.IsNaN(cpuPercent) || cpuPercent < 0)
+                {
+                    throw SystemMonitoringException.LinuxCpuReadFailed();
+                }
+            }
+            catch (SystemMonitoringException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw SystemMonitoringException.LinuxCpuReadFailed(ex);
+            }
+
+            try
+            {
+                var memory = _memoryReader!.Read();
+                if (memory.TotalMb <= 0)
+                {
+                    throw SystemMonitoringException.LinuxMemoryReadFailed();
+                }
+                memoryTotalMb = memory.TotalMb;
+                memoryUsedMb = memory.UsedMb;
+                memoryPercent = memory.Percent;
+            }
+            catch (SystemMonitoringException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw SystemMonitoringException.LinuxMemoryReadFailed(ex);
+            }
         }
 
         return new SystemMetrics(
@@ -219,5 +302,41 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
             MemoryUsedMb: memoryUsedMb,
             MemoryTotalMb: memoryTotalMb,
             MemoryPercent: memoryPercent);
+    }
+
+    /// <summary>
+    /// Attempts to collect final samples before stopping.
+    /// Uses a fresh timeout instead of the cancelled token to ensure we get the last measurements.
+    /// Collects 2 samples to ensure enough data points for chart alignment with other monitors.
+    /// </summary>
+    private async Task CollectFinalSampleAsync()
+    {
+        const int finalSampleCount = 2;
+
+        for (var i = 0; i < finalSampleCount; i++)
+        {
+            try
+            {
+                _logger.LogDebug("Collecting final system sample {Current}/{Total} before stopping...", i + 1, finalSampleCount);
+
+                // Use a fresh cancellation token with timeout (not the cancelled one)
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+                var metrics = await SampleMetricsAsync(cts.Token);
+                _collectedMetrics.Add(metrics);
+
+                _logger.LogDebug("Final system sample {Current}/{Total} collected successfully", i + 1, finalSampleCount);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Final sample {Current}/{Total} timed out (15s), stopping", i + 1, finalSampleCount);
+                break; // Stop trying if we timeout
+            }
+            catch (Exception ex)
+            {
+                // Don't fail the shutdown for final samples - just log and continue
+                _logger.LogDebug(ex, "Could not collect final sample {Current}/{Total}, continuing", i + 1, finalSampleCount);
+            }
+        }
     }
 }

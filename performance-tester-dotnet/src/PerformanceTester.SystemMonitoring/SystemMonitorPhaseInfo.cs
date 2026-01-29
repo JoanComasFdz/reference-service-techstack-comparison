@@ -23,11 +23,13 @@ public enum SystemMonitorPhase
 /// </summary>
 /// <param name="Phase">Current phase.</param>
 /// <param name="IsCompleted">Whether the phase is completed.</param>
+/// <param name="IsFailed">Whether the phase failed with an error.</param>
 /// <param name="SampleCount">Number of samples collected so far.</param>
 /// <param name="Message">Optional message.</param>
 public sealed record SystemMonitorPhaseInfo(
     SystemMonitorPhase Phase,
     bool IsCompleted,
+    bool IsFailed = false,
     int SampleCount = 0,
     string? Message = null)
 {
@@ -35,11 +37,17 @@ public sealed record SystemMonitorPhaseInfo(
     /// Creates a starting phase info.
     /// </summary>
     public static SystemMonitorPhaseInfo Starting(SystemMonitorPhase phase, string? message = null) =>
-        new(phase, false, 0, message);
+        new(phase, false, false, 0, message);
 
     /// <summary>
     /// Creates a completed phase info.
     /// </summary>
     public static SystemMonitorPhaseInfo Completed(SystemMonitorPhase phase, int sampleCount = 0, string? message = null) =>
-        new(phase, true, sampleCount, message);
+        new(phase, true, false, sampleCount, message);
+
+    /// <summary>
+    /// Creates a failed phase info.
+    /// </summary>
+    public static SystemMonitorPhaseInfo Failed(SystemMonitorPhase phase, int sampleCount = 0, string? message = null) =>
+        new(phase, false, true, sampleCount, message);
 }
