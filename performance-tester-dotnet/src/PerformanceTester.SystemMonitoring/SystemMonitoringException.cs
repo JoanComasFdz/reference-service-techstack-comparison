@@ -50,9 +50,9 @@ public sealed class SystemMonitoringException : Exception
         new(
             platform: isWsl2 ? "WSL2" : "Windows",
             metricType: "CPU",
-            message: $"Failed to query Windows host CPU usage via PowerShell. " +
-                     $"System monitoring cannot continue without CPU metrics. " +
-                     $"Please verify PowerShell is accessible and Windows host is responsive.");
+            message: "Failed to query Windows host CPU usage via PowerShell. " +
+                     "System monitoring cannot continue without CPU metrics. " +
+                     "Please verify PowerShell is accessible and Windows host is responsive.");
 
     /// <summary>
     /// Creates an exception for Windows/WSL2 memory query failure.
@@ -61,9 +61,9 @@ public sealed class SystemMonitoringException : Exception
         new(
             platform: isWsl2 ? "WSL2" : "Windows",
             metricType: "Memory",
-            message: $"Failed to query Windows host memory usage via PowerShell. " +
-                     $"System monitoring cannot continue without memory metrics. " +
-                     $"Please verify PowerShell is accessible and Windows host is responsive.");
+            message: "Failed to query Windows host memory usage via PowerShell. " +
+                     "System monitoring cannot continue without memory metrics. " +
+                     "Please verify PowerShell is accessible and Windows host is responsive.");
 
     /// <summary>
     /// Creates an exception for Linux /proc/stat CPU read failure.
@@ -72,9 +72,9 @@ public sealed class SystemMonitoringException : Exception
         new(
             platform: "Linux",
             metricType: "CPU",
-            message: $"Failed to read CPU metrics from /proc/stat. " +
-                     $"System monitoring cannot continue without CPU metrics. " +
-                     $"Please verify /proc filesystem is accessible.",
+            message: "Failed to read CPU metrics from /proc/stat. " +
+                     "System monitoring cannot continue without CPU metrics. " +
+                     "Please verify /proc filesystem is accessible.",
             innerException: innerException ?? new InvalidOperationException("CPU reader returned invalid data"));
 
     /// <summary>
@@ -84,8 +84,8 @@ public sealed class SystemMonitoringException : Exception
         new(
             platform: "Linux",
             metricType: "Memory",
-            message: $"Failed to read memory metrics from /proc/meminfo. " +
-                     $"System monitoring cannot continue without memory metrics. " +
-                     $"Please verify /proc filesystem is accessible.",
+            message: "Failed to read memory metrics from /proc/meminfo. " +
+                     "System monitoring cannot continue without memory metrics. " +
+                     "Please verify /proc filesystem is accessible.",
             innerException: innerException ?? new InvalidOperationException("Memory reader returned invalid data"));
 }

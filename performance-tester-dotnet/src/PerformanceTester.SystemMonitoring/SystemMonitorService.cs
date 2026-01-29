@@ -52,15 +52,38 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
         IsWsl2 = Wsl2Detector.IsWsl2();
         CpuCount = Environment.ProcessorCount;
 
-        // Use Windows queries for both Windows native and WSL2
-        UseWindowsQueries = OperatingSystem.IsWindows() || IsWsl2;
-
-        if (UseWindowsQueries)
+        // Container-first detection: containers always use /proc for accurate container metrics
+        if (ContainerDetector.IsContainer)
         {
-            var environment = OperatingSystem.IsWindows() ? "Windows" : "WSL2";
+            UseWindowsQueries = false;
+            _logger.LogInformation(
+                "Container environment detected - using /proc monitoring (container metrics). Kernel: {Kernel}",
+                IsWsl2 ? "WSL2" : "Linux");
+        }
+        else if (OperatingSystem.IsWindows())
+        {
+            UseWindowsQueries = true;
+            _logger.LogInformation("Windows detected - using PowerShell monitoring");
+        }
+        else if (IsWsl2 && PowerShellHelper.IsAvailable)
+        {
+            UseWindowsQueries = true;
             var psPath = PowerShellHelper.GetPowerShellPath();
-            _logger.LogInformation("Detected {Environment} environment - will query Windows host for CPU and memory via {PowerShellPath}",
-                environment, psPath);
+            _logger.LogInformation(
+                "WSL2 detected with PowerShell access - using Windows host metrics via {PowerShellPath}", psPath);
+        }
+        else
+        {
+            UseWindowsQueries = false;
+            if (IsWsl2)
+            {
+                _logger.LogInformation(
+                    "WSL2 kernel detected but PowerShell not accessible - using /proc monitoring");
+            }
+            else
+            {
+                _logger.LogInformation("Native Linux detected - using /proc monitoring");
+            }
         }
     }
 

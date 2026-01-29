@@ -7,15 +7,30 @@ namespace PerformanceTester.SystemMonitoring;
 /// </summary>
 internal static class PowerShellHelper
 {
-    private static readonly Lazy<string> _cachedPath = new(FindPowerShellPath);
+    private static readonly Lazy<string?> _cachedPath = new(FindPowerShellPath);
+
+    /// <summary>
+    /// Gets whether PowerShell is available and functional in this environment.
+    /// </summary>
+    /// <remarks>
+    /// Returns false in containerized environments without Windows filesystem access,
+    /// native Linux systems, or when PowerShell validation fails.
+    /// </remarks>
+    public static bool IsAvailable => _cachedPath.Value != null;
 
     /// <summary>
     /// Gets the path to PowerShell executable.
     /// Checks multiple locations for WSL2 and Windows compatibility.
     /// </summary>
-    public static string GetPowerShellPath() => _cachedPath.Value;
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when PowerShell is not available in this environment.
+    /// </exception>
+    public static string GetPowerShellPath() =>
+        _cachedPath.Value ?? throw new InvalidOperationException(
+            "PowerShell is not available in this environment. " +
+            "This typically occurs in containerized environments without Windows filesystem access.");
 
-    private static string FindPowerShellPath()
+    private static string? FindPowerShellPath()
     {
         // PATH candidates - validate by execution (lets OS handle PATH resolution)
         string[] pathCandidates = ["powershell.exe", "pwsh"];
@@ -26,7 +41,7 @@ internal static class PowerShellHelper
                 return candidate;
         }
 
-        // Explicit paths - validate by file existence (faster for known locations)
+        // Explicit paths - validate by file existence first (faster), then execution
         string[] explicitPaths =
         [
             "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe", // WSL2 standard
@@ -36,12 +51,12 @@ internal static class PowerShellHelper
 
         foreach (var path in explicitPaths)
         {
-            if (File.Exists(path))
+            if (File.Exists(path) && TryValidatePowerShell(path))
                 return path;
         }
 
-        // Fallback - let OS try to resolve
-        return "powershell.exe";
+        // No PowerShell available - return null (caller should check IsAvailable first)
+        return null;
     }
 
     /// <summary>
