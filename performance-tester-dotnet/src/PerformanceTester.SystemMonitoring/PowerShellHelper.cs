@@ -30,6 +30,30 @@ internal static class PowerShellHelper
             "PowerShell is not available in this environment. " +
             "This typically occurs in containerized environments without Windows filesystem access.");
 
+    /// <summary>
+    /// Logs the PowerShell path resolution result using the provided logging action.
+    /// This enables callers to log PowerShell availability for debugging purposes.
+    /// </summary>
+    /// <param name="log">Action to invoke with log messages.</param>
+    /// <remarks>
+    /// Call this after initialization to log whether PowerShell was found and where.
+    /// The logging action is optional to maintain the static class design while
+    /// enabling logging when needed.
+    /// </remarks>
+    public static void LogPathResolution(Action<string> log)
+    {
+        ArgumentNullException.ThrowIfNull(log);
+
+        if (_cachedPath.Value is { } path)
+        {
+            log($"PowerShell found at: {path}");
+        }
+        else
+        {
+            log("PowerShell not available in this environment");
+        }
+    }
+
     private static string? FindPowerShellPath()
     {
         // PATH candidates - validate by execution (lets OS handle PATH resolution)
