@@ -27,9 +27,8 @@
     <!-- Statistics -->
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
 
-    <!-- Charting -->
-    <PackageReference Include="ScottPlot" Version="5.0.52" />
-    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <!-- Charting (SkiaSharp managed transitively via ScottPlot) -->
+    <PackageReference Include="ScottPlot" Version="5.1.57" />
   </ItemGroup>
 
   <!-- Platform-Specific Dependencies -->
