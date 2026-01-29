@@ -17,6 +17,51 @@ public sealed class SystemMonitoringException : Exception
     public string MetricType { get; }
 
     /// <summary>
+    /// Initializes a new instance of <see cref="SystemMonitoringException"/> with default values.
+    /// </summary>
+    /// <remarks>
+    /// This constructor exists for serialization scenarios. Prefer using the factory methods
+    /// or the full constructor that specifies platform and metric type.
+    /// </remarks>
+    public SystemMonitoringException()
+        : base("A system monitoring error occurred.")
+    {
+        Platform = "Unknown";
+        MetricType = "Unknown";
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="SystemMonitoringException"/> with a message.
+    /// </summary>
+    /// <param name="message">The error message.</param>
+    /// <remarks>
+    /// This constructor exists for serialization scenarios. Prefer using the factory methods
+    /// or the full constructor that specifies platform and metric type.
+    /// </remarks>
+    public SystemMonitoringException(string message)
+        : base(message)
+    {
+        Platform = "Unknown";
+        MetricType = "Unknown";
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="SystemMonitoringException"/> with a message and inner exception.
+    /// </summary>
+    /// <param name="message">The error message.</param>
+    /// <param name="innerException">The inner exception.</param>
+    /// <remarks>
+    /// This constructor exists for serialization scenarios. Prefer using the factory methods
+    /// or the full constructor that specifies platform and metric type.
+    /// </remarks>
+    public SystemMonitoringException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+        Platform = "Unknown";
+        MetricType = "Unknown";
+    }
+
+    /// <summary>
     /// Initializes a new instance of <see cref="SystemMonitoringException"/>.
     /// </summary>
     /// <param name="platform">The platform where the failure occurred.</param>
