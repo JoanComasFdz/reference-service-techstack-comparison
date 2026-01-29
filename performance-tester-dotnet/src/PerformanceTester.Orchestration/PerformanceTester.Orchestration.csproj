@@ -15,6 +15,7 @@
     <ProjectReference Include="..\PerformanceTester.DockerMonitoring\PerformanceTester.DockerMonitoring.csproj" />
     <ProjectReference Include="..\PerformanceTester.ApiLoadTesting\PerformanceTester.ApiLoadTesting.csproj" />
     <ProjectReference Include="..\PerformanceTester.Reporting\PerformanceTester.Reporting.csproj" />
+    <ProjectReference Include="..\PerformanceTester.SystemMonitoring\PerformanceTester.SystemMonitoring.csproj" />
   </ItemGroup>
 
   <ItemGroup>

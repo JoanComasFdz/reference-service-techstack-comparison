@@ -645,12 +645,14 @@ internal sealed class ChartGenerator : IChartGenerator
                     var timestamp = sample.GetProperty("timestamp").GetString() ?? "";
                     var cpuPercent = sample.TryGetProperty("cpu_percent", out var cpu) ? cpu.GetDouble() : 0;
                     
-                    // Get memory from memory_mb or memory_rss_mb
+                    // Get memory from memory_mb, memory_rss_mb, or memory_used_mb (system metrics)
                     double memoryMb = 0;
                     if (sample.TryGetProperty("memory_mb", out var mem))
                         memoryMb = mem.GetDouble();
                     else if (sample.TryGetProperty("memory_rss_mb", out var rss))
                         memoryMb = rss.GetDouble();
+                    else if (sample.TryGetProperty("memory_used_mb", out var used))
+                        memoryMb = used.GetDouble();
 
                     samples.Add(new ResourceSampleJson
                     {
@@ -680,11 +682,24 @@ internal sealed class ChartGenerator : IChartGenerator
                     Mode = CalculateMode(cpuValues),
                     Unit = "%"
                 };
+                // Support different memory field names: memory_mb (container), memory_rss_mb (process), memory_used_mb (system)
+                double avgMemory = 0;
+                if (summary.TryGetProperty("avg_memory_mb", out var avgMem))
+                    avgMemory = avgMem.GetDouble();
+                else if (summary.TryGetProperty("avg_memory_used_mb", out var avgUsed))
+                    avgMemory = avgUsed.GetDouble();
+
+                double peakMemory = 0;
+                if (summary.TryGetProperty("peak_memory_mb", out var peakMem))
+                    peakMemory = peakMem.GetDouble();
+                else if (summary.TryGetProperty("peak_memory_used_mb", out var peakUsed))
+                    peakMemory = peakUsed.GetDouble();
+
                 memorySummary = new ResourceSummary
                 {
-                    Avg = summary.TryGetProperty("avg_memory_mb", out var avgMem) ? avgMem.GetDouble() : 0,
+                    Avg = avgMemory,
                     Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                    Max = summary.TryGetProperty("peak_memory_mb", out var peakMem) ? peakMem.GetDouble() : 0,
+                    Max = peakMemory,
                     Mode = CalculateMode(memoryValues),
                     Unit = "MB"
                 };

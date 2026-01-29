@@ -7,6 +7,7 @@ using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
+using PerformanceTester.SystemMonitoring;
 
 namespace PerformanceTester.Orchestration;
 
@@ -67,6 +68,10 @@ public static class ServiceCollectionExtensions
         // Process monitoring - deferred start pattern (no processId parameter)
         // The actual process ID is provided via StartMonitoringAsync() after host starts
         services.AddProcessMonitoring();
+
+        // System-wide monitoring - deferred start pattern
+        // Monitors CPU and memory at system level (not per-process)
+        services.AddSystemMonitoring();
 
         // Phase 3: Reporting
         services.AddReporting();

@@ -9,6 +9,7 @@ using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
+using PerformanceTester.SystemMonitoring;
 using Serilog.Context;
 
 namespace PerformanceTester.Orchestration;
@@ -32,6 +33,7 @@ public class TestOrchestrator : ITestOrchestrator
     private readonly IEventConsumer _eventConsumer;
     private readonly IMetricsCollector _metricsCollector;
     private readonly IProcessMonitor _processMonitor;
+    private readonly ISystemMonitor _systemMonitor;
     private readonly IEnumerable<IDockerMonitor> _dockerMonitors;
     private readonly IApiLoadTester _apiLoadTester;
 
@@ -51,6 +53,7 @@ public class TestOrchestrator : ITestOrchestrator
         IEventConsumer eventConsumer,
         IMetricsCollector metricsCollector,
         IProcessMonitor processMonitor,
+        ISystemMonitor systemMonitor,
         IEnumerable<IDockerMonitor> dockerMonitors,
         IApiLoadTester apiLoadTester,
         ISystemInfoDetector systemInfoDetector,
@@ -67,6 +70,7 @@ public class TestOrchestrator : ITestOrchestrator
         _eventConsumer = eventConsumer ?? throw new ArgumentNullException(nameof(eventConsumer));
         _metricsCollector = metricsCollector ?? throw new ArgumentNullException(nameof(metricsCollector));
         _processMonitor = processMonitor ?? throw new ArgumentNullException(nameof(processMonitor));
+        _systemMonitor = systemMonitor ?? throw new ArgumentNullException(nameof(systemMonitor));
         _dockerMonitors = dockerMonitors ?? throw new ArgumentNullException(nameof(dockerMonitors));
         _apiLoadTester = apiLoadTester ?? throw new ArgumentNullException(nameof(apiLoadTester));
         _systemInfoDetector = systemInfoDetector ?? throw new ArgumentNullException(nameof(systemInfoDetector));
@@ -410,6 +414,12 @@ public class TestOrchestrator : ITestOrchestrator
         await _processMonitor.StartMonitoringAsync(serviceProcessId, cancellationToken: cancellationToken);
         _logger.LogInformation("Process monitoring started");
 
+        _logger.LogInformation("Starting system-wide monitoring (CPU: {CpuCount} cores, WSL2: {IsWsl2})...",
+            _systemMonitor.CpuCount,
+            _systemMonitor.IsWsl2);
+        await _systemMonitor.StartMonitoringAsync(cancellationToken: cancellationToken);
+        _logger.LogInformation("System monitoring started");
+
         _logger.LogInformation("Starting Docker container monitors...");
         var dockerMonitorsList = _dockerMonitors.ToList();
         var dockerStartTasks = dockerMonitorsList.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
@@ -519,6 +529,7 @@ public class TestOrchestrator : ITestOrchestrator
 
         var throughputSamples = _metricsCollector.GetThroughputSamples();
         var processMetrics = _processMonitor.GetCollectedMetrics();
+        var systemMetrics = _systemMonitor.GetCollectedMetrics();
 
         // Get Docker monitors by container name
         var rabbitMqMonitor = _dockerMonitors.Single(m => m.ContainerName == config.RabbitMqContainerName);
@@ -529,10 +540,11 @@ public class TestOrchestrator : ITestOrchestrator
 
         _logger.LogInformation(
             "Metrics collected: {Throughput} throughput samples, " +
-            "{Process} process samples, {RabbitMQ} RabbitMQ samples, " +
-            "{Postgres} PostgreSQL samples",
+            "{Process} process samples, {System} system samples, " +
+            "{RabbitMQ} RabbitMQ samples, {Postgres} PostgreSQL samples",
             throughputSamples.Count,
             processMetrics.Count,
+            systemMetrics.Count,
             rabbitMqMetrics.Count,
             postgresMetrics.Count);
 
@@ -547,6 +559,7 @@ public class TestOrchestrator : ITestOrchestrator
             config,
             throughputSamples,
             processMetrics,
+            systemMetrics,
             rabbitMqMetrics,
             postgresMetrics,
             systemInfo);
@@ -588,6 +601,7 @@ public class TestOrchestrator : ITestOrchestrator
         TestConfiguration config,
         IReadOnlyCollection<EventThroughputSample> throughputSamples,
         IReadOnlyCollection<ProcessMetrics> processMetrics,
+        IReadOnlyCollection<SystemMetrics> systemMetrics,
         IReadOnlyCollection<DockerMetrics> rabbitMqMetrics,
         IReadOnlyCollection<DockerMetrics> postgresMetrics,
         SystemInfo? systemInfo)
@@ -635,6 +649,17 @@ public class TestOrchestrator : ITestOrchestrator
             ElapsedSeconds = (m.Timestamp - testStartTime).TotalSeconds,
             CpuPercent = m.CpuPercent,
             MemoryMb = m.MemoryMB
+        }).ToList();
+
+        // Convert system metrics to SystemResourceSample
+        var systemResourceSamples = systemMetrics.Select(m => new SystemResourceSample
+        {
+            Timestamp = m.Timestamp.DateTime,
+            ElapsedSeconds = (m.Timestamp - testStartTime).TotalSeconds,
+            CpuPercent = m.CpuPercent,
+            MemoryUsedMb = m.MemoryUsedMb,
+            MemoryTotalMb = m.MemoryTotalMb,
+            MemoryPercent = m.MemoryPercent
         }).ToList();
 
         // Convert event throughput samples
@@ -714,7 +739,7 @@ public class TestOrchestrator : ITestOrchestrator
             EventsThroughputSamples = eventThroughputSamples,
             ApiThroughputSamples = apiThroughputSamples,
             ProcessResourceSamples = processResourceSamples,
-            SystemResourceSamples = Array.Empty<SystemResourceSample>(),
+            SystemResourceSamples = systemResourceSamples,
             RabbitMqResourceSamples = rabbitMqResourceSamples,
             PostgresResourceSamples = postgresResourceSamples
         };
