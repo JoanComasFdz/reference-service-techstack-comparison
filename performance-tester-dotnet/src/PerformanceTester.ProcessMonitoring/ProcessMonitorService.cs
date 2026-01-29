@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 
 namespace PerformanceTester.ProcessMonitoring;
@@ -15,7 +14,8 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
 {
     private readonly TimeSpan _samplingInterval;
     private readonly ILogger<ProcessMonitorService> _logger;
-    private readonly ConcurrentBag<ProcessMetrics> _collectedMetrics = new();
+    private readonly List<ProcessMetrics> _collectedMetrics = [];
+    private readonly Lock _metricsLock = new();
     private readonly TaskCompletionSource<int> _processIdSource = new();
     private readonly TaskCompletionSource _firstSampleCollected = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -68,10 +68,13 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
     }
 
     /// <inheritdoc />
-    public IReadOnlyCollection<ProcessMetrics> GetCollectedMetrics() => _collectedMetrics
-                                                                            .OrderBy(m => m.Timestamp)
-                                                                            .ToList()
-                                                                            .AsReadOnly();
+    public IReadOnlyCollection<ProcessMetrics> GetCollectedMetrics()
+    {
+        lock (_metricsLock)
+        {
+            return _collectedMetrics.AsReadOnly();
+        }
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -136,10 +139,15 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
                         _logger.LogWarning("⚠️ Process {ProcessId} has exited", processId);
 
                         // Report phase: ProcessExited/Completed
+                        int exitedCount;
+                        lock (_metricsLock)
+                        {
+                            exitedCount = _collectedMetrics.Count;
+                        }
                         _progress?.Report(ProcessMonitorPhaseInfo.Completed(
                             ProcessMonitorPhase.ProcessExited,
                             processId,
-                            sampleCount: _collectedMetrics.Count,
+                            sampleCount: exitedCount,
                             message: $"Process {processId} has exited"));
                         break;
                     }
@@ -160,10 +168,13 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
                         MemoryMB: Math.Round(memoryMB, 2),
                         ThreadCount: threadCount);
 
-                    // Store metrics directly (thread-safe)
-                    _collectedMetrics.Add(metrics);
-
-                    var currentCount = _collectedMetrics.Count;
+                    // Store metrics with lock (maintains chronological order)
+                    int currentCount;
+                    lock (_metricsLock)
+                    {
+                        _collectedMetrics.Add(metrics);
+                        currentCount = _collectedMetrics.Count;
+                    }
 
                     // Signal first sample and report phases
                     var isFirstSample = _firstSampleCollected.TrySetResult();
@@ -189,10 +200,15 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
                     _logger.LogWarning("⚠️ Process {ProcessId} terminated during sampling", processId);
 
                     // Report phase: ProcessExited/Completed
+                    int terminatedCount;
+                    lock (_metricsLock)
+                    {
+                        terminatedCount = _collectedMetrics.Count;
+                    }
                     _progress?.Report(ProcessMonitorPhaseInfo.Completed(
                         ProcessMonitorPhase.ProcessExited,
                         processId,
-                        sampleCount: _collectedMetrics.Count,
+                        sampleCount: terminatedCount,
                         message: $"Process {processId} terminated during sampling"));
                     break;
                 }
@@ -218,7 +234,12 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
         }
         finally
         {
-            _logger.LogInformation("✓ ProcessMonitor completed: {Count} samples collected", _collectedMetrics.Count);
+            int finalCount;
+            lock (_metricsLock)
+            {
+                finalCount = _collectedMetrics.Count;
+            }
+            _logger.LogInformation("✓ ProcessMonitor completed: {Count} samples collected", finalCount);
 
             // Report phase: MonitoringStopped/Completed (use _processId field which may be null if never started)
             if (_processId.HasValue)
@@ -226,8 +247,8 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
                 _progress?.Report(ProcessMonitorPhaseInfo.Completed(
                     ProcessMonitorPhase.MonitoringStopped,
                     _processId.Value,
-                    sampleCount: _collectedMetrics.Count,
-                    message: $"Monitoring stopped for PID {_processId.Value}, collected {_collectedMetrics.Count} samples"));
+                    sampleCount: finalCount,
+                    message: $"Monitoring stopped for PID {_processId.Value}, collected {finalCount} samples"));
             }
 
             // Dispose process handle
