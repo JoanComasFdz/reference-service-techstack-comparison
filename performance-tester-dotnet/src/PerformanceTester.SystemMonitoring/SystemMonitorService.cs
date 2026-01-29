@@ -138,7 +138,7 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
                 CpuCount,
                 UseWindowsQueries);
 
-            // Always initialize Linux readers (needed as fallback even for Windows/WSL2)
+            // Initialize Linux readers for native Linux (WSL2 uses Windows queries via PowerShell)
             if (OperatingSystem.IsLinux())
             {
                 _cpuReader = new ProcStatReader();
