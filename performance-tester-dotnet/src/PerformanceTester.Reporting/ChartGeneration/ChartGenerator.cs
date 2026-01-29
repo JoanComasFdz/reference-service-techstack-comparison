@@ -26,7 +26,7 @@ internal sealed class ChartGenerator : IChartGenerator
     // Individual subplot dimensions (width × height)
     private const int PlotWidth = 2400;
     private const int PlotHeight = 480;
-    private const int ThroughputPlotHeight = 580; // Taller to fit 2 legend items with stats
+    private const int ThroughputPlotHeight = 630; // Taller to fit 2 legend items with stats + extra title space
 
     // Font configuration - use DejaVu Sans for cross-platform consistency
     // (SkiaSharp on some Linux systems doesn't use fontconfig properly)
@@ -255,7 +255,7 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Legend.FontName = ChartFontName;
         plot.Legend.Orientation = Orientation.Vertical;
         plot.Legend.InterItemPadding = new PixelPadding(0, 0, 15, 0); // Add vertical spacing between items
-        plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 50));
+        plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 100)); // Extra top padding for title
 
         // Apply custom time tick generator for X-axis (HH:mm:ss format)
         ConfigureTimeAxis(plot);
