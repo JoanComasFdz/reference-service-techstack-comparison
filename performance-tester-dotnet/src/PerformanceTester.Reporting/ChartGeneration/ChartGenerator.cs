@@ -194,7 +194,7 @@ internal sealed class ChartGenerator : IChartGenerator
             // Primary line with fill - include stats in legend
             var eventsScatter = plot.Add.Scatter(timestamps, rates);
             eventsScatter.Color = ChartColors.EventsPrimary;
-            eventsScatter.LineWidth = 2f;
+            eventsScatter.LineWidth = 4f;
             eventsScatter.FillY = true;
             eventsScatter.FillYColor = ChartColors.EventsPrimary.WithAlpha(0.3);
             eventsScatter.LegendText = "Consumed Events/sec\n" + FormatThroughputLegend(
@@ -210,7 +210,7 @@ internal sealed class ChartGenerator : IChartGenerator
             // Average line (no legend entry)
             var eventsAvg = plot.Add.HorizontalLine(eventsData.Summary.AvgRate);
             eventsAvg.Color = ChartColors.EventsAverage;
-            eventsAvg.LineWidth = 1.5f;
+            eventsAvg.LineWidth = 3f;
             eventsAvg.LinePattern = LinePattern.Dashed;
         }
 
@@ -227,7 +227,7 @@ internal sealed class ChartGenerator : IChartGenerator
             // Primary line with fill - include stats in legend
             var apiScatter = plot.Add.Scatter(timestamps, rates);
             apiScatter.Color = ChartColors.ApiPrimary;
-            apiScatter.LineWidth = 2f;
+            apiScatter.LineWidth = 4f;
             apiScatter.FillY = true;
             apiScatter.FillYColor = ChartColors.ApiPrimary.WithAlpha(0.3);
             apiScatter.LegendText = "API calls/sec\n" + FormatThroughputLegend(
@@ -243,7 +243,7 @@ internal sealed class ChartGenerator : IChartGenerator
             // Average line (no legend entry)
             var apiAvg = plot.Add.HorizontalLine(apiData.Summary.AvgRate);
             apiAvg.Color = ChartColors.ApiAverage;
-            apiAvg.LineWidth = 1.5f;
+            apiAvg.LineWidth = 3f;
             apiAvg.LinePattern = LinePattern.Dashed;
         }
 
@@ -333,7 +333,7 @@ internal sealed class ChartGenerator : IChartGenerator
         // CPU primary line with fill - include stats in legend
         var cpuScatter = plot.Add.Scatter(timestamps, cpuValues);
         cpuScatter.Color = cpuColor;
-        cpuScatter.LineWidth = 2f;
+        cpuScatter.LineWidth = 4f;
         cpuScatter.FillY = true;
         cpuScatter.FillYColor = cpuColor.WithAlpha(0.3);
         cpuScatter.LegendText = "CPU %\n" + FormatResourceLegend(
@@ -346,7 +346,7 @@ internal sealed class ChartGenerator : IChartGenerator
         // CPU average line (no legend entry)
         var cpuAvgLine = plot.Add.HorizontalLine(data.CpuSummary.Avg);
         cpuAvgLine.Color = cpuAvgColor;
-        cpuAvgLine.LineWidth = 1.5f;
+        cpuAvgLine.LineWidth = 3f;
         cpuAvgLine.LinePattern = LinePattern.Dashed;
 
         // RIGHT AXIS: RAM MB
@@ -357,7 +357,7 @@ internal sealed class ChartGenerator : IChartGenerator
         // RAM primary line with fill - include stats in legend
         var ramScatter = plot.Add.Scatter(timestamps, ramValues);
         ramScatter.Color = ramColor;
-        ramScatter.LineWidth = 2f;
+        ramScatter.LineWidth = 4f;
         ramScatter.Axes.YAxis = plot.Axes.Right; // Use right axis
         ramScatter.FillY = true;
         ramScatter.FillYColor = ramColor.WithAlpha(0.2); // Less alpha for RAM
@@ -371,7 +371,7 @@ internal sealed class ChartGenerator : IChartGenerator
         // RAM average line (no legend entry)
         var ramAvgLine = plot.Add.HorizontalLine(data.MemorySummary.Avg);
         ramAvgLine.Color = ramAvgColor;
-        ramAvgLine.LineWidth = 1.5f;
+        ramAvgLine.LineWidth = 3f;
         ramAvgLine.LinePattern = LinePattern.Dashed;
         ramAvgLine.Axes.YAxis = plot.Axes.Right;
 
@@ -422,7 +422,7 @@ internal sealed class ChartGenerator : IChartGenerator
             var vline = plot.Add.VerticalLine(oaDate);
             vline.Color = color.WithAlpha(0.6);
             vline.LinePattern = LinePattern.Dotted;
-            vline.LineWidth = 1.5f;
+            vline.LineWidth = 3f;
         }
     }
 
