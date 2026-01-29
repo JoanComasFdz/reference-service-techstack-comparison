@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -16,7 +15,8 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
 {
     private readonly TimeSpan _samplingInterval;
     private readonly ILogger<SystemMonitorService> _logger;
-    private readonly ConcurrentBag<SystemMetrics> _collectedMetrics = new();
+    private readonly List<SystemMetrics> _collectedMetrics = [];
+    private readonly Lock _metricsLock = new();
     private readonly TaskCompletionSource _startRequested = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _firstSampleCollected = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -108,10 +108,13 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
     }
 
     /// <inheritdoc />
-    public IReadOnlyCollection<SystemMetrics> GetCollectedMetrics() => _collectedMetrics
-        .OrderBy(m => m.Timestamp)
-        .ToList()
-        .AsReadOnly();
+    public IReadOnlyCollection<SystemMetrics> GetCollectedMetrics()
+    {
+        lock (_metricsLock)
+        {
+            return _collectedMetrics.AsReadOnly();
+        }
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -156,9 +159,12 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
                 try
                 {
                     var metrics = await SampleMetricsAsync(stoppingToken);
-                    _collectedMetrics.Add(metrics);
-
-                    var currentCount = _collectedMetrics.Count;
+                    int currentCount;
+                    lock (_metricsLock)
+                    {
+                        _collectedMetrics.Add(metrics);
+                        currentCount = _collectedMetrics.Count;
+                    }
 
                     // Signal first sample
                     var isFirstSample = _firstSampleCollected.TrySetResult();
@@ -187,9 +193,14 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
                         ex.Platform, ex.Message);
                     _logger.LogError("Cannot continue without {MetricType} metrics. Stopping system monitor.", ex.MetricType);
 
+                    int sampleCount;
+                    lock (_metricsLock)
+                    {
+                        sampleCount = _collectedMetrics.Count;
+                    }
                     _progress?.Report(SystemMonitorPhaseInfo.Failed(
                         SystemMonitorPhase.MonitoringStopped,
-                        sampleCount: _collectedMetrics.Count,
+                        sampleCount: sampleCount,
                         message: $"FATAL: {ex.Platform} {ex.MetricType} monitoring failed - {ex.Message}"));
 
                     _firstSampleCollected.TrySetException(ex);
@@ -224,12 +235,17 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
         }
         finally
         {
-            _logger.LogInformation("SystemMonitor completed: {Count} samples collected", _collectedMetrics.Count);
+            int finalCount;
+            lock (_metricsLock)
+            {
+                finalCount = _collectedMetrics.Count;
+            }
+            _logger.LogInformation("SystemMonitor completed: {Count} samples collected", finalCount);
 
             _progress?.Report(SystemMonitorPhaseInfo.Completed(
                 SystemMonitorPhase.MonitoringStopped,
-                sampleCount: _collectedMetrics.Count,
-                message: $"System monitoring stopped, collected {_collectedMetrics.Count} samples"));
+                sampleCount: finalCount,
+                message: $"System monitoring stopped, collected {finalCount} samples"));
         }
     }
 
@@ -346,7 +362,10 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
                 var metrics = await SampleMetricsAsync(cts.Token);
-                _collectedMetrics.Add(metrics);
+                lock (_metricsLock)
+                {
+                    _collectedMetrics.Add(metrics);
+                }
 
                 _logger.LogDebug("Final system sample {Current}/{Total} collected successfully", i + 1, finalSampleCount);
             }
