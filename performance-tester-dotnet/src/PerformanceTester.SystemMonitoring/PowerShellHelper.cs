@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace PerformanceTester.SystemMonitoring;
 
 /// <summary>
@@ -5,37 +7,76 @@ namespace PerformanceTester.SystemMonitoring;
 /// </summary>
 internal static class PowerShellHelper
 {
-    private static string? _cachedPath;
+    private static readonly Lazy<string> _cachedPath = new(FindPowerShellPath);
 
     /// <summary>
     /// Gets the path to PowerShell executable.
     /// Checks multiple locations for WSL2 and Windows compatibility.
     /// </summary>
-    public static string GetPowerShellPath()
-    {
-        if (_cachedPath != null)
-            return _cachedPath;
+    public static string GetPowerShellPath() => _cachedPath.Value;
 
-        // Possible PowerShell locations
-        var candidates = new[]
+    private static string FindPowerShellPath()
+    {
+        // PATH candidates - validate by execution (lets OS handle PATH resolution)
+        string[] pathCandidates = ["powershell.exe", "pwsh"];
+
+        foreach (var candidate in pathCandidates)
         {
-            "powershell.exe", // If in PATH
+            if (TryValidatePowerShell(candidate))
+                return candidate;
+        }
+
+        // Explicit paths - validate by file existence (faster for known locations)
+        string[] explicitPaths =
+        [
             "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe", // WSL2 standard
             "/mnt/c/Windows/SysWOW64/WindowsPowerShell/v1.0/powershell.exe", // WSL2 32-bit
             "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", // Native Windows
-        };
+        ];
 
-        foreach (var candidate in candidates)
+        foreach (var path in explicitPaths)
         {
-            if (File.Exists(candidate))
-            {
-                _cachedPath = candidate;
-                return candidate;
-            }
+            if (File.Exists(path))
+                return path;
         }
 
-        // Default fallback - let the OS try to find it
-        _cachedPath = "powershell.exe";
-        return _cachedPath;
+        // Fallback - let OS try to resolve
+        return "powershell.exe";
+    }
+
+    /// <summary>
+    /// Validates PowerShell by attempting to run a simple command.
+    /// This lets the OS handle proper PATH resolution.
+    /// </summary>
+    private static bool TryValidatePowerShell(string path)
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                Arguments = "-NoProfile -Command \"exit 0\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+
+            if (process == null)
+                return false;
+
+            var completed = process.WaitForExit(5000);
+            if (!completed)
+            {
+                try { process.Kill(); } catch { /* Ignore kill errors */ }
+                return false;
+            }
+
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
