@@ -1,0 +1,75 @@
+{
+  "test_date": "2026-01-22 11:42:04",
+  "total_runtime_seconds": 18.843,
+  "system": {
+    "os": "Linux",
+    "os_release": "6.6.87.2-microsoft-standard-WSL2",
+    "os_version": "#1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025",
+    "wsl_version": "WSL2",
+    "cpu": {
+      "model": "Intel(R) Core(TM) Ultra 7 255H",
+      "logical_processors": 16,
+      "physical_processors": 1,
+      "speed_mhz": 3686.4
+    },
+    "ram": {
+      "total_gb": 15.31
+    },
+    "disks": [
+      {
+        "name": "sdd",
+        "size": "1.0T",
+        "type": "SSD",
+        "model": "Virtual Disk    "
+      },
+      {
+        "name": "sdf",
+        "size": "1.0T",
+        "type": "SSD",
+        "model": "Virtual Disk    "
+      }
+    ]
+  },
+  "phase_timestamps": {
+    "phase1_start": 9.445,
+    "phase1_end": 9.533,
+    "phase2_start": 9.536,
+    "phase2_end": 13.342,
+    "phase3_start": 13.342,
+    "phase3_end": 18.843
+  },
+  "monitored_process": {
+    "name": "dotnet9ReferenceService",
+    "pid": 85791,
+    "port": 8092
+  },
+  "configuration": {
+    "num_events": 1000,
+    "api_duration": "5s",
+    "api_concurrent_workers": 1,
+    "rabbitmq_exchange": "referenceservice.comparison",
+    "consumer_queue": "service-tester",
+    "api_endpoint": "http://localhost:8092/kpi",
+    "publish_event_type": "instrument.status.changed",
+    "consume_event_type": "instrumentstatus.kpi.updated"
+  },
+  "results": {
+    "phase1_publish": {
+      "duration_seconds": 0.088,
+      "throughput_events_per_sec": 11377.5
+    },
+    "phase2_consume": {
+      "duration_seconds": 3.806,
+      "throughput_events_per_sec": 262.71
+    },
+    "phase3_api": {
+      "duration_seconds": 5.486,
+      "total_requests": 4139,
+      "throughput_calls_per_sec": 754.51,
+      "success_count": 4139,
+      "success_percentage": 100.0,
+      "error_count": 0,
+      "error_percentage": 0.0
+    }
+  }
+}

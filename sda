@@ -1,0 +1,45 @@
+export PERFTEST_RABBITMQ_HOST=performancetest-rabbitmq    
+export PERFTEST_POSTGRES_HOST=performancetest-postgres    
+
+cd /workspace/performance-tester-dotnet/src/PerformanceTester.Cli 
+dotnet run -- test --port 8093 --database dotnet9aot_db --events 1000 --api-duration 5s 
+
+
+
+
+export RABBITMQ_HOST=172.19.0.3; export POSTGRES_HOST=172.19.0.2; dotnet run -- test --port 8092 --database dotnet9_db --events 1000 --api-duration 5s 
+
+
+for the rest,  am thinking about keeping the setup-envrionment.sh where it starts with auto detection and then maybe we need 2 separate setup-environment-os.sh and setup-environment-devcontainer.sh? But the sequence here is not clear for me, createa an easy ascii diagram sequence of the current scripts, then ad  where would conceptually need to be each step (like where to auto detect, where to auto configure env vars, etc). Also, remember that dotnet uses a sliglhthy different env vars, i think with double underscore like __ 
+
+
+
+
+  bash -c '
+    source scripts/common.sh
+    if command -v dotnet &>/dev/null && [[ "$(dotnet --version 2>/dev/null)" == 9.* ]]; then
+ echo "PASS: would skip dotnet (system $(dotnet --version) detected)"
+ grep -q "disable_tools.*dotnet" .mise.local.toml && echo "PASS: .mise.local.toml already has disable_tools"
+    else   
+ echo "FAIL: dotnet not detected on system"   
+    fi
+  '
+
+
+
+wsl --export Ubuntu-24.04 D:\ubuntu-test-backup.tar
+wsl --import Ubuntu-PerfTest D:\WSL\Ubuntu-Test D:\ubuntu-test-backup.tar
+
+
+
+dotnet run -- test --port 8093 --database dotnet9_db --events 1000 --api-duration 5s
+
+
+
+❯   powershell.exe -NoProfile -Command '$os = Get-CimInstance Win32_OperatingSystem; Write-Output "$($os.TotalVisibleMemorySize),$($os.FreePhysicalMemory)"']
+32899316,1767232
+]
+
+joan in reference-service-techstack-comparison/performance-tester-dotnet/src/PerformanceTester.Cli on  rewrite/dotnet [⇡!?]
+❯   powershell.exe -NoProfile -Command "(Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter \"Name='_Total'\").PercentProcessorTime"
+17

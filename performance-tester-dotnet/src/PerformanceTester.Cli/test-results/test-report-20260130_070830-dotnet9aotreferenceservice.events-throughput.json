@@ -1,0 +1,58 @@
+{
+  "test_date": "2026-01-30 07:08:30",
+  "sampling_interval_ms": 100,
+  "samples": [
+    {
+      "timestamp": "2026-01-30T07:08:40.154370",
+      "elapsed_seconds": 9.291,
+      "total_events": 201,
+      "events_per_second": 0.2
+    },
+    {
+      "timestamp": "2026-01-30T07:08:40.656250",
+      "elapsed_seconds": 9.792,
+      "total_events": 373,
+      "events_per_second": 342.71
+    },
+    {
+      "timestamp": "2026-01-30T07:08:41.156663",
+      "elapsed_seconds": 10.293,
+      "total_events": 553,
+      "events_per_second": 359.7
+    },
+    {
+      "timestamp": "2026-01-30T07:08:41.659929",
+      "elapsed_seconds": 10.796,
+      "total_events": 716,
+      "events_per_second": 323.88
+    },
+    {
+      "timestamp": "2026-01-30T07:08:42.161928",
+      "elapsed_seconds": 11.298,
+      "total_events": 874,
+      "events_per_second": 314.74
+    },
+    {
+      "timestamp": "2026-01-30T07:08:42.663097",
+      "elapsed_seconds": 11.799,
+      "total_events": 1067,
+      "events_per_second": 385.1
+    },
+    {
+      "timestamp": "2026-01-30T07:08:43.006925",
+      "elapsed_seconds": 12.143,
+      "total_events": 1200,
+      "events_per_second": 386.82
+    }
+  ],
+  "summary": {
+    "avg_events_per_second": 301.88,
+    "peak_events_per_second": 386.82,
+    "min_events_per_second": 0.2,
+    "std_dev_events_per_second": 135.9,
+    "cv_events_per_second": 45,
+    "avg_response_time_ms": 3.313,
+    "total_samples": 7,
+    "total_events": 1200
+  }
+}

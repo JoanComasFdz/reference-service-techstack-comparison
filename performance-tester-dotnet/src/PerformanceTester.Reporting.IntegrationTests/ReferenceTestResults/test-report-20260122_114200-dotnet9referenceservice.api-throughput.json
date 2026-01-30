@@ -1,0 +1,52 @@
+{
+  "test_date": "2026-01-22 11:42:04",
+  "sampling_interval_ms": 100,
+  "samples": [
+    {
+      "timestamp": "2026-01-22T11:41:55.150402",
+      "elapsed_seconds": 1.0,
+      "total_calls": 794,
+      "calls_per_second": 794.0
+    },
+    {
+      "timestamp": "2026-01-22T11:41:56.150402",
+      "elapsed_seconds": 2.0,
+      "total_calls": 1568,
+      "calls_per_second": 774.0
+    },
+    {
+      "timestamp": "2026-01-22T11:41:57.150402",
+      "elapsed_seconds": 3.0,
+      "total_calls": 2460,
+      "calls_per_second": 892.0
+    },
+    {
+      "timestamp": "2026-01-22T11:41:58.150402",
+      "elapsed_seconds": 4.0,
+      "total_calls": 3282,
+      "calls_per_second": 822.0
+    },
+    {
+      "timestamp": "2026-01-22T11:41:59.150402",
+      "elapsed_seconds": 5.0,
+      "total_calls": 4138,
+      "calls_per_second": 856.0
+    },
+    {
+      "timestamp": "2026-01-22T11:41:59.150402",
+      "elapsed_seconds": 5.0,
+      "total_calls": 4139,
+      "calls_per_second": 0
+    }
+  ],
+  "summary": {
+    "avg_calls_per_second": 689.67,
+    "peak_calls_per_second": 892.0,
+    "min_calls_per_second": 774.0,
+    "std_dev_calls_per_second": 340.52,
+    "cv_calls_per_second": 49.37,
+    "avg_response_time_ms": 1.45,
+    "total_samples": 6,
+    "total_calls": 4139
+  }
+}

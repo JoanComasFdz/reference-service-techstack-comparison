@@ -1,0 +1,147 @@
+{
+  "test_date": "2026-01-30 07:08:30",
+  "container_info": {
+    "name": "performancetest-postgres",
+    "id": "unknown"
+  },
+  "sampling_interval_ms": 3000,
+  "samples": [
+    {
+      "timestamp": "2026-01-30T07:08:40.123263",
+      "cpu_percent": 0.04,
+      "memory_mb": 78.88
+    },
+    {
+      "timestamp": "2026-01-30T07:08:40.627875",
+      "cpu_percent": 7.35,
+      "memory_mb": 79.25
+    },
+    {
+      "timestamp": "2026-01-30T07:08:41.127009",
+      "cpu_percent": 7.35,
+      "memory_mb": 79.25
+    },
+    {
+      "timestamp": "2026-01-30T07:08:41.628882",
+      "cpu_percent": 7.35,
+      "memory_mb": 79.25
+    },
+    {
+      "timestamp": "2026-01-30T07:08:42.127204",
+      "cpu_percent": 15.97,
+      "memory_mb": 79.19
+    },
+    {
+      "timestamp": "2026-01-30T07:08:42.628223",
+      "cpu_percent": 15.97,
+      "memory_mb": 79.19
+    },
+    {
+      "timestamp": "2026-01-30T07:08:43.129047",
+      "cpu_percent": 15.97,
+      "memory_mb": 79.19
+    },
+    {
+      "timestamp": "2026-01-30T07:08:43.628616",
+      "cpu_percent": 15.97,
+      "memory_mb": 79.19
+    },
+    {
+      "timestamp": "2026-01-30T07:08:44.127456",
+      "cpu_percent": 11.29,
+      "memory_mb": 79.68
+    },
+    {
+      "timestamp": "2026-01-30T07:08:44.630295",
+      "cpu_percent": 11.29,
+      "memory_mb": 79.68
+    },
+    {
+      "timestamp": "2026-01-30T07:08:45.128160",
+      "cpu_percent": 2.98,
+      "memory_mb": 79.7
+    },
+    {
+      "timestamp": "2026-01-30T07:08:45.627452",
+      "cpu_percent": 2.98,
+      "memory_mb": 79.7
+    },
+    {
+      "timestamp": "2026-01-30T07:08:46.124157",
+      "cpu_percent": 20.67,
+      "memory_mb": 79.95
+    },
+    {
+      "timestamp": "2026-01-30T07:08:46.629093",
+      "cpu_percent": 20.67,
+      "memory_mb": 79.95
+    },
+    {
+      "timestamp": "2026-01-30T07:08:47.127762",
+      "cpu_percent": 20.46,
+      "memory_mb": 79.7
+    },
+    {
+      "timestamp": "2026-01-30T07:08:47.624070",
+      "cpu_percent": 20.46,
+      "memory_mb": 79.7
+    },
+    {
+      "timestamp": "2026-01-30T07:08:48.127296",
+      "cpu_percent": 23.06,
+      "memory_mb": 79.7
+    },
+    {
+      "timestamp": "2026-01-30T07:08:48.629769",
+      "cpu_percent": 23.06,
+      "memory_mb": 79.7
+    },
+    {
+      "timestamp": "2026-01-30T07:08:49.127619",
+      "cpu_percent": 22.5,
+      "memory_mb": 79.7
+    },
+    {
+      "timestamp": "2026-01-30T07:08:49.630089",
+      "cpu_percent": 22.5,
+      "memory_mb": 79.7
+    },
+    {
+      "timestamp": "2026-01-30T07:08:50.126172",
+      "cpu_percent": 17.9,
+      "memory_mb": 79.71
+    },
+    {
+      "timestamp": "2026-01-30T07:08:50.627543",
+      "cpu_percent": 17.9,
+      "memory_mb": 79.71
+    },
+    {
+      "timestamp": "2026-01-30T07:08:51.127100",
+      "cpu_percent": 0,
+      "memory_mb": 79.46
+    },
+    {
+      "timestamp": "2026-01-30T07:08:51.629267",
+      "cpu_percent": 0,
+      "memory_mb": 79.46
+    },
+    {
+      "timestamp": "2026-01-30T07:08:52.123824",
+      "cpu_percent": 0,
+      "memory_mb": 79.46
+    },
+    {
+      "timestamp": "2026-01-30T07:08:52.627097",
+      "cpu_percent": 0,
+      "memory_mb": 79.46
+    }
+  ],
+  "summary": {
+    "avg_cpu_percent": 12.45,
+    "peak_cpu_percent": 23.06,
+    "avg_memory_mb": 79.52,
+    "peak_memory_mb": 79.95,
+    "total_samples": 26
+  }
+}

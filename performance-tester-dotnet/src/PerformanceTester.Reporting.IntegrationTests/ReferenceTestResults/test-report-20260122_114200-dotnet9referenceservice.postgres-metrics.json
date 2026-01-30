@@ -1,0 +1,42 @@
+{
+  "test_date": "2026-01-22 11:41:40",
+  "container_info": {
+    "name": "performancetest-postgres",
+    "id": "44fefa633fa6"
+  },
+  "sampling_interval_ms": 3000,
+  "samples": [
+    {
+      "timestamp": "2026-01-22T11:41:42.824522",
+      "cpu_percent": 9.56,
+      "memory_mb": 62.09
+    },
+    {
+      "timestamp": "2026-01-22T11:41:46.882487",
+      "cpu_percent": 18.12,
+      "memory_mb": 62.34
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.926908",
+      "cpu_percent": 16.74,
+      "memory_mb": 62.38
+    },
+    {
+      "timestamp": "2026-01-22T11:41:55.971283",
+      "cpu_percent": 20.15,
+      "memory_mb": 62.12
+    },
+    {
+      "timestamp": "2026-01-22T11:42:01.001824",
+      "cpu_percent": 0.03,
+      "memory_mb": 62.1
+    }
+  ],
+  "summary": {
+    "avg_cpu_percent": 12.92,
+    "peak_cpu_percent": 20.15,
+    "avg_memory_mb": 62.21,
+    "peak_memory_mb": 62.38,
+    "total_samples": 5
+  }
+}

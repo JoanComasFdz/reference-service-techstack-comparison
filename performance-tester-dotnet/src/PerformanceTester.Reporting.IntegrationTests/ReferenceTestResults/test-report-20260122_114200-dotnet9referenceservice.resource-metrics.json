@@ -1,0 +1,258 @@
+{
+  "test_date": "2026-01-22 11:41:40",
+  "process_info": {
+    "pid": 85791,
+    "name": "dotnet9ReferenceService",
+    "port": 8092
+  },
+  "sampling_interval_ms": 500,
+  "samples": [
+    {
+      "timestamp": "2026-01-22T11:41:40.738908",
+      "cpu_percent": 0.0,
+      "memory_rss_mb": 120.86,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:41.239401",
+      "cpu_percent": 0.0,
+      "memory_rss_mb": 120.86,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:41.740176",
+      "cpu_percent": 0.0,
+      "memory_rss_mb": 120.86,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:42.241388",
+      "cpu_percent": 69.9,
+      "memory_rss_mb": 124.11,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:42.742108",
+      "cpu_percent": 121.7,
+      "memory_rss_mb": 128.98,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:43.245465",
+      "cpu_percent": 93.9,
+      "memory_rss_mb": 133.48,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:43.745915",
+      "cpu_percent": 95.9,
+      "memory_rss_mb": 135.11,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:44.246317",
+      "cpu_percent": 145.9,
+      "memory_rss_mb": 143.73,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:44.747025",
+      "cpu_percent": 115.9,
+      "memory_rss_mb": 147.33,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:45.247785",
+      "cpu_percent": 107.9,
+      "memory_rss_mb": 144.0,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:45.748412",
+      "cpu_percent": 95.8,
+      "memory_rss_mb": 140.05,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:46.248837",
+      "cpu_percent": 169.8,
+      "memory_rss_mb": 140.35,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:46.749346",
+      "cpu_percent": 133.9,
+      "memory_rss_mb": 136.51,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:47.249879",
+      "cpu_percent": 101.9,
+      "memory_rss_mb": 132.62,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:47.750455",
+      "cpu_percent": 77.9,
+      "memory_rss_mb": 132.88,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:48.250910",
+      "cpu_percent": 77.9,
+      "memory_rss_mb": 132.88,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:48.751587",
+      "cpu_percent": 41.9,
+      "memory_rss_mb": 132.88,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:49.251948",
+      "cpu_percent": 0.0,
+      "memory_rss_mb": 132.88,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:49.752629",
+      "cpu_percent": 0.0,
+      "memory_rss_mb": 132.88,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.254441",
+      "cpu_percent": 0.0,
+      "memory_rss_mb": 132.88,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.754895",
+      "cpu_percent": 109.6,
+      "memory_rss_mb": 133.38,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.255362",
+      "cpu_percent": 115.9,
+      "memory_rss_mb": 134.38,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.755977",
+      "cpu_percent": 51.9,
+      "memory_rss_mb": 134.42,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.256580",
+      "cpu_percent": 42.0,
+      "memory_rss_mb": 134.28,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.757296",
+      "cpu_percent": 44.0,
+      "memory_rss_mb": 134.28,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.258129",
+      "cpu_percent": 43.9,
+      "memory_rss_mb": 134.41,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.758788",
+      "cpu_percent": 47.9,
+      "memory_rss_mb": 134.35,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:54.259635",
+      "cpu_percent": 24.0,
+      "memory_rss_mb": 134.35,
+      "threads": 34
+    },
+    {
+      "timestamp": "2026-01-22T11:41:54.760392",
+      "cpu_percent": 26.0,
+      "memory_rss_mb": 133.94,
+      "threads": 34
+    },
+    {
+      "timestamp": "2026-01-22T11:41:55.261098",
+      "cpu_percent": 79.9,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:55.761617",
+      "cpu_percent": 69.9,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:56.262120",
+      "cpu_percent": 73.9,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:56.762928",
+      "cpu_percent": 77.9,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:57.263462",
+      "cpu_percent": 77.9,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:57.763980",
+      "cpu_percent": 77.9,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:58.264456",
+      "cpu_percent": 79.9,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:58.765152",
+      "cpu_percent": 71.9,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:59.265576",
+      "cpu_percent": 77.9,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:41:59.766690",
+      "cpu_percent": 53.9,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    },
+    {
+      "timestamp": "2026-01-22T11:42:00.267157",
+      "cpu_percent": 0.0,
+      "memory_rss_mb": 133.63,
+      "threads": 35
+    }
+  ],
+  "summary": {
+    "avg_cpu_percent": 67.41,
+    "peak_cpu_percent": 169.8,
+    "avg_memory_rss_mb": 133.6,
+    "peak_memory_rss_mb": 147.33,
+    "total_samples": 40
+  }
+}

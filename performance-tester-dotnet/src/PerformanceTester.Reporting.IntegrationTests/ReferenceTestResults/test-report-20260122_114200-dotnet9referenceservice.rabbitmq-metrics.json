@@ -1,0 +1,42 @@
+{
+  "test_date": "2026-01-22 11:41:40",
+  "container_info": {
+    "name": "performancetest-rabbitmq",
+    "id": "02283bd99d8f"
+  },
+  "sampling_interval_ms": 3000,
+  "samples": [
+    {
+      "timestamp": "2026-01-22T11:41:41.817731",
+      "cpu_percent": 1.36,
+      "memory_mb": 157.2
+    },
+    {
+      "timestamp": "2026-01-22T11:41:45.873382",
+      "cpu_percent": 140.33,
+      "memory_mb": 157.5
+    },
+    {
+      "timestamp": "2026-01-22T11:41:49.920076",
+      "cpu_percent": 1.58,
+      "memory_mb": 157.2
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.969183",
+      "cpu_percent": 25.02,
+      "memory_mb": 175.1
+    },
+    {
+      "timestamp": "2026-01-22T11:41:58.992224",
+      "cpu_percent": 0.85,
+      "memory_mb": 169.0
+    }
+  ],
+  "summary": {
+    "avg_cpu_percent": 33.83,
+    "peak_cpu_percent": 140.33,
+    "avg_memory_mb": 163.2,
+    "peak_memory_mb": 175.1,
+    "total_samples": 5
+  }
+}

@@ -1,0 +1,460 @@
+{
+  "test_date": "2026-01-22 11:42:04",
+  "sampling_interval_ms": 100,
+  "samples": [
+    {
+      "timestamp": "2026-01-22T11:41:50.259949",
+      "elapsed_seconds": 9.439,
+      "total_events": 1,
+      "events_per_second": -25.74
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.264905",
+      "elapsed_seconds": 1.01,
+      "total_events": 2,
+      "events_per_second": 1.98
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.365609",
+      "elapsed_seconds": 1.11,
+      "total_events": 24,
+      "events_per_second": 218.46
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.370126",
+      "elapsed_seconds": 9.549,
+      "total_events": 25,
+      "events_per_second": 217.83
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.469550",
+      "elapsed_seconds": 1.214,
+      "total_events": 48,
+      "events_per_second": 230.9
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.474229",
+      "elapsed_seconds": 9.653,
+      "total_events": 49,
+      "events_per_second": 230.54
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.577216",
+      "elapsed_seconds": 1.322,
+      "total_events": 74,
+      "events_per_second": 241.49
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.580807",
+      "elapsed_seconds": 9.76,
+      "total_events": 75,
+      "events_per_second": 243.95
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.685057",
+      "elapsed_seconds": 1.43,
+      "total_events": 100,
+      "events_per_second": 241.1
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.688844",
+      "elapsed_seconds": 9.868,
+      "total_events": 101,
+      "events_per_second": 240.66
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.788928",
+      "elapsed_seconds": 1.534,
+      "total_events": 128,
+      "events_per_second": 269.56
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.791921",
+      "elapsed_seconds": 9.971,
+      "total_events": 129,
+      "events_per_second": 271.64
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.889441",
+      "elapsed_seconds": 1.634,
+      "total_events": 154,
+      "events_per_second": 258.68
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.892514",
+      "elapsed_seconds": 10.071,
+      "total_events": 155,
+      "events_per_second": 258.47
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.989709",
+      "elapsed_seconds": 1.735,
+      "total_events": 182,
+      "events_per_second": 279.25
+    },
+    {
+      "timestamp": "2026-01-22T11:41:50.998809",
+      "elapsed_seconds": 10.178,
+      "total_events": 185,
+      "events_per_second": 282.23
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.090679",
+      "elapsed_seconds": 1.835,
+      "total_events": 212,
+      "events_per_second": 297.12
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.100167",
+      "elapsed_seconds": 10.279,
+      "total_events": 215,
+      "events_per_second": 295.98
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.192556",
+      "elapsed_seconds": 1.937,
+      "total_events": 240,
+      "events_per_second": 274.84
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.205348",
+      "elapsed_seconds": 10.384,
+      "total_events": 243,
+      "events_per_second": 266.21
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.298760",
+      "elapsed_seconds": 2.044,
+      "total_events": 270,
+      "events_per_second": 282.47
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.311530",
+      "elapsed_seconds": 10.49,
+      "total_events": 273,
+      "events_per_second": 282.54
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.403084",
+      "elapsed_seconds": 2.148,
+      "total_events": 300,
+      "events_per_second": 287.58
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.413861",
+      "elapsed_seconds": 10.593,
+      "total_events": 303,
+      "events_per_second": 293.17
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.507305",
+      "elapsed_seconds": 2.252,
+      "total_events": 328,
+      "events_per_second": 268.65
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.518040",
+      "elapsed_seconds": 10.697,
+      "total_events": 331,
+      "events_per_second": 268.77
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.614464",
+      "elapsed_seconds": 2.359,
+      "total_events": 358,
+      "events_per_second": 279.96
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.621529",
+      "elapsed_seconds": 10.8,
+      "total_events": 359,
+      "events_per_second": 270.56
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.715416",
+      "elapsed_seconds": 2.46,
+      "total_events": 386,
+      "events_per_second": 277.36
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.727783",
+      "elapsed_seconds": 10.907,
+      "total_events": 389,
+      "events_per_second": 282.34
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.820102",
+      "elapsed_seconds": 2.565,
+      "total_events": 416,
+      "events_per_second": 286.57
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.829171",
+      "elapsed_seconds": 11.008,
+      "total_events": 419,
+      "events_per_second": 295.89
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.928027",
+      "elapsed_seconds": 2.673,
+      "total_events": 446,
+      "events_per_second": 277.97
+    },
+    {
+      "timestamp": "2026-01-22T11:41:51.931031",
+      "elapsed_seconds": 11.11,
+      "total_events": 447,
+      "events_per_second": 274.88
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.031763",
+      "elapsed_seconds": 2.777,
+      "total_events": 476,
+      "events_per_second": 289.2
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.035582",
+      "elapsed_seconds": 11.214,
+      "total_events": 477,
+      "events_per_second": 286.94
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.133191",
+      "elapsed_seconds": 2.878,
+      "total_events": 502,
+      "events_per_second": 256.34
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.137508",
+      "elapsed_seconds": 11.316,
+      "total_events": 503,
+      "events_per_second": 255.09
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.237879",
+      "elapsed_seconds": 2.983,
+      "total_events": 530,
+      "events_per_second": 267.46
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.241331",
+      "elapsed_seconds": 11.42,
+      "total_events": 531,
+      "events_per_second": 269.69
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.341087",
+      "elapsed_seconds": 3.086,
+      "total_events": 558,
+      "events_per_second": 271.3
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.345317",
+      "elapsed_seconds": 11.524,
+      "total_events": 559,
+      "events_per_second": 269.27
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.446210",
+      "elapsed_seconds": 11.625,
+      "total_events": 585,
+      "events_per_second": 257.7
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.449977",
+      "elapsed_seconds": 3.195,
+      "total_events": 586,
+      "events_per_second": 257.14
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.550184",
+      "elapsed_seconds": 3.295,
+      "total_events": 612,
+      "events_per_second": 259.46
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.554140",
+      "elapsed_seconds": 11.733,
+      "total_events": 613,
+      "events_per_second": 259.43
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.654376",
+      "elapsed_seconds": 3.399,
+      "total_events": 638,
+      "events_per_second": 249.54
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.658032",
+      "elapsed_seconds": 11.837,
+      "total_events": 639,
+      "events_per_second": 250.26
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.759645",
+      "elapsed_seconds": 3.504,
+      "total_events": 662,
+      "events_per_second": 227.99
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.763159",
+      "elapsed_seconds": 11.942,
+      "total_events": 663,
+      "events_per_second": 228.29
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.862503",
+      "elapsed_seconds": 3.607,
+      "total_events": 690,
+      "events_per_second": 272.21
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.866611",
+      "elapsed_seconds": 12.045,
+      "total_events": 691,
+      "events_per_second": 270.66
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.966304",
+      "elapsed_seconds": 3.711,
+      "total_events": 720,
+      "events_per_second": 289.02
+    },
+    {
+      "timestamp": "2026-01-22T11:41:52.969359",
+      "elapsed_seconds": 12.148,
+      "total_events": 721,
+      "events_per_second": 291.97
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.070610",
+      "elapsed_seconds": 3.815,
+      "total_events": 748,
+      "events_per_second": 268.45
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.076231",
+      "elapsed_seconds": 12.255,
+      "total_events": 749,
+      "events_per_second": 262.0
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.178950",
+      "elapsed_seconds": 3.924,
+      "total_events": 774,
+      "events_per_second": 239.99
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.183123",
+      "elapsed_seconds": 12.362,
+      "total_events": 775,
+      "events_per_second": 243.23
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.280125",
+      "elapsed_seconds": 4.025,
+      "total_events": 800,
+      "events_per_second": 256.97
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.283963",
+      "elapsed_seconds": 12.463,
+      "total_events": 801,
+      "events_per_second": 257.83
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.384071",
+      "elapsed_seconds": 12.563,
+      "total_events": 825,
+      "events_per_second": 239.74
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.388424",
+      "elapsed_seconds": 4.133,
+      "total_events": 826,
+      "events_per_second": 240.08
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.490183",
+      "elapsed_seconds": 12.669,
+      "total_events": 851,
+      "events_per_second": 245.02
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.493160",
+      "elapsed_seconds": 4.238,
+      "total_events": 852,
+      "events_per_second": 248.24
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.590638",
+      "elapsed_seconds": 12.769,
+      "total_events": 877,
+      "events_per_second": 258.82
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.594753",
+      "elapsed_seconds": 4.34,
+      "total_events": 878,
+      "events_per_second": 255.92
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.699128",
+      "elapsed_seconds": 12.878,
+      "total_events": 903,
+      "events_per_second": 239.65
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.703141",
+      "elapsed_seconds": 4.448,
+      "total_events": 904,
+      "events_per_second": 239.88
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.804677",
+      "elapsed_seconds": 12.983,
+      "total_events": 929,
+      "events_per_second": 246.33
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.809016",
+      "elapsed_seconds": 4.554,
+      "total_events": 930,
+      "events_per_second": 245.57
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.910512",
+      "elapsed_seconds": 13.089,
+      "total_events": 959,
+      "events_per_second": 283.46
+    },
+    {
+      "timestamp": "2026-01-22T11:41:53.913162",
+      "elapsed_seconds": 4.658,
+      "total_events": 960,
+      "events_per_second": 288.06
+    },
+    {
+      "timestamp": "2026-01-22T11:41:54.013659",
+      "elapsed_seconds": 13.192,
+      "total_events": 985,
+      "events_per_second": 252.07
+    },
+    {
+      "timestamp": "2026-01-22T11:41:54.016307",
+      "elapsed_seconds": 4.761,
+      "total_events": 986,
+      "events_per_second": 252.07
+    }
+  ],
+  "summary": {
+    "avg_events_per_second": 254.95,
+    "peak_events_per_second": 297.12,
+    "min_events_per_second": 1.98,
+    "std_dev_events_per_second": 48.93,
+    "cv_events_per_second": 19.19,
+    "avg_response_time_ms": 3.922,
+    "total_samples": 74,
+    "total_events": 986
+  }
+}
