@@ -50,6 +50,19 @@ else
     # Don't exit - this is not critical for devcontainer operation
 fi
 
+log "Step 4: Running connect-to-infrastructure-network.sh..."
+if bash /workspace/.devcontainer/connect-to-infrastructure-network.sh >> "$LOGFILE" 2>&1; then
+    log "✓ connect-to-infrastructure-network.sh completed successfully"
+    log "  PostgreSQL: performancetest-postgres:5432"
+    log "  RabbitMQ:   performancetest-rabbitmq:5672"
+else
+    EXIT_CODE=$?
+    log "⚠ connect-to-infrastructure-network.sh failed with exit code $EXIT_CODE (non-fatal)"
+    log "  Infrastructure network setup failed - you may need to use host.docker.internal"
+    log "  Check $LOGFILE for details"
+    # Don't exit - user can manually connect or use host.docker.internal
+fi
+
 log "========================================="
 log "ALL POSTSTART SCRIPTS COMPLETED SUCCESSFULLY"
 log "========================================="

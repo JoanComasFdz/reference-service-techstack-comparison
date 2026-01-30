@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   dnsutils \
   aggregate \
   jq \
+  lsof \
   nano \
   vim \
   netcat-openbsd \

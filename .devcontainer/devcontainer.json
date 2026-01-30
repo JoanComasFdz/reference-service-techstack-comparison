@@ -62,6 +62,7 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
+  "forwardPorts": [8090, 8092, 8093, 8094, 8096, 8097, 8098, 8099, 8100, 8101, 8102, 8103],
   "postCreateCommand": "bash /workspace/.devcontainer/postcreate-wrapper.sh",
   "postStartCommand": "bash /workspace/.devcontainer/poststart-wrapper.sh",
   "waitFor": "postStartCommand"
