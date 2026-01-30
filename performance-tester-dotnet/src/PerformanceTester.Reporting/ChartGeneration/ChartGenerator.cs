@@ -4,6 +4,7 @@ using PerformanceTester.Reporting.ChartGeneration.DataLoading;
 using PerformanceTester.Reporting.ChartGeneration.ImageComposition;
 using PerformanceTester.Reporting.ChartGeneration.PlotBuilders;
 using PerformanceTester.Reporting.ChartGeneration.PlotConfiguration;
+using PerformanceTester.Reporting.ChartGeneration.Toolbox;
 using ScottPlot;
 
 namespace PerformanceTester.Reporting.ChartGeneration;
@@ -22,8 +23,6 @@ internal sealed class ChartGenerator : IChartGenerator
     private readonly ILogger<ChartGenerator> _logger;
     private readonly ChartConfig _config;
     private readonly ChartDataLoader _dataLoader;
-    private readonly ThroughputPlotBuilder _throughputBuilder;
-    private readonly ResourcePlotBuilder _resourceBuilder;
     private readonly PhaseOverlayRenderer _phaseRenderer;
     private readonly ChartImageComposer _imageComposer;
 
@@ -37,8 +36,6 @@ internal sealed class ChartGenerator : IChartGenerator
         _logger = logger;
         _config = config;
         _dataLoader = new ChartDataLoader(logger);
-        _throughputBuilder = new ThroughputPlotBuilder(config);
-        _resourceBuilder = new ResourcePlotBuilder(config);
         _phaseRenderer = new PhaseOverlayRenderer(config);
         _imageComposer = new ChartImageComposer(config.Dimensions);
     }
@@ -141,19 +138,11 @@ internal sealed class ChartGenerator : IChartGenerator
     {
         return
         [
-            _throughputBuilder.Build(eventsData, apiData),
-            _resourceBuilder.Build(serviceData, "Service CPU (%)", "Service RAM (MB)",
-                new ResourcePlotColors(ChartColors.ServiceCpu, ChartColors.ServiceCpuAvg,
-                    ChartColors.ServiceRam, ChartColors.ServiceRamAvg)),
-            _resourceBuilder.Build(rabbitmqData, "RabbitMQ CPU (%)", "RabbitMQ RAM (MB)",
-                new ResourcePlotColors(ChartColors.RabbitMqCpu, ChartColors.RabbitMqCpuAvg,
-                    ChartColors.RabbitMqRam, ChartColors.RabbitMqRamAvg)),
-            _resourceBuilder.Build(postgresData, "PostgreSQL CPU (%)", "PostgreSQL RAM (MB)",
-                new ResourcePlotColors(ChartColors.PostgresCpu, ChartColors.PostgresCpuAvg,
-                    ChartColors.PostgresRam, ChartColors.PostgresRamAvg)),
-            _resourceBuilder.Build(systemData, "Overall System CPU (%)", "Overall System RAM (MB)",
-                new ResourcePlotColors(ChartColors.SystemCpu, ChartColors.SystemCpuAvg,
-                    ChartColors.SystemRam, ChartColors.SystemRamAvg))
+            ThroughputPlotBuilder.Build(eventsData, apiData, _config),
+            ServiceMetricsPlotBuilder.Build(serviceData, _config),
+            RabbitMqMetricsPlotBuilder.Build(rabbitmqData, _config),
+            PostgresMetricsPlotBuilder.Build(postgresData, _config),
+            SystemMetricsPlotBuilder.Build(systemData, _config)
         ];
     }
 
