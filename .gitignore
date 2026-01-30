@@ -153,7 +153,8 @@ performance-tester/test-results/
 
 # mise - generated files
 *.mise.toml.backup
-.mise.local.toml  # User-specific mise configuration overrides
+# User-specific mise configuration overrides
+.mise.local.toml
 
 # Shell configuration backups
 shell_config_backup_*/
