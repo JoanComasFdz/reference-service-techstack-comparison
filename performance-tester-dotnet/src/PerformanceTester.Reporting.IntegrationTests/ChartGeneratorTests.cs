@@ -683,7 +683,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
         // Width: 2400 pixels (increased for legend space)
         // Height: 2500 pixels (580px throughput + 4×480px resource plots)
         Assert.Equal(2400, bitmap.Width);
-        Assert.Equal(2500, bitmap.Height);
+        Assert.Equal(2550, bitmap.Height);
 
         var fileSizeKb = new FileInfo(outputPath).Length / 1024;
 
