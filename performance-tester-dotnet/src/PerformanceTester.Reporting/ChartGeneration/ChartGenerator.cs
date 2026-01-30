@@ -171,8 +171,11 @@ internal sealed class ChartGenerator : IChartGenerator
 
     private void ConfigureBottomPlot(Plot plot)
     {
-        PlotConfigurator.ConfigureBottomAxisLabel(plot, _config.Font);
-        PlotConfigurator.ConfigureTickLabelRotation(plot);
+        PlotToolbox.ConfigureBottomAxisLabel(plot, _config.Font);
+
+        // Rotate tick labels 45° for readability on bottom axis
+        plot.Axes.Bottom.TickLabelStyle.Rotation = 45;
+        plot.Axes.Bottom.TickLabelStyle.Alignment = Alignment.MiddleLeft;
     }
 
     private static void SyncXAxisLimits(List<Plot> plots)
