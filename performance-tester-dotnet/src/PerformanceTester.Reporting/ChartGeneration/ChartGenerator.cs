@@ -1,7 +1,10 @@
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Reporting.ChartGeneration.Configuration;
+using PerformanceTester.Reporting.ChartGeneration.DataLoading;
+using PerformanceTester.Reporting.ChartGeneration.ImageComposition;
+using PerformanceTester.Reporting.ChartGeneration.PlotBuilders;
+using PerformanceTester.Reporting.ChartGeneration.PlotConfiguration;
 using ScottPlot;
-using SkiaSharp;
 
 namespace PerformanceTester.Reporting.ChartGeneration;
 
@@ -17,37 +20,27 @@ namespace PerformanceTester.Reporting.ChartGeneration;
 internal sealed class ChartGenerator : IChartGenerator
 {
     private readonly ILogger<ChartGenerator> _logger;
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-    };
-
-    // Individual subplot dimensions (width × height)
-    private const int PlotWidth = 2400;
-    private const int PlotHeight = 480;
-    private const int ThroughputPlotHeight = 630; // Taller to fit 2 legend items with stats + extra title space
-
-    // Font configuration - use DejaVu Sans for cross-platform consistency
-    // (SkiaSharp on some Linux systems doesn't use fontconfig properly)
-    private const string ChartFontName = "DejaVu Sans";
+    private readonly ChartConfig _config;
+    private readonly ChartDataLoader _dataLoader;
+    private readonly ThroughputPlotBuilder _throughputBuilder;
+    private readonly ResourcePlotBuilder _resourceBuilder;
+    private readonly PhaseOverlayRenderer _phaseRenderer;
+    private readonly ChartImageComposer _imageComposer;
 
     public ChartGenerator(ILogger<ChartGenerator> logger)
+        : this(logger, ChartConfig.Default)
     {
-        _logger = logger;
     }
 
-    /// <summary>
-    /// Configures the bottom axis to display OADate values as HH:mm:ss time format.
-    /// </summary>
-    private static void ConfigureTimeAxis(Plot plot)
+    public ChartGenerator(ILogger<ChartGenerator> logger, ChartConfig config)
     {
-        // Use DateTimeAutomatic tick generator with custom label formatter
-        var tickGen = new ScottPlot.TickGenerators.DateTimeAutomatic
-        {
-            LabelFormatter = dt => dt.ToString("HH:mm:ss")
-        };
-        plot.Axes.Bottom.TickGenerator = tickGen;
+        _logger = logger;
+        _config = config;
+        _dataLoader = new ChartDataLoader(logger);
+        _throughputBuilder = new ThroughputPlotBuilder(config);
+        _resourceBuilder = new ResourcePlotBuilder(config);
+        _phaseRenderer = new PhaseOverlayRenderer(config);
+        _imageComposer = new ChartImageComposer(config.Dimensions);
     }
 
     /// <inheritdoc />
@@ -59,108 +52,43 @@ internal sealed class ChartGenerator : IChartGenerator
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath, nameof(outputPath));
         ArgumentNullException.ThrowIfNull(testReport, nameof(testReport));
 
-        // Ensure output directory exists
-        var outputDirectory = Path.GetDirectoryName(outputPath);
-        if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
-        {
-            Directory.CreateDirectory(outputDirectory);
-        }
+        EnsureOutputDirectoryExists(outputPath);
+        var dataFiles = DeriveDataFilePaths(outputPath);
+        ValidateDataFilesExist(dataFiles, outputPath);
 
-        // Derive data file paths from chart output path
-        var basePath = outputPath.Replace(".chart.png", "");
-        var eventsThroughputFile = $"{basePath}.events-throughput.json";
-        var apiThroughputFile = $"{basePath}.api-throughput.json";
-        var resourceMetricsFile = $"{basePath}.resource-metrics.json";
-        var rabbitmqMetricsFile = $"{basePath}.rabbitmq-metrics.json";
-        var postgresMetricsFile = $"{basePath}.postgres-metrics.json";
-        var systemMetricsFile = $"{basePath}.system-metrics.json";
+        // Load data
+        var eventsData = _dataLoader.LoadThroughputReport(dataFiles.EventsThroughput);
+        var apiData = _dataLoader.LoadThroughputReport(dataFiles.ApiThroughput);
+        var serviceData = _dataLoader.LoadProcessResourceReport(dataFiles.ResourceMetrics);
+        var rabbitmqData = _dataLoader.LoadResourceReport(dataFiles.RabbitmqMetrics);
+        var postgresData = _dataLoader.LoadResourceReport(dataFiles.PostgresMetrics);
+        var systemData = _dataLoader.LoadResourceReport(dataFiles.SystemMetrics);
 
-        // Verify at least one data file exists
-        if (!File.Exists(eventsThroughputFile) &&
-            !File.Exists(apiThroughputFile) &&
-            !File.Exists(resourceMetricsFile))
-        {
-            throw new InvalidOperationException(
-                "No metrics data files found for chart generation. " +
-                $"Expected files in directory: {outputDirectory}");
-        }
+        // Build plots
+        var plots = BuildPlots(eventsData, apiData, serviceData, rabbitmqData, postgresData, systemData);
 
-        // Load data from JSON files
-        var eventsData = LoadThroughputReport(eventsThroughputFile);
-        var apiData = LoadThroughputReport(apiThroughputFile);
-        var serviceData = LoadProcessResourceReport(resourceMetricsFile);
-        var rabbitmqData = LoadResourceReport(rabbitmqMetricsFile);
-        var postgresData = LoadResourceReport(postgresMetricsFile);
-        var systemData = LoadResourceReport(systemMetricsFile);
+        // Add phase overlays
+        AddPhaseOverlays(plots, testReport);
 
-        // Create individual plots
-        var plots = new List<Plot>
-        {
-            CreateThroughputPlot(eventsData, apiData),
-            CreateResourcePlot(serviceData, "Service CPU (%)", "Service RAM (MB)",
-                ChartColors.ServiceCpu, ChartColors.ServiceCpuAvg,
-                ChartColors.ServiceRam, ChartColors.ServiceRamAvg),
-            CreateResourcePlot(rabbitmqData, "RabbitMQ CPU (%)", "RabbitMQ RAM (MB)",
-                ChartColors.RabbitMqCpu, ChartColors.RabbitMqCpuAvg,
-                ChartColors.RabbitMqRam, ChartColors.RabbitMqRamAvg),
-            CreateResourcePlot(postgresData, "PostgreSQL CPU (%)", "PostgreSQL RAM (MB)",
-                ChartColors.PostgresCpu, ChartColors.PostgresCpuAvg,
-                ChartColors.PostgresRam, ChartColors.PostgresRamAvg),
-            CreateResourcePlot(systemData, "Overall System CPU (%)", "Overall System RAM (MB)",
-                ChartColors.SystemCpu, ChartColors.SystemCpuAvg,
-                ChartColors.SystemRam, ChartColors.SystemRamAvg)
-        };
+        // Configure top plot (title, headroom)
+        ConfigureTopPlot(plots[0], testReport);
 
-        // Add phase boundaries to all plots
-        foreach (var plot in plots)
-        {
-            AddPhaseBoundaries(plot, testReport);
-        }
+        // Configure bottom plot (X-axis label, tick rotation)
+        ConfigureBottomPlot(plots[4]);
 
-        // Force auto-scaling before getting limits (auto-scale normally happens at render time)
-        plots[0].Axes.AutoScale();
-
-        // Add 10% headroom to throughput Y-axis and get limits for phase labels
-        var throughputLimits = plots[0].Axes.GetLimits();
-        var throughputYMax = throughputLimits.Top * 1.1;
-        plots[0].Axes.SetLimitsY(throughputLimits.Bottom, throughputYMax);
-
-        // Add phase labels to top plot (positioned at 95% of Y-max)
-        AddPhaseLabels(plots[0], testReport, throughputYMax);
-
-        // Add title to top plot
-        var humanDate = testReport.TestDate.ToString("MMMM dd, yyyy");
-        var humanTime = testReport.TestDate.ToString("HH:mm:ss");
-        var title = $"Performance Metrics - {testReport.MonitoredProcess.Name} - {humanDate} at {humanTime}";
-        plots[0].Axes.Title.Label.Text = title;
-        plots[0].Axes.Title.Label.FontSize = 36;
-        plots[0].Axes.Title.Label.FontName = ChartFontName;
-        plots[0].Axes.Title.Label.Bold = true;
-
-        // Only show X-axis label on bottom plot
-        plots[4].Axes.Bottom.Label.Text = "Time";
-        plots[4].Axes.Bottom.Label.Bold = true;
-        plots[4].Axes.Bottom.Label.FontSize = 26;
-        plots[4].Axes.Bottom.Label.FontName = ChartFontName;
-
-        // Configure tick label rotation (45 degrees) on the bottom plot only
-        plots[4].Axes.Bottom.TickLabelStyle.Rotation = 45;
-        plots[4].Axes.Bottom.TickLabelStyle.Alignment = Alignment.MiddleLeft;
-
-        // Synchronize X-axis limits across all plots
+        // Synchronize X-axis limits
         SyncXAxisLimits(plots);
 
-        // Render each plot to a bitmap
-        // Render plots with different heights (throughput plot is taller)
-        var bitmaps = plots.Select((p, i) => RenderPlotToBitmap(p, i == 0 ? ThroughputPlotHeight : PlotHeight)).ToList();
+        // Render and combine
+        var bitmaps = RenderPlots(plots);
 
-        // Combine bitmaps vertically
-        CombineBitmapsVertically(bitmaps, outputPath);
-
-        // Dispose resources
-        foreach (var bitmap in bitmaps)
+        try
         {
-            bitmap.Dispose();
+            _imageComposer.CombineAndSave(bitmaps, outputPath);
+        }
+        finally
+        {
+            ChartImageComposer.DisposeBitmaps(bitmaps);
         }
 
         _logger.LogInformation("Metrics chart saved to: {OutputPath}", outputPath);
@@ -168,317 +96,108 @@ internal sealed class ChartGenerator : IChartGenerator
         await Task.CompletedTask;
     }
 
-    private Plot CreateThroughputPlot(
+    private static void EnsureOutputDirectoryExists(string outputPath)
+    {
+        var outputDirectory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+    }
+
+    private static DataFilePaths DeriveDataFilePaths(string outputPath)
+    {
+        var basePath = outputPath.Replace(".chart.png", "");
+        return new DataFilePaths(
+            EventsThroughput: $"{basePath}.events-throughput.json",
+            ApiThroughput: $"{basePath}.api-throughput.json",
+            ResourceMetrics: $"{basePath}.resource-metrics.json",
+            RabbitmqMetrics: $"{basePath}.rabbitmq-metrics.json",
+            PostgresMetrics: $"{basePath}.postgres-metrics.json",
+            SystemMetrics: $"{basePath}.system-metrics.json"
+        );
+    }
+
+    private static void ValidateDataFilesExist(DataFilePaths dataFiles, string outputPath)
+    {
+        if (!File.Exists(dataFiles.EventsThroughput) &&
+            !File.Exists(dataFiles.ApiThroughput) &&
+            !File.Exists(dataFiles.ResourceMetrics))
+        {
+            var outputDirectory = Path.GetDirectoryName(outputPath);
+            throw new InvalidOperationException(
+                "No metrics data files found for chart generation. " +
+                $"Expected files in directory: {outputDirectory}");
+        }
+    }
+
+    private List<Plot> BuildPlots(
         ThroughputReport? eventsData,
-        ThroughputReport? apiData)
+        ThroughputReport? apiData,
+        ResourceMetricsReport? serviceData,
+        ResourceMetricsReport? rabbitmqData,
+        ResourceMetricsReport? postgresData,
+        ResourceMetricsReport? systemData)
     {
-        var plot = new Plot();
-        plot.Axes.Left.Label.Text = "Throughput (per second)";
-        plot.Axes.Left.Label.Bold = true;
-        plot.Axes.Left.Label.FontSize = 26;
-        plot.Axes.Left.Label.FontName = ChartFontName;
-
-        // Enable grid (Y-axis only)
-        plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#cccccc").WithAlpha(0.3);
-
-        // Plot events throughput
-        if (eventsData != null && eventsData.Samples.Count > 0)
-        {
-            var timestamps = eventsData.Samples
-                .Select(s => DateTime.Parse(s.Timestamp).ToOADate())
-                .ToArray();
-            var rates = eventsData.Samples
-                .Select(s => s.ThroughputRate)
-                .ToArray();
-
-            // Primary line with fill - include stats in legend
-            var eventsScatter = plot.Add.Scatter(timestamps, rates);
-            eventsScatter.Color = ChartColors.EventsPrimary;
-            eventsScatter.LineWidth = 4f;
-            eventsScatter.FillY = true;
-            eventsScatter.FillYColor = ChartColors.EventsPrimary.WithAlpha(0.3);
-            eventsScatter.LegendText = "Consumed Events/sec\n" + FormatThroughputLegend(
-                "Events",
-                eventsData.Summary.AvgRate,
-                eventsData.Summary.AvgResponseTimeMs,
-                eventsData.Summary.MinRate,
-                eventsData.Summary.PeakRate,
-                (int)Math.Round(eventsData.Summary.AvgRate),
-                eventsData.Summary.StdDevRate,
-                eventsData.Summary.CvRate);
-
-            // Average line (no legend entry)
-            var eventsAvg = plot.Add.HorizontalLine(eventsData.Summary.AvgRate);
-            eventsAvg.Color = ChartColors.EventsAverage;
-            eventsAvg.LineWidth = 3f;
-            eventsAvg.LinePattern = LinePattern.Dashed;
-        }
-
-        // Plot API throughput
-        if (apiData != null && apiData.Samples.Count > 0)
-        {
-            var timestamps = apiData.Samples
-                .Select(s => DateTime.Parse(s.Timestamp).ToOADate())
-                .ToArray();
-            var rates = apiData.Samples
-                .Select(s => s.ThroughputRate)
-                .ToArray();
-
-            // Primary line with fill - include stats in legend
-            var apiScatter = plot.Add.Scatter(timestamps, rates);
-            apiScatter.Color = ChartColors.ApiPrimary;
-            apiScatter.LineWidth = 4f;
-            apiScatter.FillY = true;
-            apiScatter.FillYColor = ChartColors.ApiPrimary.WithAlpha(0.3);
-            apiScatter.LegendText = "API calls/sec\n" + FormatThroughputLegend(
-                "API",
-                apiData.Summary.AvgRate,
-                apiData.Summary.AvgResponseTimeMs,
-                apiData.Summary.MinRate,
-                apiData.Summary.PeakRate,
-                (int)Math.Round(apiData.Summary.AvgRate),
-                apiData.Summary.StdDevRate,
-                apiData.Summary.CvRate);
-
-            // Average line (no legend entry)
-            var apiAvg = plot.Add.HorizontalLine(apiData.Summary.AvgRate);
-            apiAvg.Color = ChartColors.ApiAverage;
-            apiAvg.LineWidth = 3f;
-            apiAvg.LinePattern = LinePattern.Dashed;
-        }
-
-        // Configure legend outside the plot area on the right
-        plot.ShowLegend(Edge.Right);
-        plot.Legend.OutlineColor = Colors.Transparent;
-        plot.Legend.ShadowColor = Colors.Transparent;
-        plot.Legend.FontSize = 22;
-        plot.Legend.FontName = ChartFontName;
-        plot.Legend.Orientation = Orientation.Vertical;
-        plot.Legend.InterItemPadding = new PixelPadding(0, 0, 15, 0); // Add vertical spacing between items
-        plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 100)); // Extra top padding for title
-
-        // Apply custom time tick generator for X-axis (HH:mm:ss format)
-        ConfigureTimeAxis(plot);
-
-        return plot;
+        return
+        [
+            _throughputBuilder.Build(eventsData, apiData),
+            _resourceBuilder.Build(serviceData, "Service CPU (%)", "Service RAM (MB)",
+                new ResourcePlotColors(ChartColors.ServiceCpu, ChartColors.ServiceCpuAvg,
+                    ChartColors.ServiceRam, ChartColors.ServiceRamAvg)),
+            _resourceBuilder.Build(rabbitmqData, "RabbitMQ CPU (%)", "RabbitMQ RAM (MB)",
+                new ResourcePlotColors(ChartColors.RabbitMqCpu, ChartColors.RabbitMqCpuAvg,
+                    ChartColors.RabbitMqRam, ChartColors.RabbitMqRamAvg)),
+            _resourceBuilder.Build(postgresData, "PostgreSQL CPU (%)", "PostgreSQL RAM (MB)",
+                new ResourcePlotColors(ChartColors.PostgresCpu, ChartColors.PostgresCpuAvg,
+                    ChartColors.PostgresRam, ChartColors.PostgresRamAvg)),
+            _resourceBuilder.Build(systemData, "Overall System CPU (%)", "Overall System RAM (MB)",
+                new ResourcePlotColors(ChartColors.SystemCpu, ChartColors.SystemCpuAvg,
+                    ChartColors.SystemRam, ChartColors.SystemRamAvg))
+        ];
     }
 
-    private Plot CreateResourcePlot(
-        ResourceMetricsReport? data,
-        string cpuLabel,
-        string ramLabel,
-        Color cpuColor,
-        Color cpuAvgColor,
-        Color ramColor,
-        Color ramAvgColor)
+    private void AddPhaseOverlays(List<Plot> plots, TestReport testReport)
     {
-        var plot = new Plot();
-
-        if (data == null || data.Samples.Count == 0)
+        foreach (var plot in plots)
         {
-            // Empty subplot with full formatting (same as populated plots)
-            // Explicitly enable axes for empty plots
-            plot.Axes.Left.IsVisible = true;
-            plot.Axes.Right.IsVisible = true;
-
-            // Set default axis limits since there's no data to auto-scale from
-            plot.Axes.SetLimitsY(0, 100);
-            plot.Axes.Right.Min = 0;
-            plot.Axes.Right.Max = 1000;
-
-            plot.Axes.Left.Label.Text = cpuLabel;
-            plot.Axes.Left.Label.ForeColor = cpuColor;
-            plot.Axes.Left.Label.Bold = true;
-            plot.Axes.Left.Label.FontSize = 26;
-            plot.Axes.Left.Label.FontName = ChartFontName;
-
-            plot.Axes.Right.Label.Text = ramLabel;
-            plot.Axes.Right.Label.ForeColor = ramColor;
-            plot.Axes.Right.Label.Bold = true;
-            plot.Axes.Right.Label.FontSize = 26;
-            plot.Axes.Right.Label.FontName = ChartFontName;
-
-            // Enable grid (Y-axis only)
-            plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#cccccc").WithAlpha(0.3);
-
-            // Configure legend (even for empty plots, for consistency)
-            plot.ShowLegend(Edge.Right);
-            plot.Legend.OutlineColor = Colors.Transparent;
-            plot.Legend.ShadowColor = Colors.Transparent;
-            plot.Legend.FontSize = 22;
-            plot.Legend.FontName = ChartFontName;
-            plot.Legend.Orientation = Orientation.Vertical;
-            plot.Legend.InterItemPadding = new PixelPadding(0, 0, 15, 0);
-
-            // Still configure time axis and layout for empty plots
-            plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 50));
-            ConfigureTimeAxis(plot);
-            return plot;
-        }
-
-        // LEFT AXIS: CPU %
-        plot.Axes.Left.Label.Text = cpuLabel;
-        plot.Axes.Left.Label.ForeColor = cpuColor;
-        plot.Axes.Left.Label.Bold = true;
-        plot.Axes.Left.Label.FontSize = 26;
-        plot.Axes.Left.Label.FontName = ChartFontName;
-
-        var timestamps = data.Samples
-            .Select(s => DateTime.Parse(s.Timestamp).ToOADate())
-            .ToArray();
-        var cpuValues = data.Samples
-            .Select(s => s.CpuPercent)
-            .ToArray();
-
-        // CPU primary line with fill - include stats in legend
-        var cpuScatter = plot.Add.Scatter(timestamps, cpuValues);
-        cpuScatter.Color = cpuColor;
-        cpuScatter.LineWidth = 4f;
-        cpuScatter.FillY = true;
-        cpuScatter.FillYColor = cpuColor.WithAlpha(0.3);
-        cpuScatter.LegendText = "CPU %\n" + FormatResourceLegend(
-            data.CpuSummary.Avg,
-            data.CpuSummary.Min,
-            data.CpuSummary.Max,
-            data.CpuSummary.Mode,
-            data.CpuSummary.Unit);
-
-        // CPU average line (no legend entry)
-        var cpuAvgLine = plot.Add.HorizontalLine(data.CpuSummary.Avg);
-        cpuAvgLine.Color = cpuAvgColor;
-        cpuAvgLine.LineWidth = 3f;
-        cpuAvgLine.LinePattern = LinePattern.Dashed;
-
-        // RIGHT AXIS: RAM MB
-        var ramValues = data.Samples
-            .Select(s => s.MemoryMb)
-            .ToArray();
-
-        // RAM primary line with fill - include stats in legend
-        var ramScatter = plot.Add.Scatter(timestamps, ramValues);
-        ramScatter.Color = ramColor;
-        ramScatter.LineWidth = 4f;
-        ramScatter.Axes.YAxis = plot.Axes.Right; // Use right axis
-        ramScatter.FillY = true;
-        ramScatter.FillYColor = ramColor.WithAlpha(0.2); // Less alpha for RAM
-        ramScatter.LegendText = "RAM\n" + FormatResourceLegend(
-            data.MemorySummary.Avg,
-            data.MemorySummary.Min,
-            data.MemorySummary.Max,
-            data.MemorySummary.Mode,
-            data.MemorySummary.Unit);
-
-        // RAM average line (no legend entry)
-        var ramAvgLine = plot.Add.HorizontalLine(data.MemorySummary.Avg);
-        ramAvgLine.Color = ramAvgColor;
-        ramAvgLine.LineWidth = 3f;
-        ramAvgLine.LinePattern = LinePattern.Dashed;
-        ramAvgLine.Axes.YAxis = plot.Axes.Right;
-
-        // Configure right axis
-        plot.Axes.Right.Label.Text = ramLabel;
-        plot.Axes.Right.Label.ForeColor = ramColor;
-        plot.Axes.Right.Label.Bold = true;
-        plot.Axes.Right.Label.FontSize = 26;
-        plot.Axes.Right.Label.FontName = ChartFontName;
-
-        // Enable grid (Y-axis only)
-        plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#cccccc").WithAlpha(0.3);
-
-        // Configure legend outside the plot area on the right
-        plot.ShowLegend(Edge.Right);
-        plot.Legend.OutlineColor = Colors.Transparent;
-        plot.Legend.ShadowColor = Colors.Transparent;
-        plot.Legend.FontSize = 22;
-        plot.Legend.FontName = ChartFontName;
-        plot.Legend.Orientation = Orientation.Vertical;
-        plot.Legend.InterItemPadding = new PixelPadding(0, 0, 15, 0); // Add vertical spacing between items
-        plot.Layout.Fixed(new PixelPadding(left: 100, right: 480, bottom: 50, top: 50));
-
-        // Apply custom time tick generator for X-axis (HH:mm:ss format)
-        ConfigureTimeAxis(plot);
-
-        return plot;
-    }
-
-    private void AddPhaseBoundaries(Plot plot, TestReport testReport)
-    {
-        var phase1Start = testReport.TestDate.AddSeconds(testReport.PhaseTimestamps.Phase1Start);
-        var phase2End = testReport.TestDate.AddSeconds(testReport.PhaseTimestamps.Phase2End);
-        var phase3Start = testReport.TestDate.AddSeconds(testReport.PhaseTimestamps.Phase3Start);
-        var phase3End = testReport.TestDate.AddSeconds(testReport.PhaseTimestamps.Phase3End);
-
-        var boundaries = new[]
-        {
-            (Time: phase1Start, Color: ChartColors.ConsumePhase),
-            (Time: phase2End, Color: ChartColors.ConsumeBoundary),
-            (Time: phase3Start, Color: ChartColors.ApiPhase),
-            (Time: phase3End, Color: ChartColors.ApiPhase)
-        };
-
-        foreach (var (time, color) in boundaries)
-        {
-            var oaDate = time.ToOADate();
-            var vline = plot.Add.VerticalLine(oaDate);
-            vline.Color = color.WithAlpha(0.6);
-            vline.LinePattern = LinePattern.Dotted;
-            vline.LineWidth = 3f;
+            _phaseRenderer.AddPhaseBoundaries(plot, testReport);
         }
     }
 
-    private void AddPhaseLabels(Plot plot, TestReport testReport, double yMax)
+    private void ConfigureTopPlot(Plot plot, TestReport testReport)
     {
-        var phase1Start = testReport.TestDate.AddSeconds(testReport.PhaseTimestamps.Phase1Start);
-        var phase2End = testReport.TestDate.AddSeconds(testReport.PhaseTimestamps.Phase2End);
-        var phase3Start = testReport.TestDate.AddSeconds(testReport.PhaseTimestamps.Phase3Start);
-        var phase3End = testReport.TestDate.AddSeconds(testReport.PhaseTimestamps.Phase3End);
+        // Force auto-scaling before getting limits
+        plot.Axes.AutoScale();
 
-        // Position at 95% of Y-axis max (like Python)
-        var labelYPosition = yMax * 0.95;
+        // Add 10% headroom to throughput Y-axis
+        var limits = plot.Axes.GetLimits();
+        var yMax = limits.Top * 1.1;
+        plot.Axes.SetLimitsY(limits.Bottom, yMax);
 
-        // Consume phase label
-        var consumeMidTime = phase1Start.AddTicks((phase2End - phase1Start).Ticks / 2);
-        var consumeLabel = testReport.Configuration.NumEvents > 0
-            ? $"Consume: {testReport.Configuration.NumEvents}"
-            : "Consume";
-
-        var consumeText = plot.Add.Text(consumeLabel, consumeMidTime.ToOADate(), labelYPosition);
-        consumeText.LabelFontColor = ChartColors.ConsumePhase;
-        consumeText.LabelFontSize = 22;
-        consumeText.LabelFontName = ChartFontName;
-        consumeText.LabelBold = true;
-        consumeText.LabelAlignment = Alignment.UpperCenter;
-
-        // API phase label
-        var apiMidTime = phase3Start.AddTicks((phase3End - phase3Start).Ticks / 2);
-        var apiLabel = "API";
-        if (!string.IsNullOrEmpty(testReport.Configuration.ApiDuration))
-        {
-            apiLabel = testReport.Configuration.ApiConcurrentWorkers > 0
-                ? $"API: {testReport.Configuration.ApiDuration} ({testReport.Configuration.ApiConcurrentWorkers}w)"
-                : $"API: {testReport.Configuration.ApiDuration}";
-        }
-
-        var apiText = plot.Add.Text(apiLabel, apiMidTime.ToOADate(), labelYPosition);
-        apiText.LabelFontColor = ChartColors.ApiPhase;
-        apiText.LabelFontSize = 22;
-        apiText.LabelFontName = ChartFontName;
-        apiText.LabelBold = true;
-        apiText.LabelAlignment = Alignment.UpperCenter;
+        // Add phase labels and title
+        _phaseRenderer.AddPhaseLabels(plot, testReport, yMax);
+        _phaseRenderer.AddTitle(plot, testReport);
     }
 
-    private void SyncXAxisLimits(List<Plot> plots)
+    private void ConfigureBottomPlot(Plot plot)
+    {
+        PlotConfigurator.ConfigureBottomAxisLabel(plot, _config.Font);
+        PlotConfigurator.ConfigureTickLabelRotation(plot);
+    }
+
+    private static void SyncXAxisLimits(List<Plot> plots)
     {
         if (plots.Count == 0)
             return;
 
-        // Force auto-scaling on all plots first (auto-scale normally happens at render time)
+        // Force auto-scaling on all plots
         foreach (var plot in plots)
         {
             plot.Axes.AutoScale();
         }
 
-        // Find the global X-axis range across all plots
+        // Find global X-axis range
         double minX = double.MaxValue;
         double maxX = double.MinValue;
 
@@ -489,426 +208,27 @@ internal sealed class ChartGenerator : IChartGenerator
             maxX = Math.Max(maxX, limits.Right);
         }
 
-        // Apply the global range to all plots
+        // Apply global range
         foreach (var plot in plots)
         {
             plot.Axes.SetLimitsX(minX, maxX);
         }
     }
 
-    private SKBitmap RenderPlotToBitmap(Plot plot, int height)
+    private List<SkiaSharp.SKBitmap> RenderPlots(List<Plot> plots)
     {
-        var image = plot.GetImage(PlotWidth, height);
-        return SKBitmap.Decode(image.GetImageBytes());
+        return plots
+            .Select((p, i) => _imageComposer.RenderPlotToBitmap(
+                p,
+                i == 0 ? _config.Dimensions.ThroughputHeight : _config.Dimensions.Height))
+            .ToList();
     }
 
-    private void CombineBitmapsVertically(List<SKBitmap> bitmaps, string outputPath)
-    {
-        if (bitmaps.Count == 0)
-            throw new ArgumentException("No bitmaps to combine", nameof(bitmaps));
-
-        var totalHeight = bitmaps.Sum(b => b.Height);
-        var width = bitmaps[0].Width;
-
-        using var combinedBitmap = new SKBitmap(width, totalHeight);
-        using var canvas = new SKCanvas(combinedBitmap);
-
-        canvas.Clear(SKColors.White);
-
-        int yOffset = 0;
-        foreach (var bitmap in bitmaps)
-        {
-            canvas.DrawBitmap(bitmap, 0, yOffset);
-            yOffset += bitmap.Height;
-        }
-
-        using var fileStream = File.OpenWrite(outputPath);
-        combinedBitmap.Encode(fileStream, SKEncodedImageFormat.Png, 100);
-    }
-
-    private ThroughputReport? LoadThroughputReport(string filePath)
-    {
-        if (!File.Exists(filePath))
-            return null;
-
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            // Parse samples - handle both events and API formats
-            var samples = new List<ThroughputSampleJson>();
-            if (root.TryGetProperty("samples", out var samplesArray))
-            {
-                foreach (var sample in samplesArray.EnumerateArray())
-                {
-                    var timestamp = sample.GetProperty("timestamp").GetString() ?? "";
-                    var elapsedSeconds = sample.GetProperty("elapsed_seconds").GetDouble();
-                    
-                    // Get rate from either events_per_second or calls_per_second
-                    double rate = 0;
-                    if (sample.TryGetProperty("events_per_second", out var eventsRate))
-                        rate = eventsRate.GetDouble();
-                    else if (sample.TryGetProperty("calls_per_second", out var callsRate))
-                        rate = callsRate.GetDouble();
-                    
-                    // Get count from either total_events or total_calls
-                    int count = 0;
-                    if (sample.TryGetProperty("total_events", out var totalEvents))
-                        count = totalEvents.GetInt32();
-                    else if (sample.TryGetProperty("total_calls", out var totalCalls))
-                        count = totalCalls.GetInt32();
-
-                    samples.Add(new ThroughputSampleJson
-                    {
-                        Timestamp = timestamp,
-                        ElapsedSeconds = elapsedSeconds,
-                        EventsPerSecond = rate,
-                        TotalEvents = count
-                    });
-                }
-            }
-
-            // Parse summary - handle both events and API formats
-            var summary = root.GetProperty("summary");
-            
-            double avgRate = GetDoubleFromEither(summary, "avg_events_per_second", "avg_calls_per_second");
-            double peakRate = GetDoubleFromEither(summary, "peak_events_per_second", "peak_calls_per_second");
-            double minRate = GetDoubleFromEither(summary, "min_events_per_second", "min_calls_per_second");
-            double stdDevRate = GetDoubleFromEither(summary, "std_dev_events_per_second", "std_dev_calls_per_second");
-            double cvRate = GetDoubleFromEither(summary, "cv_events_per_second", "cv_calls_per_second");
-            double avgResponseTimeMs = summary.TryGetProperty("avg_response_time_ms", out var rtMs) ? rtMs.GetDouble() : 0;
-            int totalSamples = summary.TryGetProperty("total_samples", out var ts) ? ts.GetInt32() : 0;
-            int totalCount = GetIntFromEither(summary, "total_events", "total_calls");
-
-            return new ThroughputReport
-            {
-                TestDate = root.GetProperty("test_date").GetString() ?? "",
-                SamplingIntervalMs = root.GetProperty("sampling_interval_ms").GetInt32(),
-                Samples = samples,
-                Summary = new ThroughputSummary
-                {
-                    AvgRate = avgRate,
-                    PeakRate = peakRate,
-                    MinRate = minRate,
-                    StdDevRate = stdDevRate,
-                    CvRate = cvRate,
-                    AvgResponseTimeMs = avgResponseTimeMs,
-                    TotalSamples = totalSamples,
-                    TotalCount = totalCount
-                }
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load throughput report from {FilePath}", filePath);
-            return null;
-        }
-    }
-
-    private static double GetDoubleFromEither(JsonElement element, string key1, string key2)
-    {
-        if (element.TryGetProperty(key1, out var prop1))
-            return prop1.GetDouble();
-        if (element.TryGetProperty(key2, out var prop2))
-            return prop2.GetDouble();
-        return 0;
-    }
-
-    private static int GetIntFromEither(JsonElement element, string key1, string key2)
-    {
-        if (element.TryGetProperty(key1, out var prop1))
-            return prop1.GetInt32();
-        if (element.TryGetProperty(key2, out var prop2))
-            return prop2.GetInt32();
-        return 0;
-    }
-
-    private ResourceMetricsReport? LoadResourceReport(string filePath)
-    {
-        if (!File.Exists(filePath))
-            return null;
-
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            // Parse samples - handle different field names (memory_mb vs memory_rss_mb)
-            var samples = new List<ResourceSampleJson>();
-            if (root.TryGetProperty("samples", out var samplesArray))
-            {
-                foreach (var sample in samplesArray.EnumerateArray())
-                {
-                    var timestamp = sample.GetProperty("timestamp").GetString() ?? "";
-                    var cpuPercent = sample.TryGetProperty("cpu_percent", out var cpu) ? cpu.GetDouble() : 0;
-                    
-                    // Get memory from memory_mb, memory_rss_mb, or memory_used_mb (system metrics)
-                    double memoryMb = 0;
-                    if (sample.TryGetProperty("memory_mb", out var mem))
-                        memoryMb = mem.GetDouble();
-                    else if (sample.TryGetProperty("memory_rss_mb", out var rss))
-                        memoryMb = rss.GetDouble();
-                    else if (sample.TryGetProperty("memory_used_mb", out var used))
-                        memoryMb = used.GetDouble();
-
-                    samples.Add(new ResourceSampleJson
-                    {
-                        Timestamp = timestamp,
-                        ElapsedSeconds = 0, // Not used for charting
-                        CpuPercent = cpuPercent,
-                        MemoryMb = memoryMb
-                    });
-                }
-            }
-
-            // Parse summary - read avg/peak from JSON, compute min/mode from samples (like Python)
-            ResourceSummary cpuSummary;
-            ResourceSummary memorySummary;
-
-            // Extract CPU and memory values from samples for min/mode calculation
-            var cpuValues = samples.Select(s => s.CpuPercent).ToList();
-            var memoryValues = samples.Select(s => s.MemoryMb).ToList();
-
-            if (root.TryGetProperty("summary", out var summary))
-            {
-                cpuSummary = new ResourceSummary
-                {
-                    Avg = summary.TryGetProperty("avg_cpu_percent", out var avgCpu) ? avgCpu.GetDouble() : 0,
-                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
-                    Max = summary.TryGetProperty("peak_cpu_percent", out var peakCpu) ? peakCpu.GetDouble() : 0,
-                    Mode = CalculateMode(cpuValues),
-                    Unit = "%"
-                };
-                // Support different memory field names: memory_mb (container), memory_rss_mb (process), memory_used_mb (system)
-                double avgMemory = 0;
-                if (summary.TryGetProperty("avg_memory_mb", out var avgMem))
-                    avgMemory = avgMem.GetDouble();
-                else if (summary.TryGetProperty("avg_memory_used_mb", out var avgUsed))
-                    avgMemory = avgUsed.GetDouble();
-
-                double peakMemory = 0;
-                if (summary.TryGetProperty("peak_memory_mb", out var peakMem))
-                    peakMemory = peakMem.GetDouble();
-                else if (summary.TryGetProperty("peak_memory_used_mb", out var peakUsed))
-                    peakMemory = peakUsed.GetDouble();
-
-                memorySummary = new ResourceSummary
-                {
-                    Avg = avgMemory,
-                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                    Max = peakMemory,
-                    Mode = CalculateMode(memoryValues),
-                    Unit = "MB"
-                };
-            }
-            else
-            {
-                // Fallback for system-metrics which may have different structure
-                cpuSummary = new ResourceSummary
-                {
-                    Avg = 0,
-                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
-                    Max = 0,
-                    Mode = CalculateMode(cpuValues),
-                    Unit = "%"
-                };
-                memorySummary = new ResourceSummary
-                {
-                    Avg = 0,
-                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                    Max = 0,
-                    Mode = CalculateMode(memoryValues),
-                    Unit = "MB"
-                };
-            }
-
-            return new ResourceMetricsReport
-            {
-                TestDate = root.TryGetProperty("test_date", out var td) ? td.GetString() ?? "" : "",
-                SamplingIntervalMs = root.TryGetProperty("sampling_interval_ms", out var si) ? si.GetInt32() : 500,
-                Samples = samples,
-                CpuSummary = cpuSummary,
-                MemorySummary = memorySummary
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load resource report from {FilePath}", filePath);
-            return null;
-        }
-    }
-
-    private ResourceMetricsReport? LoadProcessResourceReport(string filePath)
-    {
-        if (!File.Exists(filePath))
-            return null;
-
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            // Parse samples - handle process-specific fields
-            var samples = new List<ResourceSampleJson>();
-            if (root.TryGetProperty("samples", out var samplesArray))
-            {
-                foreach (var sample in samplesArray.EnumerateArray())
-                {
-                    var timestamp = sample.GetProperty("timestamp").GetString() ?? "";
-                    var cpuPercent = sample.TryGetProperty("cpu_percent", out var cpu) ? cpu.GetDouble() : 0;
-                    
-                    // Get memory from memory_rss_mb (process-specific)
-                    double memoryMb = 0;
-                    if (sample.TryGetProperty("memory_rss_mb", out var rss))
-                        memoryMb = rss.GetDouble();
-                    else if (sample.TryGetProperty("memory_mb", out var mem))
-                        memoryMb = mem.GetDouble();
-
-                    samples.Add(new ResourceSampleJson
-                    {
-                        Timestamp = timestamp,
-                        ElapsedSeconds = 0, // Not used for charting
-                        CpuPercent = cpuPercent,
-                        MemoryMb = memoryMb
-                    });
-                }
-            }
-
-            // Parse summary - read avg/peak from JSON, compute min/mode from samples (like Python)
-            ResourceSummary cpuSummary;
-            ResourceSummary memorySummary;
-
-            // Extract CPU and memory values from samples for min/mode calculation
-            var cpuValues = samples.Select(s => s.CpuPercent).ToList();
-            var memoryValues = samples.Select(s => s.MemoryMb).ToList();
-
-            if (root.TryGetProperty("cpu_summary", out var cpuSum) && root.TryGetProperty("memory_summary", out var memSum))
-            {
-                // Nested structure - read avg/max from JSON, compute min/mode from samples
-                cpuSummary = new ResourceSummary
-                {
-                    Avg = cpuSum.TryGetProperty("avg", out var avgCpu) ? avgCpu.GetDouble() : 0,
-                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
-                    Max = cpuSum.TryGetProperty("max", out var maxCpu) ? maxCpu.GetDouble() : 0,
-                    Mode = CalculateMode(cpuValues),
-                    Unit = cpuSum.TryGetProperty("unit", out var unitCpu) ? unitCpu.GetString() ?? "%" : "%"
-                };
-                memorySummary = new ResourceSummary
-                {
-                    Avg = memSum.TryGetProperty("avg", out var avgMem) ? avgMem.GetDouble() : 0,
-                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                    Max = memSum.TryGetProperty("max", out var maxMem) ? maxMem.GetDouble() : 0,
-                    Mode = CalculateMode(memoryValues),
-                    Unit = memSum.TryGetProperty("unit", out var unitMem) ? unitMem.GetString() ?? "MB" : "MB"
-                };
-            }
-            else if (root.TryGetProperty("summary", out var summary))
-            {
-                // Flat structure - read avg/peak from JSON, compute min/mode from samples
-                cpuSummary = new ResourceSummary
-                {
-                    Avg = summary.TryGetProperty("avg_cpu_percent", out var avgCpu) ? avgCpu.GetDouble() : 0,
-                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
-                    Max = summary.TryGetProperty("peak_cpu_percent", out var peakCpu) ? peakCpu.GetDouble() : 0,
-                    Mode = CalculateMode(cpuValues),
-                    Unit = "%"
-                };
-                memorySummary = new ResourceSummary
-                {
-                    Avg = summary.TryGetProperty("avg_memory_rss_mb", out var avgMem) ? avgMem.GetDouble() : 0,
-                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                    Max = summary.TryGetProperty("peak_memory_rss_mb", out var peakMem) ? peakMem.GetDouble() : 0,
-                    Mode = CalculateMode(memoryValues),
-                    Unit = "MB"
-                };
-            }
-            else
-            {
-                cpuSummary = new ResourceSummary
-                {
-                    Avg = 0,
-                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
-                    Max = 0,
-                    Mode = CalculateMode(cpuValues),
-                    Unit = "%"
-                };
-                memorySummary = new ResourceSummary
-                {
-                    Avg = 0,
-                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                    Max = 0,
-                    Mode = CalculateMode(memoryValues),
-                    Unit = "MB"
-                };
-            }
-
-            return new ResourceMetricsReport
-            {
-                TestDate = root.TryGetProperty("test_date", out var td) ? td.GetString() ?? "" : "",
-                SamplingIntervalMs = root.TryGetProperty("sampling_interval_ms", out var si) ? si.GetInt32() : 500,
-                Samples = samples,
-                CpuSummary = cpuSummary,
-                MemorySummary = memorySummary
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load process resource report from {FilePath}", filePath);
-            return null;
-        }
-    }
-
-    private string FormatThroughputLegend(
-        string prefix,
-        double avg,
-        double responseTimeMs,
-        double min,
-        double max,
-        int mode,
-        double stdDev,
-        double cv)
-    {
-        return $"Avg: {avg:F1} ({responseTimeMs:F2}ms)\n" +
-               $"Min: {min:F1}\n" +
-               $"Max: {max:F1}\n" +
-               $"Mode: {mode}\n" +
-               $"Std Dev: {stdDev:F1}\n" +
-               $"CV: {cv:F1}%\n";
-    }
-
-    /// <summary>
-    /// Calculate mode (most common value) from a list of doubles, rounded to nearest integer.
-    /// Matches Python's calculate_mode() implementation.
-    /// </summary>
-    private static int CalculateMode(List<double> values)
-    {
-        if (values.Count == 0)
-            return 0;
-
-        // Round each value and find the most common
-        var rounded = values.Select(v => (int)Math.Round(v));
-        return rounded
-            .GroupBy(x => x)
-            .OrderByDescending(g => g.Count())
-            .ThenBy(g => g.Key) // For consistency when tied
-            .First()
-            .Key;
-    }
-
-    private string FormatResourceLegend(
-        double avg,
-        double min,
-        double max,
-        int mode,
-        string unit)
-    {
-        return $"Avg: {avg:F1} {unit}\n" +
-               $"Min: {min:F1} {unit}\n" +
-               $"Max: {max:F1} {unit}\n" +
-               $"Mode: {mode} {unit}\n";
-    }
+    private sealed record DataFilePaths(
+        string EventsThroughput,
+        string ApiThroughput,
+        string ResourceMetrics,
+        string RabbitmqMetrics,
+        string PostgresMetrics,
+        string SystemMetrics);
 }
