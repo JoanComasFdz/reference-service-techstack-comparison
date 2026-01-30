@@ -544,6 +544,8 @@ builder.Services.AddInfrastructure(
 
 ## Code Quality Standards
 
+**See also:** [CODING_GUIDELINES.md](CODING_GUIDELINES.md) for functional architecture principles (static classes, explicit parameters, toolbox pattern, vertical slice ownership).
+
 ### Zero Warnings Policy
 
 All projects must compile with **zero warnings**. This is enforced in CI/CD.
@@ -966,9 +968,10 @@ docker-compose -f scripts/infrastructure/docker-compose.yml up -d
 7. **[07.PHASE_2_EVENTPUBLISHING_PLAN.md](docs/plans/07.PHASE_2_EVENTPUBLISHING_PLAN.md)** (43KB) - CloudEvents publishing implementation
 8. **[08.PHASE_2_EVENTCONSUMING_PLAN.md](docs/plans/08.PHASE_2_EVENTCONSUMING_PLAN.md)** (64KB) - Event consuming with inactivity timeout and throughput tracking
 
-### Project-Specific READMEs
+### Project-Specific Documentation
 
 - **[README.md](README.md)** - Quick overview, build/test commands
+- **[CODING_GUIDELINES.md](CODING_GUIDELINES.md)** - Functional architecture principles and patterns
 - **[src/PerformanceTester.Infrastructure/README.md](src/PerformanceTester.Infrastructure/README.md)** - Infrastructure slice documentation
 - **[src/PerformanceTester.EventPublishing/README.md](src/PerformanceTester.EventPublishing/README.md)** - EventPublishing slice documentation
 
