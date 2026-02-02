@@ -35,10 +35,12 @@ pub struct InstrumentStatusChangedEvent {
     #[serde(rename = "type")]
     pub event_type: String,
     pub time: String,
+    #[serde(default)]
     pub privacyrelevant: bool,
     pub datacontenttype: String,
     pub dataschema: String,
-    pub kind: String,
+    #[serde(default)]
+    pub kind: Option<String>,
     pub data: InstrumentStatusChangedData,
 }
 
