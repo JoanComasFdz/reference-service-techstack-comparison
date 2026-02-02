@@ -28,7 +28,11 @@ API_DURATION="30s"
 API_WORKERS=1
 GRAAL_MODE="jar"  # Default to jar for quick testing; use --native for native executables
 MAX_SERVICE_STARTUP_WAIT=90  # Maximum time (in seconds) to wait for a service to become available
-RESULTS_FOLDER="$ROOT_DIR/performance-tester/test-results"  # Default results folder
+RESULTS_FOLDER=""  # Set after argument parsing based on tester type
+
+# Performance tester selection (python or dotnet)
+PERFORMANCE_TESTER="${PERFORMANCE_TESTER:-python}"
+DOTNET_TESTER_DIR="$ROOT_DIR/performance-tester-dotnet/src/PerformanceTester.Cli"
 
 # Java version management (mise)
 # Detect available Java versions for Java 21 and Java 25 projects
@@ -65,6 +69,8 @@ OPTIONS:
     -n, --native            Build GraalVM services as native executables (default: jar mode)
                             Note: Native builds take ~10 minutes but provide better benchmarks
     -r, --results-folder    Folder to save test results (default: ./performance-tester/test-results)
+    -t, --tester TYPE       Performance tester to use: python or dotnet (default: python)
+                            Can also be set via PERFORMANCE_TESTER environment variable
     -h, --help              Show this help message
 
 EXAMPLES:
@@ -133,6 +139,14 @@ parse_args() {
                 RESULTS_FOLDER="$2"
                 if [[ -z "$RESULTS_FOLDER" ]]; then
                     log_error "Results folder cannot be empty"
+                    exit 1
+                fi
+                shift 2
+                ;;
+            -t|--tester)
+                PERFORMANCE_TESTER="$2"
+                if [[ "$PERFORMANCE_TESTER" != "python" && "$PERFORMANCE_TESTER" != "dotnet" ]]; then
+                    log_error "Tester must be 'python' or 'dotnet'"
                     exit 1
                 fi
                 shift 2
@@ -467,20 +481,41 @@ run_test() {
         return 1
     fi
 
-    # Run the tests
-    log_info "Running performance tests..."
+    # Run the tests using selected performance tester
+    log_info "Running performance tests with $PERFORMANCE_TESTER tester..."
     cd "$TESTER_DIR"
 
-    # Use Python from mise (globally installed packages, no venv)
-    if python service-tester.py \
-        --port "$port" \
-        --events "$NUM_EVENTS" \
-        --api-duration "$API_DURATION" \
-        --api-workers "$API_WORKERS" \
-        --results-folder "$RESULTS_FOLDER"; then
-        log_success "Tests completed for $service_name"
+    local test_result=0
+    if [ "$PERFORMANCE_TESTER" = "dotnet" ]; then
+        # Use .NET performance tester
+        if dotnet run --project "$DOTNET_TESTER_DIR" -- test \
+            --port "$port" \
+            --events "$NUM_EVENTS" \
+            --api-duration "$API_DURATION" \
+            --api-workers "$API_WORKERS" \
+            --results-folder "$RESULTS_FOLDER" \
+            --database "$db_name"; then
+            log_success "Tests completed for $service_name"
+        else
+            log_error "Tests failed for $service_name"
+            test_result=1
+        fi
     else
-        log_error "Tests failed for $service_name"
+        # Use Python performance tester (default)
+        if python service-tester.py \
+            --port "$port" \
+            --events "$NUM_EVENTS" \
+            --api-duration "$API_DURATION" \
+            --api-workers "$API_WORKERS" \
+            --results-folder "$RESULTS_FOLDER"; then
+            log_success "Tests completed for $service_name"
+        else
+            log_error "Tests failed for $service_name"
+            test_result=1
+        fi
+    fi
+
+    if [ $test_result -ne 0 ]; then
         kill_process "$app_pid"
         return 1
     fi
@@ -501,6 +536,15 @@ main() {
     # Parse command-line arguments
     parse_args "$@"
 
+    # Set default results folder based on tester type (if not explicitly provided)
+    if [[ -z "$RESULTS_FOLDER" ]]; then
+        if [[ "$PERFORMANCE_TESTER" == "dotnet" ]]; then
+            RESULTS_FOLDER="$ROOT_DIR/performance-tester-dotnet/test-results"
+        else
+            RESULTS_FOLDER="$ROOT_DIR/performance-tester/test-results"
+        fi
+    fi
+
     log_section "Performance Test - Automated Test Suite"
     log_info "Test Configuration:"
     log_info "  Events: $NUM_EVENTS"
@@ -508,6 +552,7 @@ main() {
     log_info "  API Workers: $API_WORKERS"
     log_info "  GraalVM Mode: $GRAAL_MODE"
     log_info "  Results Folder: $RESULTS_FOLDER"
+    log_info "  Performance Tester: $PERFORMANCE_TESTER"
     echo ""
 
     # Display detected Java versions
@@ -639,7 +684,7 @@ main() {
             log_info "Using Java 21 ($JAVA_21_VERSION)"
             cd "$ROOT_DIR/implementations/java21quarkusgraal"
             log_info "Building Java 21 Quarkus GraalVM JAR (quick mode)..."
-            mise exec "java@$JAVA_21_VERSION" -- mvn package -q -DskipTests
+            mise exec "java@$JAVA_21_VERSION" -- mvn clean package -q -DskipTests
             log_success "Java 21 Quarkus GraalVM JAR built successfully"
         fi
 
@@ -739,7 +784,7 @@ main() {
             cd "$ROOT_DIR/implementations/java25quarkusgraal"
             log_info "Building Java 25 Quarkus GraalVM JAR (quick mode)..."
             log_warn "Java 25 is not officially supported by Quarkus - may have warnings"
-            mise exec "java@$JAVA_25_VERSION" -- mvn package -q -DskipTests -Dnet.bytebuddy.experimental=true
+            mise exec "java@$JAVA_25_VERSION" -- mvn clean package -q -DskipTests -Dnet.bytebuddy.experimental=true
             log_success "Java 25 Quarkus GraalVM JAR built successfully"
         fi
 
@@ -827,17 +872,32 @@ main() {
     # Generate comparison report
     log_section "Generating Comparison Report"
     cd "$TESTER_DIR"
-    if python3.13 compare_test_results.py --folder "$RESULTS_FOLDER"; then
-        log_success "Comparison report generated successfully"
+    if [ "$PERFORMANCE_TESTER" = "dotnet" ]; then
+        if dotnet run --project "$DOTNET_TESTER_DIR" -- compare --folder "$RESULTS_FOLDER"; then
+            log_success "Comparison report generated successfully"
 
-        # Find the most recent comparison report
-        latest_report=$(ls -t "$RESULTS_FOLDER"/test-report-comparison-*.md 2>/dev/null | head -1)
-        if [ -n "$latest_report" ]; then
-            log_info "Comparison report: $latest_report"
+            # Find the most recent comparison report
+            latest_report=$(ls -t "$RESULTS_FOLDER"/test-report-comparison-*.md 2>/dev/null | head -1)
+            if [ -n "$latest_report" ]; then
+                log_info "Comparison report: $latest_report"
+            fi
+        else
+            log_warn "Failed to generate comparison report"
+            log_info "You can manually run: dotnet run --project \"$DOTNET_TESTER_DIR\" -- compare --folder \"$RESULTS_FOLDER\""
         fi
     else
-        log_warn "Failed to generate comparison report"
-        log_info "You can manually run: cd performance-tester && python3.13 compare_test_results.py --folder \"$RESULTS_FOLDER\""
+        if python3.13 compare_test_results.py --folder "$RESULTS_FOLDER"; then
+            log_success "Comparison report generated successfully"
+
+            # Find the most recent comparison report
+            latest_report=$(ls -t "$RESULTS_FOLDER"/test-report-comparison-*.md 2>/dev/null | head -1)
+            if [ -n "$latest_report" ]; then
+                log_info "Comparison report: $latest_report"
+            fi
+        else
+            log_warn "Failed to generate comparison report"
+            log_info "You can manually run: cd performance-tester && python3.13 compare_test_results.py --folder \"$RESULTS_FOLDER\""
+        fi
     fi
 }
 
