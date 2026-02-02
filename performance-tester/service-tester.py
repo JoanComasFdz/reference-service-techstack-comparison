@@ -291,14 +291,14 @@ def get_database_name_from_port(port: int) -> str:
         8092: "dotnet9_db",
         8093: "dotnet9aot_db",
         8094: "go_db",
-        8096: "java21quarkusgraal_db",
+        8096: "java21quarkus_db",
         8097: "java21springboot_db",
         8098: "java21springbootgraal_db",
         8099: "python_db",
         8100: "rust_db",
         8101: "java25springboot_db",
         8102: "java25springbootgraal_db",
-        8103: "java25quarkusgraal_db"
+        8103: "java25quarkus_db"
     }
 
     db_name = port_to_db.get(port)

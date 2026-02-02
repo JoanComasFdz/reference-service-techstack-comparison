@@ -29,8 +29,8 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'java21springboot_db')
 SELECT 'CREATE DATABASE java21springbootgraal_db'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'java21springbootgraal_db')\gexec
 
-SELECT 'CREATE DATABASE java21quarkusgraal_db'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'java21quarkusgraal_db')\gexec
+SELECT 'CREATE DATABASE java21quarkus_db'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'java21quarkus_db')\gexec
 
 SELECT 'CREATE DATABASE java25springboot_db'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'java25springboot_db')\gexec
@@ -38,5 +38,5 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'java25springboot_db')
 SELECT 'CREATE DATABASE java25springbootgraal_db'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'java25springbootgraal_db')\gexec
 
-SELECT 'CREATE DATABASE java25quarkusgraal_db'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'java25quarkusgraal_db')\gexec
+SELECT 'CREATE DATABASE java25quarkus_db'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'java25quarkus_db')\gexec
