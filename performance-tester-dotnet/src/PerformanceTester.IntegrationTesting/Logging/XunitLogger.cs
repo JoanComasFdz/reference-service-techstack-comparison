@@ -29,7 +29,7 @@ internal sealed class XunitLogger : ILogger
         Func<TState, Exception?, string> formatter)
     {
         var message = formatter(state, exception);
-        _output.WriteLine($"[{DateTime.Now:HH:mm:ss} {logLevel}] {_categoryName}: {message}");
+        _output.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}Z {logLevel}] {_categoryName}: {message}");
 
         if (exception != null)
         {
