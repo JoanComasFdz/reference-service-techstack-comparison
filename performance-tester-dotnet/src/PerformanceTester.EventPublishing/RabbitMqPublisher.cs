@@ -152,10 +152,12 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
             var jsonBytes = SerializeCloudEvent(cloudEvent);
 
             // Create message properties
+            // Use application/json for compatibility with all consumers
+            // (application/cloudevents+json causes issues with Quarkus SmallRye Reactive Messaging)
             var properties = new BasicProperties
             {
                 DeliveryMode = DeliveryModes.Persistent,
-                ContentType = "application/cloudevents+json"
+                ContentType = "application/json"
             };
 
             // Publish message

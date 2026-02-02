@@ -1,5 +1,3 @@
-using CloudNative.CloudEvents;
-using CloudNative.CloudEvents.SystemTextJson;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
@@ -22,7 +20,6 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
     private readonly string _connectionString;
     private readonly string _queueName;
     private readonly ILogger<EventConsumerService> _logger;
-    private readonly CloudEventFormatter _formatter;
     private readonly ThroughputTracker _throughputTracker;
     private readonly Channel<EventThroughputSample> _throughputChannel;
 
@@ -54,7 +51,6 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
         _queueName = queueName ?? throw new ArgumentNullException(nameof(queueName));
         _throughputChannel = throughputChannel ?? throw new ArgumentNullException(nameof(throughputChannel));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _formatter = new JsonEventFormatter();
         _throughputTracker = new ThroughputTracker();
     }
 
@@ -367,12 +363,10 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
             // Reset inactivity timer
             _lastEventReceivedTime = DateTime.UtcNow;
 
-            // Deserialize CloudEvent (for validation)
-            using var stream = new MemoryStream(eventArgs.Body.ToArray());
-            var cloudEvent = await _formatter.DecodeStructuredModeMessageAsync(
-                stream,
-                new System.Net.Mime.ContentType("application/cloudevents+json"),
-                null);
+            // Note: We don't validate CloudEvents structure here because different services
+            // (Java, Go, Rust, etc.) may use slightly different CloudEvents formats.
+            // The consumer's job is just to count received messages, not validate their structure.
+            // The message body is available in eventArgs.Body if validation is needed in the future.
 
             // Record throughput sample
             var sample = _throughputTracker.RecordEvent();
