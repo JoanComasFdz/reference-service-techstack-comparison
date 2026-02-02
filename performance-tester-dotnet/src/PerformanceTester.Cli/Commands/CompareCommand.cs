@@ -132,7 +132,7 @@ public static class CompareCommand
             var outputPath = options.Output;
             if (string.IsNullOrWhiteSpace(outputPath) && !options.Stdout)
             {
-                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
                 outputPath = Path.Combine(options.Folder, $"test-report-comparison-{timestamp}.md");
             }
 
