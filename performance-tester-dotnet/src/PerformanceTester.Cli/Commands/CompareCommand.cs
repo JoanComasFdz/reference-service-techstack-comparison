@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Output;
 using PerformanceTester.Reporting;
+using PerformanceTester.Reporting.Shared.Utilities;
 
 namespace PerformanceTester.Cli.Commands;
 
@@ -17,7 +18,9 @@ public static class CompareCommand
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        Converters = { new Iso8601DateTimeConverter() }
     };
 
     public static Command Create()
@@ -99,7 +102,7 @@ public static class CompareCommand
 
             consoleWriter.WriteInfo($"Found {reportFiles.Count} test report(s)");
 
-            // Load test reports
+            // Load test reports with supplementary data
             var testReports = new List<TestReport>();
             foreach (var file in reportFiles)
             {
@@ -109,6 +112,8 @@ public static class CompareCommand
                     var report = JsonSerializer.Deserialize<TestReport>(json, JsonOptions);
                     if (report is not null)
                     {
+                        // Load supplementary files and enrich the report
+                        report = await LoadSupplementaryDataAsync(file, report, cancellationToken);
                         testReports.Add(report);
                         consoleWriter.WriteInfo($"  Loaded: {Path.GetFileName(file)}");
                     }
@@ -169,6 +174,203 @@ public static class CompareCommand
             consoleWriter.WriteError($"Error generating comparison: {ex.Message}");
             logger.LogError(ex, "Failed to generate comparison report");
             return 1;
+        }
+    }
+
+    /// <summary>
+    /// Loads supplementary data files and enriches the TestReport with sample collections.
+    /// </summary>
+    private static async Task<TestReport> LoadSupplementaryDataAsync(
+        string mainReportPath,
+        TestReport report,
+        CancellationToken cancellationToken)
+    {
+        // Derive supplementary file paths from main report path
+        // Main: test-report-{timestamp}-{service}.json
+        // Supplementary: test-report-{timestamp}-{service}.{type}.json
+        var basePath = mainReportPath.Replace(".json", "");
+
+        var eventsThroughputSamples = await LoadThroughputSamplesAsync(
+            $"{basePath}.events-throughput.json", "events_per_second", "total_events", cancellationToken);
+
+        var apiThroughputSamples = await LoadThroughputSamplesAsync(
+            $"{basePath}.api-throughput.json", "calls_per_second", "total_calls", cancellationToken);
+
+        var processResourceSamples = await LoadProcessResourceSamplesAsync(
+            $"{basePath}.resource-metrics.json", cancellationToken);
+
+        var systemResourceSamples = await LoadSystemResourceSamplesAsync(
+            $"{basePath}.system-metrics.json", cancellationToken);
+
+        // Return enriched report with sample data
+        return report with
+        {
+            EventsThroughputSamples = eventsThroughputSamples,
+            ApiThroughputSamples = apiThroughputSamples,
+            ProcessResourceSamples = processResourceSamples,
+            SystemResourceSamples = systemResourceSamples
+        };
+    }
+
+    /// <summary>
+    /// Loads throughput samples from events-throughput or api-throughput JSON files.
+    /// </summary>
+    private static async Task<IReadOnlyList<ThroughputMetricSample>> LoadThroughputSamplesAsync(
+        string filePath,
+        string rateFieldName,
+        string countFieldName,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(filePath))
+            return Array.Empty<ThroughputMetricSample>();
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("samples", out var samplesElement))
+                return Array.Empty<ThroughputMetricSample>();
+
+            var samples = new List<ThroughputMetricSample>();
+            foreach (var sample in samplesElement.EnumerateArray())
+            {
+                var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
+                var elapsedSeconds = sample.GetProperty("elapsed_seconds").GetDouble();
+                var rate = sample.GetProperty(rateFieldName).GetDouble();
+                var count = sample.GetProperty(countFieldName).GetInt32();
+
+                samples.Add(new ThroughputMetricSample
+                {
+                    Timestamp = timestamp,
+                    ElapsedSeconds = elapsedSeconds,
+                    Rate = rate,
+                    CumulativeCount = count
+                });
+            }
+
+            return samples;
+        }
+        catch
+        {
+            return Array.Empty<ThroughputMetricSample>();
+        }
+    }
+
+    /// <summary>
+    /// Loads process resource samples from resource-metrics JSON file.
+    /// </summary>
+    private static async Task<IReadOnlyList<ProcessResourceSample>> LoadProcessResourceSamplesAsync(
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(filePath))
+            return Array.Empty<ProcessResourceSample>();
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("samples", out var samplesElement))
+                return Array.Empty<ProcessResourceSample>();
+
+            // Get test_date to calculate elapsed seconds
+            DateTime? testDate = null;
+            if (root.TryGetProperty("test_date", out var testDateElement))
+            {
+                testDate = DateTime.Parse(testDateElement.GetString()!);
+            }
+
+            var samples = new List<ProcessResourceSample>();
+            foreach (var sample in samplesElement.EnumerateArray())
+            {
+                var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
+                var cpuPercent = sample.GetProperty("cpu_percent").GetDouble();
+                var memoryRssMb = sample.GetProperty("memory_rss_mb").GetDouble();
+                var threads = sample.GetProperty("threads").GetInt32();
+
+                // Calculate elapsed seconds from test start
+                var elapsedSeconds = testDate.HasValue
+                    ? (timestamp - testDate.Value).TotalSeconds
+                    : 0.0;
+
+                samples.Add(new ProcessResourceSample
+                {
+                    Timestamp = timestamp,
+                    ElapsedSeconds = elapsedSeconds,
+                    CpuPercent = cpuPercent,
+                    MemoryRssMb = memoryRssMb,
+                    Threads = threads
+                });
+            }
+
+            return samples;
+        }
+        catch
+        {
+            return Array.Empty<ProcessResourceSample>();
+        }
+    }
+
+    /// <summary>
+    /// Loads system-wide resource samples from system-metrics JSON file.
+    /// </summary>
+    private static async Task<IReadOnlyList<SystemResourceSample>> LoadSystemResourceSamplesAsync(
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(filePath))
+            return Array.Empty<SystemResourceSample>();
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("samples", out var samplesElement))
+                return Array.Empty<SystemResourceSample>();
+
+            // Get test_date to calculate elapsed seconds
+            DateTime? testDate = null;
+            if (root.TryGetProperty("test_date", out var testDateElement))
+            {
+                testDate = DateTime.Parse(testDateElement.GetString()!);
+            }
+
+            var samples = new List<SystemResourceSample>();
+            foreach (var sample in samplesElement.EnumerateArray())
+            {
+                var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
+                var cpuPercent = sample.GetProperty("cpu_percent").GetDouble();
+                var memoryUsedMb = sample.GetProperty("memory_used_mb").GetDouble();
+                var memoryTotalMb = sample.GetProperty("memory_total_mb").GetDouble();
+                var memoryPercent = sample.GetProperty("memory_percent").GetDouble();
+
+                // Calculate elapsed seconds from test start
+                var elapsedSeconds = testDate.HasValue
+                    ? (timestamp - testDate.Value).TotalSeconds
+                    : 0.0;
+
+                samples.Add(new SystemResourceSample
+                {
+                    Timestamp = timestamp,
+                    ElapsedSeconds = elapsedSeconds,
+                    CpuPercent = cpuPercent,
+                    MemoryUsedMb = memoryUsedMb,
+                    MemoryTotalMb = memoryTotalMb,
+                    MemoryPercent = memoryPercent
+                });
+            }
+
+            return samples;
+        }
+        catch
+        {
+            return Array.Empty<SystemResourceSample>();
         }
     }
 }
