@@ -611,6 +611,23 @@ public string? Description { get; set; }
 var value = possiblyNull!.ToString();
 ```
 
+### Timestamp Convention
+
+All timestamps in this project use **UTC (Coordinated Universal Time)**:
+
+- Report filenames: `test-report-20260130_205524-servicename.json` (UTC)
+- JSON `test_date` fields: `"2026-01-30 20:55:24"` (UTC, no timezone indicator)
+- Log output: `[15:28:29Z INFO]` (UTC with Z suffix)
+
+**Why UTC?**
+- Unambiguous across timezones
+- Easy to compare reports from different machines
+- Industry standard for metrics and logging
+
+**Converting to local time:**
+- Windows: Use PowerShell `[DateTime]::Parse("2026-01-30 20:55:24").ToLocalTime()`
+- Linux: Use `date -d "2026-01-30 20:55:24 UTC" +"%Y-%m-%d %H:%M:%S %Z"`
+
 ### Naming Conventions
 
 Follow .NET naming conventions:

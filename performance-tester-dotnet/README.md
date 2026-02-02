@@ -29,6 +29,8 @@ Verification test project that validates the Phase 0 shared infrastructure works
 
 **Test Results**: All 8 tests passing in ~1.2 minutes (includes container startup)
 
+**Note:** All timestamps in report filenames and JSON content are in **UTC**.
+
 ## Building
 
 ```bash
