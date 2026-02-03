@@ -22,6 +22,7 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
     // volatile ensures visibility across threads - set in StartMonitoringAsync, read in ExecuteAsync
     private volatile IProgress<ProcessMonitorPhaseInfo>? _progress;
     private int? _processId;
+    private string? _cachedProcessName;
 
     /// <inheritdoc />
     public int? ProcessId => _processId;
@@ -105,8 +106,13 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
             try
             {
                 process = Process.GetProcessById(processId);
+
+                // Extract meaningful process name once (command line doesn't change)
+                var commandLine = ReadCommandLine(processId);
+                _cachedProcessName = ProcessNameExtractor.ExtractMeaningfulName(process.ProcessName, commandLine);
+
                 _logger.LogInformation("✓ Monitoring process: {ProcessName} (PID: {ProcessId})",
-                    process.ProcessName,
+                    _cachedProcessName,
                     processId);
             }
             catch (ArgumentException ex)
@@ -163,7 +169,7 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
                     var metrics = new ProcessMetrics(
                         Timestamp: DateTimeOffset.UtcNow,
                         ProcessId: processId,
-                        ProcessName: process.ProcessName,
+                        ProcessName: _cachedProcessName ?? process.ProcessName,
                         CpuPercent: Math.Round(cpuPercent, 2),
                         MemoryMB: Math.Round(memoryMB, 2),
                         ThreadCount: threadCount);
@@ -253,6 +259,23 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
 
             // Dispose process handle
             process?.Dispose();
+        }
+    }
+
+    private static string[]? ReadCommandLine(int processId)
+    {
+        var cmdLinePath = $"/proc/{processId}/cmdline";
+        if (!File.Exists(cmdLinePath))
+            return null;
+
+        try
+        {
+            var content = File.ReadAllText(cmdLinePath);
+            return content.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+        }
+        catch (IOException)
+        {
+            return null; // Process may have exited, permission denied, etc.
         }
     }
 }
