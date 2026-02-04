@@ -295,9 +295,9 @@ mise exec java@25 -- java -version
 │   ├── java25springbootgraal/   # Spring Boot + GraalVM Native
 │   ├── python/                  # Python 3.13+ + SQLAlchemy + pika
 │   └── rust/                    # Rust + Actix-web + SeaORM
-├── performance-tester/          # Load testing and comparison scripts
-│   ├── service-tester.py        # Main performance test script
-│   ├── compare_test_results.py  # Generate comparison reports
+├── performance-tester-dotnet/   # .NET performance tester
+│   ├── src/PerformanceTester.Cli/  # CLI application
+│   ├── src/PerformanceTester.Core/ # Core library
 │   └── test-results/            # Test output and reports
 ├── scripts/                     # All automation scripts
 │   ├── common.sh                # Shared library functions
