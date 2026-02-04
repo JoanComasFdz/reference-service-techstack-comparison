@@ -13,7 +13,6 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 # Source shared library
 source "${ROOT_DIR}/scripts/common.sh"
 
-TESTER_DIR="$ROOT_DIR/performance-tester"
 POSTGRES_CONTAINER="performancetest-postgres"
 DB_USER="admin"
 DB_PASS="admin"
@@ -30,8 +29,6 @@ GRAAL_MODE="jar"  # Default to jar for quick testing; use --native for native ex
 MAX_SERVICE_STARTUP_WAIT=90  # Maximum time (in seconds) to wait for a service to become available
 RESULTS_FOLDER=""  # Set after argument parsing based on tester type
 
-# Performance tester selection (python or dotnet)
-PERFORMANCE_TESTER="${PERFORMANCE_TESTER:-python}"
 DOTNET_TESTER_DIR="$ROOT_DIR/performance-tester-dotnet/src/PerformanceTester.Cli"
 
 # Java version management (mise)
@@ -68,9 +65,7 @@ OPTIONS:
     -w, --workers NUM       Number of concurrent API workers (default: 1)
     -n, --native            Build GraalVM services as native executables (default: jar mode)
                             Note: Native builds take ~10 minutes but provide better benchmarks
-    -r, --results-folder    Folder to save test results (default: ./performance-tester/test-results)
-    -t, --tester TYPE       Performance tester to use: python or dotnet (default: python)
-                            Can also be set via PERFORMANCE_TESTER environment variable
+    -r, --results-folder    Folder to save test results (default: ./performance-tester-dotnet/test-results)
     -h, --help              Show this help message
 
 EXAMPLES:
@@ -139,14 +134,6 @@ parse_args() {
                 RESULTS_FOLDER="$2"
                 if [[ -z "$RESULTS_FOLDER" ]]; then
                     log_error "Results folder cannot be empty"
-                    exit 1
-                fi
-                shift 2
-                ;;
-            -t|--tester)
-                PERFORMANCE_TESTER="$2"
-                if [[ "$PERFORMANCE_TESTER" != "python" && "$PERFORMANCE_TESTER" != "dotnet" ]]; then
-                    log_error "Tester must be 'python' or 'dotnet'"
                     exit 1
                 fi
                 shift 2
@@ -481,38 +468,21 @@ run_test() {
         return 1
     fi
 
-    # Run the tests using selected performance tester
-    log_info "Running performance tests with $PERFORMANCE_TESTER tester..."
-    cd "$TESTER_DIR"
+    # Run the tests using .NET performance tester
+    log_info "Running performance tests..."
 
     local test_result=0
-    if [ "$PERFORMANCE_TESTER" = "dotnet" ]; then
-        # Use .NET performance tester
-        if dotnet run --project "$DOTNET_TESTER_DIR" -- test \
-            --port "$port" \
-            --events "$NUM_EVENTS" \
-            --api-duration "$API_DURATION" \
-            --api-workers "$API_WORKERS" \
-            --results-folder "$RESULTS_FOLDER" \
-            --database "$db_name"; then
-            log_success "Tests completed for $service_name"
-        else
-            log_error "Tests failed for $service_name"
-            test_result=1
-        fi
+    if dotnet run --project "$DOTNET_TESTER_DIR" -- test \
+        --port "$port" \
+        --events "$NUM_EVENTS" \
+        --api-duration "$API_DURATION" \
+        --api-workers "$API_WORKERS" \
+        --results-folder "$RESULTS_FOLDER" \
+        --database "$db_name"; then
+        log_success "Tests completed for $service_name"
     else
-        # Use Python performance tester (default)
-        if python service-tester.py \
-            --port "$port" \
-            --events "$NUM_EVENTS" \
-            --api-duration "$API_DURATION" \
-            --api-workers "$API_WORKERS" \
-            --results-folder "$RESULTS_FOLDER"; then
-            log_success "Tests completed for $service_name"
-        else
-            log_error "Tests failed for $service_name"
-            test_result=1
-        fi
+        log_error "Tests failed for $service_name"
+        test_result=1
     fi
 
     if [ $test_result -ne 0 ]; then
@@ -536,13 +506,9 @@ main() {
     # Parse command-line arguments
     parse_args "$@"
 
-    # Set default results folder based on tester type (if not explicitly provided)
+    # Set default results folder if not explicitly provided
     if [[ -z "$RESULTS_FOLDER" ]]; then
-        if [[ "$PERFORMANCE_TESTER" == "dotnet" ]]; then
-            RESULTS_FOLDER="$ROOT_DIR/performance-tester-dotnet/test-results"
-        else
-            RESULTS_FOLDER="$ROOT_DIR/performance-tester/test-results"
-        fi
+        RESULTS_FOLDER="$ROOT_DIR/performance-tester-dotnet/test-results"
     fi
 
     log_section "Performance Test - Automated Test Suite"
@@ -552,7 +518,6 @@ main() {
     log_info "  API Workers: $API_WORKERS"
     log_info "  GraalVM Mode: $GRAAL_MODE"
     log_info "  Results Folder: $RESULTS_FOLDER"
-    log_info "  Performance Tester: $PERFORMANCE_TESTER"
     echo ""
 
     # Display detected Java versions
@@ -871,33 +836,17 @@ main() {
 
     # Generate comparison report
     log_section "Generating Comparison Report"
-    cd "$TESTER_DIR"
-    if [ "$PERFORMANCE_TESTER" = "dotnet" ]; then
-        if dotnet run --project "$DOTNET_TESTER_DIR" -- compare --folder "$RESULTS_FOLDER"; then
-            log_success "Comparison report generated successfully"
+    if dotnet run --project "$DOTNET_TESTER_DIR" -- compare --folder "$RESULTS_FOLDER"; then
+        log_success "Comparison report generated successfully"
 
-            # Find the most recent comparison report
-            latest_report=$(ls -t "$RESULTS_FOLDER"/test-report-comparison-*.md 2>/dev/null | head -1)
-            if [ -n "$latest_report" ]; then
-                log_info "Comparison report: $latest_report"
-            fi
-        else
-            log_warn "Failed to generate comparison report"
-            log_info "You can manually run: dotnet run --project \"$DOTNET_TESTER_DIR\" -- compare --folder \"$RESULTS_FOLDER\""
+        # Find the most recent comparison report
+        latest_report=$(ls -t "$RESULTS_FOLDER"/test-report-comparison-*.md 2>/dev/null | head -1)
+        if [ -n "$latest_report" ]; then
+            log_info "Comparison report: $latest_report"
         fi
     else
-        if python3.13 compare_test_results.py --folder "$RESULTS_FOLDER"; then
-            log_success "Comparison report generated successfully"
-
-            # Find the most recent comparison report
-            latest_report=$(ls -t "$RESULTS_FOLDER"/test-report-comparison-*.md 2>/dev/null | head -1)
-            if [ -n "$latest_report" ]; then
-                log_info "Comparison report: $latest_report"
-            fi
-        else
-            log_warn "Failed to generate comparison report"
-            log_info "You can manually run: cd performance-tester && python3.13 compare_test_results.py --folder \"$RESULTS_FOLDER\""
-        fi
+        log_warn "Failed to generate comparison report"
+        log_info "You can manually run: dotnet run --project \"$DOTNET_TESTER_DIR\" -- compare --folder \"$RESULTS_FOLDER\""
     fi
 }
 
