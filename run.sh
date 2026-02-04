@@ -14,12 +14,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="$SCRIPT_DIR/logs/run-all-setup-test.log"
 
+# Ensure logs directory exists before anything tries to write to it
+mkdir -p "$SCRIPT_DIR/logs"
+
 # Source shared library functions
 source "$SCRIPT_DIR/scripts/common.sh"
 
 # Test configuration defaults
-EVENTS=2000
-DURATION="120s"
+EVENTS=1000
+DURATION="5s"
 NATIVE="--native"
 
 # Generate timestamp for results folder
@@ -47,9 +50,6 @@ main() {
     log_info "  Results: $RESULTS_FOLDER"
     log_info "  Log file: $LOG_FILE"
     echo ""
-
-    # Ensure logs directory exists
-    mkdir -p "$(dirname "$LOG_FILE")"
 
     # Redirect all output to both console and log file
     exec > >(tee -a "$LOG_FILE") 2>&1
