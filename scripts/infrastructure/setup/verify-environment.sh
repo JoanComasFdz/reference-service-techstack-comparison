@@ -285,17 +285,6 @@ check_mise_tools() {
         if mise exec python@latest -- python -c "import pip" &> /dev/null; then
             print_success "pip is available"
 
-            # Check for performance-tester required packages
-            print_info "Checking performance-tester Python packages..."
-            for pkg in matplotlib pika psutil; do
-                if mise exec python@latest -- python -c "import $pkg" &> /dev/null; then
-                    print_success "$pkg is installed"
-                else
-                    print_warning "$pkg is not installed"
-                    print_info "Install with: python -m pip install -r performance-tester/requirements.txt"
-                fi
-            done
-
             # Check for Python service required packages
             print_info "Checking Python service packages..."
             # Use specific import names (fastapi, uvicorn, psycopg, sqlalchemy)
