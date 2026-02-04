@@ -34,10 +34,10 @@ This is a comprehensive performance comparison of **11 identical microservice im
 ├── python/                # Python 3.13+ + SQLAlchemy + pika (port 8099)
 └── rust/                  # Rust + Actix-web + SeaORM (port 8100)
 
-/performance-tester/       # Load testing and comparison tools
-├── service-tester.py      # Main performance test orchestrator
-├── compare_test_results.py # Generate comparison reports
-└── test-results/          # Test output and reports
+/performance-tester-dotnet/ # Load testing and comparison tools (.NET)
+├── src/PerformanceTester.Cli/  # Main CLI application
+├── src/PerformanceTester.Core/ # Core testing logic
+└── test-results/               # Test output and reports
 
 /scripts/                  # All automation scripts
 ├── common.sh              # Shared library functions
@@ -250,18 +250,17 @@ The `run-all-tests.sh` script automates:
 
 **Requirements:**
 - Service running on its port
-- Python 3.13+ (minimum 3.9)
+- .NET 9 SDK
 - k6 installed (`sudo snap install k6`)
-- Python packages: `pip install -r performance-tester/requirements.txt`
 
 ```bash
-cd performance-tester
+cd performance-tester-dotnet
 
 # Test specific service (must be running)
-python service-tester.py --port 8094 --events 1000 --api-duration 30s --api-workers 1
+dotnet run --project src/PerformanceTester.Cli -- test --port 8094 --events 1000 --api-duration 30s --api-workers 1
 
 # Custom configuration
-python service-tester.py --port 8099 --events 5000 --api-duration 2m --api-workers 100
+dotnet run --project src/PerformanceTester.Cli -- test --port 8099 --events 5000 --api-duration 2m --api-workers 100
 ```
 
 **Test Phases:**
@@ -284,16 +283,16 @@ Example: `test-report-20251022_122306-bunreferenceservice.json`
 ### Comparing Test Results
 
 ```bash
-cd performance-tester
+cd performance-tester-dotnet
 
 # Generate comparison report from all results in test-results/
-python compare_test_results.py
+dotnet run --project src/PerformanceTester.Cli -- compare
 
 # Custom results folder
-python compare_test_results.py --folder /path/to/results
+dotnet run --project src/PerformanceTester.Cli -- compare --folder /path/to/results
 
 # Print to stdout
-python compare_test_results.py --stdout
+dotnet run --project src/PerformanceTester.Cli -- compare --stdout
 ```
 
 ## Complete Orchestration Pipeline
@@ -442,7 +441,7 @@ These are **intentional** for fair comparison - do NOT change unless updating al
 
 ```bash
 # Clear data from a specific service's database
-cd performance-tester
+cd performance-tester-dotnet
 ./clean-service-data.sh go_db        # Clear Go service database
 ./clean-service-data.sh dotnet9_db   # Clear .NET 9 service database
 # ... etc
@@ -462,7 +461,7 @@ docker exec -i performancetest-postgres psql -U admin -d postgres < scripts/infr
 ### Clearing RabbitMQ Queues
 
 ```bash
-cd performance-tester
+cd performance-tester-dotnet
 ./clear-rabbitmq.sh
 ```
 
@@ -609,7 +608,7 @@ If you see errors like "Java 25 (69) is not supported by Byte Buddy":
 
 ## Reference Documentation
 
-**Performance Testing Details:** See `performance-tester/README.md` for:
+**Performance Testing Details:** See `performance-tester-dotnet/README.md` for:
 - Detailed tool documentation
 - Understanding variability metrics (CV%, Std Dev)
 - Troubleshooting test failures
