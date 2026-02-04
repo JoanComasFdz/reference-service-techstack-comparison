@@ -15,9 +15,10 @@ namespace PerformanceTester.Reporting.SystemInfoDetection;
 /// Hardware Detection:
 /// - CPU: Win32_Processor WMI class (model, cores, speed)
 /// - RAM: Win32_PhysicalMemory WMI class (capacity, speed, type)
-/// - Disks: Win32_DiskDrive WMI class (model, size, type)
+/// - Disks: PowerShell Get-PhysicalDisk (FriendlyName, Size, MediaType, BusType)
+///          Falls back to Win32_DiskDrive WMI if PowerShell fails.
 ///
-/// All WMI queries have 5-second timeouts to prevent hanging.
+/// All queries have timeouts to prevent hanging (WMI: 5s, PowerShell: 10s).
 /// Results are cached using Lazy&lt;T&gt; for performance.
 /// </remarks>
 internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
@@ -171,7 +172,8 @@ internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
     }
 
     /// <summary>
-    /// Gets disk info using WMI Win32_DiskDrive class.
+    /// Gets disk info using PowerShell Get-PhysicalDisk command.
+    /// Provides accurate MediaType and BusType for SSD/NVMe detection.
     /// </summary>
     private async Task<IReadOnlyList<DiskInfo>> GetDiskInfoAsync(CancellationToken cancellationToken)
     {
@@ -179,8 +181,98 @@ internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(TimeSpan.FromSeconds(5));
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
 
+            // Use PowerShell Get-PhysicalDisk for accurate disk type detection
+            // This is consistent with the WSL2 detection in LinuxSystemInfoDetector
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -Command \"Get-PhysicalDisk | Select-Object FriendlyName, Size, MediaType, BusType | ConvertTo-Json\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = new System.Diagnostics.Process { StartInfo = psi };
+            process.Start();
+
+            var output = await process.StandardOutput.ReadToEndAsync(cts.Token);
+            await process.WaitForExitAsync(cts.Token);
+
+            if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(output))
+            {
+                // Fall back to WMI if PowerShell fails
+                return await GetDiskInfoViaWmiAsync(cts.Token);
+            }
+
+            // Parse JSON output - handle both single object and array
+            var disks = new List<DiskInfo>();
+            List<PhysicalDiskInfo>? physicalDisks = null;
+
+            try
+            {
+                // Try parsing as array first
+                physicalDisks = System.Text.Json.JsonSerializer.Deserialize<List<PhysicalDiskInfo>>(output);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Single disk returns as object, not array
+                var singleDisk = System.Text.Json.JsonSerializer.Deserialize<PhysicalDiskInfo>(output);
+                if (singleDisk != null)
+                {
+                    physicalDisks = new List<PhysicalDiskInfo> { singleDisk };
+                }
+            }
+
+            if (physicalDisks == null || physicalDisks.Count == 0)
+            {
+                return await GetDiskInfoViaWmiAsync(cts.Token);
+            }
+
+            foreach (var d in physicalDisks)
+            {
+                var sizeGb = d.Size / 1024.0 / 1024.0 / 1024.0;
+
+                // Filter: Only disks >= 500GB (matches Python behavior)
+                if (sizeGb < 500.0)
+                    continue;
+
+                // Skip virtual disks
+                var friendlyName = d.FriendlyName ?? "";
+                if (friendlyName.Contains("Virtual", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                disks.Add(new DiskInfo
+                {
+                    Name = friendlyName.Length > 0 ? friendlyName : "Unknown Disk",
+                    Size = FormatDiskSize(sizeGb),
+                    Type = DeterminePhysicalDiskType(d.MediaType, d.BusType),
+                    Model = friendlyName.Length > 0 ? friendlyName : null
+                });
+            }
+
+            return disks.AsReadOnly();
+        }
+        catch
+        {
+            return Array.Empty<DiskInfo>();
+        }
+#else
+        return await Task.FromResult<IReadOnlyList<DiskInfo>>(Array.Empty<DiskInfo>());
+#endif
+    }
+
+    /// <summary>
+    /// Fallback: Gets disk info using WMI Win32_DiskDrive class.
+    /// Used when PowerShell is unavailable.
+    /// </summary>
+    private async Task<IReadOnlyList<DiskInfo>> GetDiskInfoViaWmiAsync(CancellationToken cancellationToken)
+    {
+#if WINDOWS
+        try
+        {
             return await Task.Run(() =>
             {
                 using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
@@ -199,7 +291,7 @@ internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
                     if (sizeGb < 500.0)
                         continue;
 
-                    // Determine disk type (SSD vs HDD)
+                    // Determine disk type (SSD vs HDD) - less accurate without BusType
                     var type = DetermineWindowsDiskType(mediaType);
 
                     // Format size as human-readable string (matches Python format)
@@ -215,7 +307,7 @@ internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
                 }
 
                 return (IReadOnlyList<DiskInfo>)disks.AsReadOnly();
-            }, cts.Token);
+            }, cancellationToken);
         }
         catch
         {
@@ -247,7 +339,56 @@ internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
     }
 
     /// <summary>
-    /// Determines disk type from WMI MediaType property.
+    /// Helper class for deserializing PowerShell Get-PhysicalDisk JSON output.
+    /// </summary>
+    private class PhysicalDiskInfo
+    {
+        public string? FriendlyName { get; set; }
+        public long Size { get; set; }
+        public string? MediaType { get; set; }
+        public string? BusType { get; set; }
+    }
+
+    /// <summary>
+    /// Determines disk type from Get-PhysicalDisk MediaType and BusType properties.
+    /// Matches Python implementation (system_info.py lines 218-223) and
+    /// LinuxSystemInfoDetector.DeterminePhysicalDiskType for consistency.
+    /// </summary>
+    private static string DeterminePhysicalDiskType(string? mediaType, string? busType)
+    {
+        // Default if no info available
+        if (string.IsNullOrEmpty(mediaType))
+            return "Unknown";
+
+        // Map MediaType to base type
+        var baseType = mediaType.ToUpperInvariant() switch
+        {
+            "SSD" => "SSD",
+            "HDD" => "HDD",
+            "SCM" => "SCM",  // Storage Class Memory
+            _ => "Unknown"
+        };
+
+        // If unknown base type, return as-is
+        if (baseType == "Unknown")
+            return baseType;
+
+        // Append bus type for more specific identification
+        if (!string.IsNullOrEmpty(busType))
+        {
+            var upperBusType = busType.ToUpperInvariant();
+            if (upperBusType.Contains("NVME"))
+                return $"{baseType} (NVMe)";
+            if (upperBusType.Contains("SATA"))
+                return $"{baseType} (SATA)";
+        }
+
+        return baseType;
+    }
+
+    /// <summary>
+    /// Determines disk type from WMI MediaType property (fallback method).
+    /// Less accurate than DeterminePhysicalDiskType as it lacks BusType info.
     /// </summary>
     private static string DetermineWindowsDiskType(string? mediaType)
     {
@@ -277,11 +418,9 @@ internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
             var sizeTb = sizeGb / 1000.0;
             return $"{sizeTb:F1}T";
         }
-        else
-        {
-            // Gigabytes
-            return $"{sizeGb:F1}G";
-        }
+
+        // Gigabytes
+        return $"{sizeGb:F1}G";
     }
 
     private static CpuInfo CreateFallbackCpuInfo() => new()

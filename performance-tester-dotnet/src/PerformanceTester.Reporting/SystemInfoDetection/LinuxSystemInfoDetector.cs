@@ -371,7 +371,7 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
             var psi = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = "-Command \"Get-CimInstance Win32_DiskDrive | Select-Object Model, Size, MediaType | ConvertTo-Json\"",
+                Arguments = "-Command \"Get-PhysicalDisk | Select-Object FriendlyName, Size, MediaType, BusType | ConvertTo-Json\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -404,12 +404,17 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
                 if (sizeGb < 500.0)
                     continue;
 
+                // Skip virtual disks (WSL2 creates these)
+                var friendlyName = d.FriendlyName ?? "";
+                if (friendlyName.Contains("Virtual", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 disks.Add(new DiskInfo
                 {
-                    Name = d.Model ?? "Unknown Disk",
+                    Name = friendlyName.Length > 0 ? friendlyName : "Unknown Disk",
                     Size = FormatDiskSize(sizeGb),
-                    Type = DetermineWindowsDiskType(d.MediaType),
-                    Model = d.Model
+                    Type = DeterminePhysicalDiskType(d.MediaType, d.BusType),
+                    Model = d.FriendlyName
                 });
             }
 
@@ -433,13 +438,14 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
     }
 
     /// <summary>
-    /// Helper class for deserializing PowerShell JSON output.
+    /// Helper class for deserializing PowerShell JSON output from Get-PhysicalDisk.
     /// </summary>
     private class WslDiskInfo
     {
-        public string? Model { get; set; }
+        public string? FriendlyName { get; set; }
         public long Size { get; set; }
         public string? MediaType { get; set; }
+        public string? BusType { get; set; }
     }
 
     /// <summary>
@@ -479,22 +485,39 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
     }
 
     /// <summary>
-    /// Determines disk type from WMI MediaType property.
+    /// Determines disk type from Get-PhysicalDisk MediaType and BusType properties.
+    /// Matches Python implementation (system_info.py lines 218-223).
     /// </summary>
-    private static string DetermineWindowsDiskType(string? mediaType)
+    private static string DeterminePhysicalDiskType(string? mediaType, string? busType)
     {
+        // Default if no info available
         if (string.IsNullOrEmpty(mediaType))
             return "Unknown";
 
-        var lower = mediaType.ToLowerInvariant();
+        // Map MediaType to base type
+        var baseType = mediaType.ToUpperInvariant() switch
+        {
+            "SSD" => "SSD",
+            "HDD" => "HDD",
+            "SCM" => "SCM",  // Storage Class Memory
+            _ => "Unknown"
+        };
 
-        if (lower.Contains("ssd") || lower.Contains("solid state"))
-            return "SSD";
+        // If unknown base type, return as-is
+        if (baseType == "Unknown")
+            return baseType;
 
-        if (lower.Contains("fixed") || lower.Contains("hard disk"))
-            return "HDD";
+        // Append bus type for more specific identification
+        if (!string.IsNullOrEmpty(busType))
+        {
+            var upperBusType = busType.ToUpperInvariant();
+            if (upperBusType.Contains("NVME"))
+                return $"{baseType} (NVMe)";
+            if (upperBusType.Contains("SATA"))
+                return $"{baseType} (SATA)";
+        }
 
-        return "Unknown";
+        return baseType;
     }
 
     /// <summary>
