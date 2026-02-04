@@ -374,18 +374,16 @@ install_python_packages() {
 
     local python_service_requirements="${ROOT_DIR}/implementations/python/requirements.txt"
 
-    # Activate mise to get Python from mise
-    log_info "Activating mise environment..."
-    eval "$(mise activate bash)" >> "$LOG_FILE" 2>&1
-
-    # Verify Python is available from mise
-    if ! command -v python &>/dev/null; then
-        log_error "Python not found. mise installation may have failed."
+    # Use mise exec to ensure we're using the correct Python version
+    # This matches how verify-environment.sh checks packages
+    if ! mise list python 2>/dev/null | grep -q "python"; then
+        log_error "Python not installed via mise."
         FAILED_INSTALLS+=("Python packages")
         return 1
     fi
 
-    local python_version=$(python --version 2>&1)
+    local python_version
+    python_version=$(mise exec python -- python --version 2>&1)
     log_info "Using Python: $python_version"
 
     local install_success=true
@@ -393,7 +391,7 @@ install_python_packages() {
     # Install Python service packages
     if [[ -f "$python_service_requirements" ]]; then
         log_info "Installing Python service packages..."
-        if python -m pip install -q -r "$python_service_requirements" >> "$LOG_FILE" 2>&1; then
+        if mise exec python -- python -m pip install -q -r "$python_service_requirements" >> "$LOG_FILE" 2>&1; then
             log "✓ Python service packages installed successfully"
         else
             log_error "Failed to install Python service packages"
@@ -408,7 +406,7 @@ install_python_packages() {
         SUCCESSFUL_INSTALLS+=("Python packages")
 
         log_info "Installed packages:"
-        python -m pip list | grep -E "(fastapi|uvicorn|psycopg|sqlalchemy|pika)" | sed 's/^/    /' | tee -a "$LOG_FILE"
+        mise exec python -- python -m pip list | grep -E "(fastapi|uvicorn|psycopg|sqlalchemy|pika)" | sed 's/^/    /' | tee -a "$LOG_FILE"
         return 0
     else
         log_error "Some Python packages failed to install"

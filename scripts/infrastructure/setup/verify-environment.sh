@@ -282,39 +282,20 @@ check_mise_tools() {
         check_tool_version "python3" "3.13.8" "python3 --version"
 
         # Check pip via mise's Python
-        if mise exec python@latest -- python -c "import pip" &> /dev/null; then
+        if mise exec python -- python -c "import pip" &> /dev/null; then
             print_success "pip is available"
 
             # Check for Python service required packages
+            # Use mise exec python (not @latest) to use version from .mise.toml
             print_info "Checking Python service packages..."
-            # Use specific import names (fastapi, uvicorn, psycopg, sqlalchemy)
-            if mise exec python@latest -- python -c "import fastapi" &> /dev/null; then
-                print_success "fastapi is installed"
-            else
-                print_warning "fastapi is not installed"
-                print_info "Install with: python -m pip install -r implementations/python/requirements.txt"
-            fi
-
-            if mise exec python@latest -- python -c "import uvicorn" &> /dev/null; then
-                print_success "uvicorn is installed"
-            else
-                print_warning "uvicorn is not installed"
-                print_info "Install with: python -m pip install -r implementations/python/requirements.txt"
-            fi
-
-            if mise exec python@latest -- python -c "import psycopg" &> /dev/null; then
-                print_success "psycopg is installed"
-            else
-                print_warning "psycopg is not installed"
-                print_info "Install with: python -m pip install -r implementations/python/requirements.txt"
-            fi
-
-            if mise exec python@latest -- python -c "import sqlalchemy" &> /dev/null; then
-                print_success "sqlalchemy is installed"
-            else
-                print_warning "sqlalchemy is not installed"
-                print_info "Install with: python -m pip install -r implementations/python/requirements.txt"
-            fi
+            for pkg in fastapi uvicorn psycopg sqlalchemy pika; do
+                if mise exec python -- python -c "import $pkg" &> /dev/null; then
+                    print_success "$pkg is installed"
+                else
+                    print_warning "$pkg is not installed"
+                    print_info "Install with: mise exec python -- python -m pip install -r implementations/python/requirements.txt"
+                fi
+            done
         else
             print_warning "pip is not available"
         fi
@@ -437,9 +418,9 @@ check_mise_runtime_management() {
     print_info "Testing Python runtime management..."
     if mise list python 2>/dev/null | grep -q "python"; then
         # Test that mise provides Python with packages
-        if mise exec python@latest -- python -c "import sys; print(sys.executable)" &> /dev/null; then
+        if mise exec python -- python -c "import sys; print(sys.executable)" &> /dev/null; then
             local python_path
-            python_path=$(mise exec python@latest -- python -c "import sys; print(sys.executable)" 2>/dev/null)
+            python_path=$(mise exec python -- python -c "import sys; print(sys.executable)" 2>/dev/null)
             print_success "mise correctly manages Python runtime: $python_path"
         else
             print_failure "mise cannot provide Python runtime"
