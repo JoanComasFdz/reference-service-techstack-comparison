@@ -142,7 +142,7 @@ ehthumbs.db
 Desktop.ini
 
 # Tester
-performance-tester/test-results/
+performance-tester-dotnet/test-results/
 
 # Orchestration script outputs
 /test-results-*/
