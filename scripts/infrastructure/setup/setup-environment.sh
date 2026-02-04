@@ -254,27 +254,30 @@ install_all_mise_tools() {
         return 1
     fi
 
-    # If system dotnet 9.x is already available (e.g., devcontainer), tell mise
-    # to skip it via .mise.local.toml so we don't redundantly download ~500MB
-    if command -v dotnet &>/dev/null && [[ "$(dotnet --version 2>/dev/null)" == 9.* ]]; then
-        log_info "dotnet $(dotnet --version) available on system, configuring mise to skip dotnet install"
-        local local_config="${ROOT_DIR}/.mise.local.toml"
+    # If running in a devcontainer with dotnet pre-installed, skip mise dotnet install
+    # to avoid redundantly downloading ~500MB. Only applies to devcontainers (not WSL2).
+    # Devcontainers set REMOTE_CONTAINERS or CODESPACES environment variables.
+    if [[ -n "${REMOTE_CONTAINERS:-}" ]] || [[ -n "${CODESPACES:-}" ]] || [[ -f "/.dockerenv" && -d "/vscode" ]]; then
+        if command -v dotnet &>/dev/null && [[ "$(dotnet --version 2>/dev/null)" == 9.* ]]; then
+            log_info "Devcontainer detected with dotnet $(dotnet --version), configuring mise to skip dotnet install"
+            local local_config="${ROOT_DIR}/.mise.local.toml"
 
-        if [[ -f "$local_config" ]] && grep -q 'disable_tools.*dotnet' "$local_config"; then
-            log_info "mise already configured to skip dotnet in .mise.local.toml"
-        elif [[ -f "$local_config" ]] && grep -q '\[settings\]' "$local_config"; then
-            # Settings section exists, add disable_tools under it
-            sed -i '/\[settings\]/a disable_tools = ["dotnet"]' "$local_config"
-            log "✓ Updated .mise.local.toml to skip dotnet installation"
-        else
-            # Create or append settings section
-            {
-                echo ""
-                echo "# Auto-generated: system dotnet detected, skipping mise dotnet install"
-                echo "[settings]"
-                echo 'disable_tools = ["dotnet"]'
-            } >> "$local_config"
-            log "✓ Created .mise.local.toml to skip dotnet installation"
+            if [[ -f "$local_config" ]] && grep -q 'disable_tools.*dotnet' "$local_config"; then
+                log_info "mise already configured to skip dotnet in .mise.local.toml"
+            elif [[ -f "$local_config" ]] && grep -q '\[settings\]' "$local_config"; then
+                # Settings section exists, add disable_tools under it
+                sed -i '/\[settings\]/a disable_tools = ["dotnet"]' "$local_config"
+                log "✓ Updated .mise.local.toml to skip dotnet installation"
+            else
+                # Create or append settings section
+                {
+                    echo ""
+                    echo "# Auto-generated: devcontainer dotnet detected, skipping mise dotnet install"
+                    echo "[settings]"
+                    echo 'disable_tools = ["dotnet"]'
+                } >> "$local_config"
+                log "✓ Created .mise.local.toml to skip dotnet installation"
+            fi
         fi
     fi
 
@@ -365,11 +368,10 @@ install_k6() {
     fi
 }
 
-# Install Python packages globally
+# Install Python packages globally (for Python reference service only)
 install_python_packages() {
     log "Installing Python packages..."
 
-    local perf_tester_requirements="${ROOT_DIR}/performance-tester/requirements.txt"
     local python_service_requirements="${ROOT_DIR}/implementations/python/requirements.txt"
 
     # Activate mise to get Python from mise
@@ -387,19 +389,6 @@ install_python_packages() {
     log_info "Using Python: $python_version"
 
     local install_success=true
-
-    # Install performance-tester packages
-    if [[ -f "$perf_tester_requirements" ]]; then
-        log_info "Installing performance-tester packages..."
-        if python -m pip install -q -r "$perf_tester_requirements" >> "$LOG_FILE" 2>&1; then
-            log "✓ Performance-tester packages installed successfully"
-        else
-            log_error "Failed to install performance-tester packages"
-            install_success=false
-        fi
-    else
-        log_warn "performance-tester/requirements.txt not found"
-    fi
 
     # Install Python service packages
     if [[ -f "$python_service_requirements" ]]; then
@@ -419,7 +408,7 @@ install_python_packages() {
         SUCCESSFUL_INSTALLS+=("Python packages")
 
         log_info "Installed packages:"
-        python -m pip list | grep -E "(psutil|pika|sqlalchemy|matplotlib|fastapi|uvicorn|psycopg)" | sed 's/^/    /' | tee -a "$LOG_FILE"
+        python -m pip list | grep -E "(fastapi|uvicorn|psycopg|sqlalchemy|pika)" | sed 's/^/    /' | tee -a "$LOG_FILE"
         return 0
     else
         log_error "Some Python packages failed to install"
@@ -643,7 +632,7 @@ main() {
     # Install k6 (performance testing tool)
     install_k6
 
-    # Install Python packages globally (for Python service + performance tester)
+    # Install Python packages globally (for Python reference service)
     install_python_packages
 
     echo ""
