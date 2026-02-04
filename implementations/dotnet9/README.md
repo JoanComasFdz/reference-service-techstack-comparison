@@ -183,15 +183,10 @@ If no records exist, returns 404 Not Found.
 
 ### 4. Run performance tests
 
-From the project root directory:
+From the implementations/dotnet9 directory:
 ```bash
-cd ..
-python service-tester.py
-```
-
-Update `service-tester.py` to use port 8092 for the .NET service:
-```python
-KPI_API_URL = "http://localhost:8092/kpi"
+cd ../../performance-tester-dotnet
+dotnet run --project src/PerformanceTester.Cli -- test --port 8092
 ```
 
 ## Configuration

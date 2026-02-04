@@ -238,8 +238,8 @@ Run the performance test:
 
 ```bash
 # From the implementations/bun directory
-cd ../../performance-tester
-python3 service-tester.py --port 8090
+cd ../../performance-tester-dotnet
+dotnet run --project src/PerformanceTester.Cli -- test --port 8090
 ```
 
 ## Kill Service

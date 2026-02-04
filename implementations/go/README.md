@@ -260,8 +260,8 @@ To run performance tests:
 ./goReferenceService
 
 # In another terminal, run the performance tester
-cd ../../performance-tester
-python3 service-tester.py --port 8094
+cd ../../performance-tester-dotnet
+dotnet run --project src/PerformanceTester.Cli -- test --port 8094
 ```
 
 ## Project Structure

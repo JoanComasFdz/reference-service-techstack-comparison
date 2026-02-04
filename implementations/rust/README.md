@@ -129,8 +129,8 @@ cargo run --release
 
 3. Run the performance tester:
 ```bash
-cd ../performance-tester
-python3 service-tester.py
+cd ../../performance-tester-dotnet
+dotnet run --project src/PerformanceTester.Cli -- test --port 8100
 ```
 
 ## Dependencies

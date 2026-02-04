@@ -219,8 +219,8 @@ curl http://localhost:8096/kpi
 Use the event simulator or publish directly to RabbitMQ. You can also use the performance-tester:
 
 ```bash
-cd ../performance-tester
-python3 service-tester.py
+cd ../../performance-tester-dotnet
+dotnet run --project src/PerformanceTester.Cli -- test --port 8096
 ```
 
 ### 3. Verify Database
@@ -314,8 +314,8 @@ mvn clean package -Dnative
 ./target/java21QuarkusGraalReferenceService-runner
 
 # 3. In a new terminal, run the performance tester
-cd ../performance-tester
-python3 service-tester.py
+cd ../../performance-tester-dotnet
+dotnet run --project src/PerformanceTester.Cli -- test --port 8096
 ```
 
 The performance tester will generate reports comparing this service with other implementations.

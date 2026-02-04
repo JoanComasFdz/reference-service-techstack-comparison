@@ -95,6 +95,6 @@ curl http://localhost:8099/kpi
 Run the performance tester from the root directory:
 
 ```bash
-cd ../performance-tester
-python3 service-tester.py --port 8099
+cd ../../performance-tester-dotnet
+dotnet run --project src/PerformanceTester.Cli -- test --port 8099
 ```
