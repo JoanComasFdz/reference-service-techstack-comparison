@@ -42,7 +42,8 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
         try
         {
             var os = "Linux";
-            var osRelease = Environment.OSVersion.Version.ToString();
+            var distroName = await GetLinuxDistroNameAsync();
+            var osRelease = distroName ?? Environment.OSVersion.Version.ToString(); // Fallback to kernel version
             var osVersion = Environment.OSVersion.VersionString;
             var wslVersion = await DetectWslVersionAsync();
 
@@ -89,6 +90,45 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
                 return "WSL2";
 
             return "WSL1";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Gets Linux distribution name by parsing /etc/os-release.
+    /// Returns PRETTY_NAME (e.g., "Ubuntu 24.04.3 LTS"), or null if unavailable.
+    /// </summary>
+    private static async Task<string?> GetLinuxDistroNameAsync()
+    {
+        const string osReleasePath = "/etc/os-release";
+        if (!File.Exists(osReleasePath))
+            return null;
+
+        try
+        {
+            var lines = await File.ReadAllLinesAsync(osReleasePath);
+
+            // Parse key=value pairs into dictionary
+            var parsed = lines
+                .Select(line => line.Split('=', 2))
+                .Where(parts => parts.Length == 2)
+                .ToDictionary(parts => parts[0], parts => parts[1].Trim('"'));
+
+            var prettyName = parsed.GetValueOrDefault("PRETTY_NAME");
+            var name = parsed.GetValueOrDefault("NAME");
+            var versionId = parsed.GetValueOrDefault("VERSION_ID");
+
+            // Prefer PRETTY_NAME (e.g., "Ubuntu 24.04.3 LTS"), fall back to NAME + VERSION_ID
+            if (!string.IsNullOrEmpty(prettyName))
+                return prettyName;
+
+            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(versionId))
+                return $"{name} {versionId}";
+
+            return name; // May be null
         }
         catch
         {

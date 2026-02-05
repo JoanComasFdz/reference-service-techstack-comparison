@@ -66,4 +66,33 @@ public sealed class SystemInfoDetectorTests : IntegrationTest
         Assert.NotNull(systemInfo.Os);
         Assert.True(systemInfo.Os == "Windows" || systemInfo.Os == "Linux");
     }
+
+    [Fact]
+    public async Task GetSystemInfoAsync_OnLinux_ShouldReturnDistroNameInOsRelease()
+    {
+        // Skip on Windows
+        if (!OperatingSystem.IsLinux())
+        {
+            Output.WriteLine("Skipping test - only runs on Linux");
+            return;
+        }
+
+        // Act
+        var systemInfo = await System.Reporting.SystemInfoDetector.GetSystemInfoAsync();
+
+        // Assert
+        Assert.NotNull(systemInfo);
+
+        // OsRelease should contain distro name (e.g., "Ubuntu 24.04" or "Debian 12")
+        // NOT just kernel version like "6.6.87.2"
+        Assert.NotNull(systemInfo.OsRelease);
+        Assert.DoesNotMatch(@"^\d+\.\d+\.\d+(\.\d+)?$", systemInfo.OsRelease); // Should NOT be just a version number
+
+        // Should contain actual distro info
+        var validDistros = new[] { "Ubuntu", "Debian", "Fedora", "CentOS", "Rocky", "Alma", "RHEL", "Arch", "Alpine", "openSUSE" };
+        var containsDistro = validDistros.Any(d => systemInfo.OsRelease.Contains(d, StringComparison.OrdinalIgnoreCase));
+        Assert.True(containsDistro, $"OsRelease '{systemInfo.OsRelease}' should contain a known Linux distribution name");
+
+        Output.WriteLine($"Detected OS Release: {systemInfo.OsRelease}");
+    }
 }
