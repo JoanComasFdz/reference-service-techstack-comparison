@@ -31,6 +31,23 @@ RESULTS_FOLDER=""  # Set after argument parsing based on tester type
 
 DOTNET_TESTER_DIR="$ROOT_DIR/performance-tester-dotnet/src/PerformanceTester.Cli"
 
+# Queue names for each service (used for unbinding after tests)
+# These must match the queue names declared by each service implementation
+QUEUE_NAME_BUN="bun"
+QUEUE_NAME_DOTNET9="dotnet9"
+QUEUE_NAME_DOTNET9AOT="dotnet9aot"
+QUEUE_NAME_GO="go"
+QUEUE_NAME_PYTHON="pythonFastAPI"
+QUEUE_NAME_RUST="rustActix"
+QUEUE_NAME_JAVA21_SPRINGBOOT="javaSB"
+QUEUE_NAME_JAVA21_SPRINGBOOT_GRAAL="javaSBGraal"
+QUEUE_NAME_JAVA21_QUARKUS_GRAAL="javaQuarkusGraal"
+QUEUE_NAME_JAVA25_SPRINGBOOT="javaSB"
+QUEUE_NAME_JAVA25_SPRINGBOOT_GRAAL="javaSB25Graal"
+QUEUE_NAME_JAVA25_QUARKUS_GRAAL="javaQuarkusGraal25"
+RABBITMQ_EXCHANGE="referenceservice.comparison"
+RABBITMQ_ROUTING_KEY="instrument.status.changed"
+
 # Java version management (mise)
 # Detect available Java versions for Java 21 and Java 25 projects
 JAVA_21_VERSION=""
