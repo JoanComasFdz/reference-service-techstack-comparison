@@ -1,46 +1,97 @@
 namespace PerformanceTester.Cli.Output;
 
 /// <summary>
-/// Simple progress reporter that shows a spinner during test execution.
+/// Progress reporter that shows multi-phase progress with progress bars and status emojis.
+/// Instance class - has mutable state (CODING_GUIDELINES: Static Classes for Pure Logic - this has state).
+/// Delegates all rendering to static classes (CODING_GUIDELINES: Toolbox Pattern).
 /// </summary>
 public sealed class ProgressReporter : IProgressReporter
 {
-    private CancellationTokenSource? _cts;
-    private Task? _spinnerTask;
-    private static readonly string[] SpinnerFrames = ["|", "/", "-", "\\"];
+    private readonly object _lock = new();
+    private readonly Dictionary<int, TestProgress> _phases = new();
+    private int _currentPhaseNumber;
+    private int _lastRenderedLineCount;
+    private bool _isInitialized;
+    private bool _isCompleted;
 
-    public void Start()
+    public void Initialize()
     {
-        _cts = new CancellationTokenSource();
-        _spinnerTask = Task.Run(async () =>
+        lock (_lock)
         {
-            var frameIndex = 0;
-            while (!_cts.Token.IsCancellationRequested)
-            {
-                Console.Write($"\r  {SpinnerFrames[frameIndex]} Running test...");
-                frameIndex = (frameIndex + 1) % SpinnerFrames.Length;
-                try
-                {
-                    await Task.Delay(100, _cts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-            }
-        }, _cts.Token);
+            if (_isInitialized) return;
+
+            _phases.Clear();
+            _currentPhaseNumber = 0;
+            _lastRenderedLineCount = 0;
+            _isInitialized = true;
+            _isCompleted = false;
+
+            Console.WriteLine(); // Start progress section
+        }
     }
 
-    public void Stop()
+    public void ReportProgress(TestProgress progress)
     {
-        _cts?.Cancel();
-        try
+        lock (_lock)
         {
-            _spinnerTask?.Wait(TimeSpan.FromSeconds(1));
-        }
-        catch { /* Ignore */ }
+            if (!_isInitialized || _isCompleted) return;
 
-        Console.Write("\r" + new string(' ', 30) + "\r"); // Clear spinner line
-        _cts?.Dispose();
+            _phases[progress.PhaseNumber] = progress;
+
+            // Track current phase (highest in-progress phase)
+            if (progress.Status == PhaseStatus.InProgress && progress.PhaseNumber > _currentPhaseNumber)
+            {
+                _currentPhaseNumber = progress.PhaseNumber;
+            }
+
+            RenderAllPhases();
+        }
+    }
+
+    public void SetPhaseStatus(PhaseStatus status, string? message = null)
+    {
+        lock (_lock)
+        {
+            if (!_isInitialized || _isCompleted) return;
+            if (!_phases.TryGetValue(_currentPhaseNumber, out var current)) return;
+
+            _phases[_currentPhaseNumber] = current with
+            {
+                Status = status,
+                Message = message ?? current.Message
+            };
+            RenderAllPhases();
+        }
+    }
+
+    public void Complete()
+    {
+        lock (_lock)
+        {
+            if (!_isInitialized || _isCompleted) return;
+
+            _isCompleted = true;
+            RenderAllPhases();
+            Console.WriteLine(); // End progress section
+        }
+    }
+
+    private void RenderAllPhases()
+    {
+        // Clear previous output using toolbox
+        ProgressToolbox.ClearPreviousLines(_lastRenderedLineCount);
+
+        // Render each phase in order - explicit use of ProgressLineRenderer
+        var lines = _phases.Values
+            .OrderBy(p => p.PhaseNumber)
+            .Select(ProgressLineRenderer.Render)
+            .ToList();
+
+        foreach (var line in lines)
+        {
+            Console.WriteLine(line);
+        }
+
+        _lastRenderedLineCount = lines.Count;
     }
 }
