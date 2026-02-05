@@ -137,8 +137,10 @@ public static class CompareCommand
             var outputPath = options.Output;
             if (string.IsNullOrWhiteSpace(outputPath) && !options.Stdout)
             {
-                var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-                outputPath = Path.Combine(options.Folder, $"test-report-comparison-{timestamp}.md");
+                // Use the latest test date from the reports (matches the test run timestamp)
+                var latestTestDate = testReports.Max(r => r.TestDate);
+                var timestamp = latestTestDate.ToString("yyyyMMdd_HHmmss");
+                outputPath = Path.Combine(options.Folder, $"test-report-{timestamp}-summary.md");
             }
 
             if (options.Stdout)
