@@ -39,25 +39,66 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
 
             TestPhase.Warmup => PhaseInfoConverter.CreateWarmupProgress(status, value.Message),
 
-            TestPhase.EventTest => PhaseInfoConverter.CreateEventProgress(
-                status,
-                currentEvents: status == PhaseStatus.Completed ? _totalEventCount : _currentEventCount,
-                totalEvents: _totalEventCount,
-                message: value.Message),
+            TestPhase.EventTest => CreateEventProgressFromMessage(status, value.Message),
 
-            TestPhase.ApiTest => PhaseInfoConverter.CreateApiProgress(
-                status,
-                elapsedSeconds: status == PhaseStatus.Completed
-                    ? _apiDuration.TotalSeconds
-                    : (DateTime.UtcNow - _apiStartTime).TotalSeconds,
-                totalSeconds: _apiDuration.TotalSeconds,
-                requestCount: _apiRequestCount,
-                message: value.Message),
+            TestPhase.ApiTest => CreateApiProgressFromMessage(status, value.Message),
 
             _ => new TestProgress("Unknown", 0, 4, status, Message: value.Message)
         };
 
         _progressReporter.ReportProgress(progress);
+    }
+
+    private TestProgress CreateEventProgressFromMessage(PhaseStatus status, string? message)
+    {
+        // Try to parse real-time progress from message
+        if (status == PhaseStatus.InProgress)
+        {
+            var parsed = ProgressMessageParser.TryParseEventProgress(message);
+            if (parsed.HasValue)
+            {
+                _currentEventCount = parsed.Value.Current;
+                return PhaseInfoConverter.CreateEventProgress(
+                    status,
+                    currentEvents: parsed.Value.Current,
+                    totalEvents: parsed.Value.Total);
+            }
+        }
+
+        // Fallback to stored values
+        return PhaseInfoConverter.CreateEventProgress(
+            status,
+            currentEvents: status == PhaseStatus.Completed ? _totalEventCount : _currentEventCount,
+            totalEvents: _totalEventCount,
+            message: message);
+    }
+
+    private TestProgress CreateApiProgressFromMessage(PhaseStatus status, string? message)
+    {
+        // Try to parse real-time progress from message
+        if (status == PhaseStatus.InProgress)
+        {
+            var parsed = ProgressMessageParser.TryParseApiProgress(message);
+            if (parsed.HasValue)
+            {
+                _apiRequestCount = parsed.Value.Requests;
+                return PhaseInfoConverter.CreateApiProgress(
+                    status,
+                    elapsedSeconds: parsed.Value.Elapsed,
+                    totalSeconds: parsed.Value.Total,
+                    requestCount: parsed.Value.Requests);
+            }
+        }
+
+        // Fallback to stored values
+        return PhaseInfoConverter.CreateApiProgress(
+            status,
+            elapsedSeconds: status == PhaseStatus.Completed
+                ? _apiDuration.TotalSeconds
+                : (DateTime.UtcNow - _apiStartTime).TotalSeconds,
+            totalSeconds: _apiDuration.TotalSeconds,
+            requestCount: _apiRequestCount,
+            message: message);
     }
 
     /// <summary>
