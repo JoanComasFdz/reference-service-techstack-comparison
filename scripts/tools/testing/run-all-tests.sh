@@ -582,6 +582,7 @@ main() {
         "./bunReferenceService" \
         "$ROOT_DIR/implementations/bun" \
         "$MAX_SERVICE_STARTUP_WAIT"
+    unbind_queue "$QUEUE_NAME_BUN" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
 
     # Build .NET 9 binary
     log_section "Building .NET 9 Binary"
