@@ -504,6 +504,7 @@ public class TestOrchestrator : ITestOrchestrator
             config.ApiWorkers,
             config.MaxConsecutiveApiFailures,
             config.ResultsFolder,
+            progress: null,  // Will be wired in Task 10
             cancellationToken);
 
         var endTime = DateTime.UtcNow;

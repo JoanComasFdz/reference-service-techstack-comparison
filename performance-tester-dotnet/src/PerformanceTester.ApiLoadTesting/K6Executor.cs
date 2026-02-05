@@ -28,11 +28,15 @@ internal sealed partial class K6Executor
     /// Executes k6 with the specified script and returns execution result including metrics and abort info.
     /// </summary>
     /// <param name="scriptPath">Path to k6 script file.</param>
+    /// <param name="totalDuration">Total expected test duration for progress reporting.</param>
+    /// <param name="progress">Optional progress reporter for real-time updates.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>K6 execution result with metrics and abort information.</returns>
     /// <exception cref="InvalidOperationException">k6 binary not found or execution failed (non-abort errors).</exception>
     public async Task<K6ExecutionResult> ExecuteAsync(
         string scriptPath,
+        TimeSpan totalDuration,
+        IProgress<ApiLoadProgress>? progress,
         CancellationToken cancellationToken)
     {
         ValidateK6Binary();
@@ -54,6 +58,7 @@ internal sealed partial class K6Executor
         _logger.LogInformation("Starting k6: {Command}", $"k6 {startInfo.Arguments}");
 
         process.Start();
+        var testStartTime = DateTime.UtcNow;
 
         // Read stderr asynchronously (error detection)
         var stderrTask = Task.Run(async () =>
@@ -66,6 +71,12 @@ internal sealed partial class K6Executor
             }
         }, cancellationToken);
 
+        // Progress tracking state
+        var lastProgressReport = DateTime.UtcNow;
+        var requestCount = 0;
+        var successCount = 0;
+        var failedCount = 0;
+
         // Read and parse stdout (metrics)
         await foreach (var line in process.StandardOutput.ReadLinesAsync(cancellationToken))
         {
@@ -73,6 +84,30 @@ internal sealed partial class K6Executor
             if (metric != null)
             {
                 metrics.Add(metric);
+
+                // Update counts from metric
+                if (metric.Metric == "http_req_duration")
+                {
+                    requestCount++;
+                }
+                else if (metric.Metric == "http_req_failed" && metric.Data?.Value > 0)
+                {
+                    failedCount++;
+                }
+
+                // Report progress every 500ms (avoid flooding)
+                if (progress != null && (DateTime.UtcNow - lastProgressReport).TotalMilliseconds >= 500)
+                {
+                    var elapsed = (DateTime.UtcNow - testStartTime).TotalSeconds;
+                    successCount = requestCount - failedCount;
+                    progress.Report(new ApiLoadProgress(
+                        ElapsedSeconds: elapsed,
+                        TotalSeconds: totalDuration.TotalSeconds,
+                        RequestCount: requestCount,
+                        SuccessCount: successCount,
+                        FailedCount: failedCount));
+                    lastProgressReport = DateTime.UtcNow;
+                }
             }
         }
 
