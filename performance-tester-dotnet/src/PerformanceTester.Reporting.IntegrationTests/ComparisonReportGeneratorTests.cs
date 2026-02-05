@@ -449,4 +449,38 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
 
         Output.WriteLine($"Expected exception thrown: {exception.Message}");
     }
+
+    [Fact]
+    public async Task GenerateComparisonReport_ShouldShowDotNetVersionNotPythonVersion()
+    {
+        // Arrange
+        var outputPath = System.FileSystem.CreateTempFilePath("comparison-report-test", ".md");
+        var reports = new[]
+        {
+            new TestReportBuilder()
+                .WithProcessName("testService")
+                .Build()
+        };
+
+        try
+        {
+            // Act
+            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputPath, reports);
+
+            // Assert
+            var markdown = await File.ReadAllTextAsync(outputPath);
+
+            // Should NOT contain "Python Version"
+            Assert.DoesNotContain("Python Version", markdown);
+
+            // Should contain ".NET Version" label (Markdown: **.NET Version:**)
+            Assert.Contains("**.NET Version:**", markdown);
+
+            Output.WriteLine("Verified report shows '.NET Version' instead of 'Python Version'");
+        }
+        finally
+        {
+            System.FileSystem.CleanupTempFile(outputPath);
+        }
+    }
 }

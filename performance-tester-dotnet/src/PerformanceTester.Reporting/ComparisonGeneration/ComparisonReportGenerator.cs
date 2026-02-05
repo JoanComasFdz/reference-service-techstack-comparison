@@ -116,7 +116,7 @@ internal sealed class ComparisonReportGenerator : IComparisonReportGenerator
         }
 
         markdown.AppendLine($"- **Platform:** {systemInfo.Os} {systemInfo.OsRelease}".Trim());
-        markdown.AppendLine($"- **Python Version:** {Environment.Version}"); // .NET version as equivalent
+        markdown.AppendLine($"- **.NET Version:** {Environment.Version}");
         markdown.AppendLine();
 
         // Disk information
