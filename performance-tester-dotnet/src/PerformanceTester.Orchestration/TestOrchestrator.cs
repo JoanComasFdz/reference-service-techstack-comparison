@@ -118,7 +118,7 @@ public class TestOrchestrator : ITestOrchestrator
             currentPhase = TestPhase.EventTest;
             progress?.Report(PhaseInfo.Starting(TestPhase.EventTest, $"Starting event test with {configuration.EventCount} events"));
             var (publishMetrics, eventTestStartTime, eventTestEndTime) =
-                await ExecuteEventTestPhaseAsync(configuration, serviceProcessId, cancellationToken);
+                await ExecuteEventTestPhaseAsync(configuration, serviceProcessId, progress, cancellationToken);
             progress?.Report(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));
 
             // Phase 2: API Load Test
@@ -396,6 +396,7 @@ public class TestOrchestrator : ITestOrchestrator
         ExecuteEventTestPhaseAsync(
             TestConfiguration config,
             int serviceProcessId,
+            IProgress<PhaseInfo>? progress,
             CancellationToken cancellationToken)
     {
         using var _ = LogContext.PushProperty("Phase", "EventTest");
@@ -429,11 +430,29 @@ public class TestOrchestrator : ITestOrchestrator
         var startTime = DateTime.UtcNow;
         var stopwatch = Stopwatch.StartNew();
 
+        // Create explicit consumer progress callback
+        // (CODING_GUIDELINES: Explicit Parameters - callback logic visible here)
+        IProgress<ConsumerPhaseInfo>? consumerProgress = null;
+        if (progress != null)
+        {
+            consumerProgress = new Progress<ConsumerPhaseInfo>(info =>
+            {
+                // Only report on EventReceived with valid count
+                if (info.Phase == ConsumerPhase.EventReceived && info.EventCount.HasValue)
+                {
+                    // Report via PhaseInfo - adapter converts to TestProgress
+                    progress.Report(PhaseInfo.Starting(
+                        TestPhase.EventTest,
+                        $"Processing: {info.EventCount}/{config.EventCount} events"));
+                }
+            });
+        }
+
         // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
         var consumerTask = _eventConsumer.StartTrackingEventsAsync(
             config.EventCount,
             config.InactivityTimeoutOrDefault,
-            progress: null,
+            progress: consumerProgress,
             cancellationToken);
 
         var publisherTask = _eventPublisher.PublishEventsAsync(
