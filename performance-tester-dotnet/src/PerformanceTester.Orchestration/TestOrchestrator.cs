@@ -434,8 +434,10 @@ public class TestOrchestrator : ITestOrchestrator
         // (CODING_GUIDELINES: Explicit Parameters - callback logic visible here)
         // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
         // Throttle by time (200ms) to avoid excessive updates while staying responsive
+        // Use lock for thread safety (RabbitMQ events can arrive concurrently)
         var lastProgressTime = DateTime.MinValue;
         var progressThrottleMs = 200;
+        var progressLock = new object();
         IProgress<ConsumerPhaseInfo>? consumerProgress = null;
         if (progress != null)
         {
@@ -444,16 +446,19 @@ public class TestOrchestrator : ITestOrchestrator
                 // Only report on EventReceived with valid count
                 if (info.Phase == ConsumerPhase.EventReceived && info.EventCount.HasValue)
                 {
-                    var now = DateTime.UtcNow;
-                    // Throttle: only report every 200ms
-                    if ((now - lastProgressTime).TotalMilliseconds >= progressThrottleMs)
+                    lock (progressLock)
                     {
-                        lastProgressTime = now;
-                        var count = info.EventCount.Value;
-                        // Report via PhaseInfo - adapter converts to TestProgress
-                        progress.Report(PhaseInfo.Starting(
-                            TestPhase.EventTest,
-                            $"Processing: {count}/{config.EventCount} events"));
+                        var now = DateTime.UtcNow;
+                        // Throttle: only report every 200ms
+                        if ((now - lastProgressTime).TotalMilliseconds >= progressThrottleMs)
+                        {
+                            lastProgressTime = now;
+                            var count = info.EventCount.Value;
+                            // Report via PhaseInfo - adapter converts to TestProgress
+                            progress.Report(PhaseInfo.Starting(
+                                TestPhase.EventTest,
+                                $"Processing: {count}/{config.EventCount} events"));
+                        }
                     }
                 }
             });
