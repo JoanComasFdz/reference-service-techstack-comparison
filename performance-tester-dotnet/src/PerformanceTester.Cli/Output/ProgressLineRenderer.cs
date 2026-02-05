@@ -79,6 +79,36 @@ internal static class ProgressLineRenderer
             progress.Unit,
             progress.Message);
 
+    /// <summary>
+    /// Renders a simple progress line without phase number prefix.
+    /// Used for displaying only the current active progress.
+    /// </summary>
+    public static string RenderSimple(TestProgress progress)
+    {
+        var sb = new StringBuilder();
+
+        // Phase name with indent
+        sb.Append($"  {progress.PhaseName}: ");
+
+        if (progress.Status == PhaseStatus.InProgress && progress.Total > 0)
+        {
+            // Progress bar using toolbox
+            var percent = ProgressToolbox.CalculatePercent(progress.Current, progress.Total);
+            sb.Append(ProgressToolbox.RenderProgressBar(percent));
+            sb.Append("  ");
+
+            // Progress values - pattern matching for unit type
+            sb.Append(progress.Unit switch
+            {
+                "events" => ProgressToolbox.FormatEventProgress((int)progress.Current, (int)progress.Total),
+                "s" => ProgressToolbox.FormatTimeProgress(progress.Current, progress.Total, progress.Message),
+                _ => $"{progress.Current:F0}/{progress.Total:F0}"
+            });
+        }
+
+        return sb.ToString();
+    }
+
     private static void RenderInProgressContent(
         StringBuilder sb,
         double current,

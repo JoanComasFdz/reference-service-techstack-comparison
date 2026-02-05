@@ -1,16 +1,19 @@
 namespace PerformanceTester.Cli.Output;
 
 /// <summary>
-/// Progress reporter that shows multi-phase progress with progress bars and status emojis.
+/// Progress reporter that shows a single progress bar only during long-running operations.
+/// Only displays progress for Event Processing and API Load Testing phases.
 /// Instance class - has mutable state (CODING_GUIDELINES: Static Classes for Pure Logic - this has state).
 /// Delegates all rendering to static classes (CODING_GUIDELINES: Toolbox Pattern).
 /// </summary>
 public sealed class ProgressReporter : IProgressReporter
 {
+    // Phases that show progress (Event Processing = 3, API Test = 4)
+    private static readonly HashSet<int> ProgressPhases = [3, 4];
+
     private readonly object _lock = new();
-    private readonly Dictionary<int, TestProgress> _phases = new();
-    private int _currentPhaseNumber;
-    private int _lastRenderedLineCount;
+    private TestProgress? _currentProgress;
+    private bool _hasRenderedLine;
     private bool _isInitialized;
     private bool _isCompleted;
 
@@ -20,13 +23,10 @@ public sealed class ProgressReporter : IProgressReporter
         {
             if (_isInitialized) return;
 
-            _phases.Clear();
-            _currentPhaseNumber = 0;
-            _lastRenderedLineCount = 0;
+            _currentProgress = null;
+            _hasRenderedLine = false;
             _isInitialized = true;
             _isCompleted = false;
-
-            Console.WriteLine(); // Start progress section
         }
     }
 
@@ -36,15 +36,20 @@ public sealed class ProgressReporter : IProgressReporter
         {
             if (!_isInitialized || _isCompleted) return;
 
-            _phases[progress.PhaseNumber] = progress;
+            // Only show progress for Event Processing and API Test phases
+            if (!ProgressPhases.Contains(progress.PhaseNumber)) return;
 
-            // Track current phase (highest in-progress phase)
-            if (progress.Status == PhaseStatus.InProgress && progress.PhaseNumber > _currentPhaseNumber)
+            // If phase completed, clear the progress line
+            if (progress.Status != PhaseStatus.InProgress)
             {
-                _currentPhaseNumber = progress.PhaseNumber;
+                ClearCurrentLine();
+                _currentProgress = null;
+                return;
             }
 
-            RenderAllPhases();
+            // Update and render current progress
+            _currentProgress = progress;
+            RenderCurrentProgress();
         }
     }
 
@@ -53,14 +58,23 @@ public sealed class ProgressReporter : IProgressReporter
         lock (_lock)
         {
             if (!_isInitialized || _isCompleted) return;
-            if (!_phases.TryGetValue(_currentPhaseNumber, out var current)) return;
+            if (_currentProgress is not { } current) return;
 
-            _phases[_currentPhaseNumber] = current with
+            if (status != PhaseStatus.InProgress)
             {
-                Status = status,
-                Message = message ?? current.Message
-            };
-            RenderAllPhases();
+                // Phase ended - clear the line
+                ClearCurrentLine();
+                _currentProgress = null;
+            }
+            else
+            {
+                _currentProgress = current with
+                {
+                    Status = status,
+                    Message = message ?? current.Message
+                };
+                RenderCurrentProgress();
+            }
         }
     }
 
@@ -71,27 +85,33 @@ public sealed class ProgressReporter : IProgressReporter
             if (!_isInitialized || _isCompleted) return;
 
             _isCompleted = true;
-            RenderAllPhases();
-            Console.WriteLine(); // End progress section
+            ClearCurrentLine();
+            _currentProgress = null;
         }
     }
 
-    private void RenderAllPhases()
+    private void RenderCurrentProgress()
     {
-        // Clear previous output using toolbox
-        ProgressToolbox.ClearPreviousLines(_lastRenderedLineCount);
+        if (_currentProgress is not { } progress) return;
 
-        // Render each phase in order - explicit use of ProgressLineRenderer
-        var lines = _phases.Values
-            .OrderBy(p => p.PhaseNumber)
-            .Select(ProgressLineRenderer.Render)
-            .ToList();
-
-        foreach (var line in lines)
+        // Clear previous line if we rendered one
+        if (_hasRenderedLine)
         {
-            Console.WriteLine(line);
+            ProgressToolbox.ClearPreviousLines(1);
         }
 
-        _lastRenderedLineCount = lines.Count;
+        // Render simple progress line (no phase number prefix)
+        var line = ProgressLineRenderer.RenderSimple(progress);
+        Console.WriteLine(line);
+        _hasRenderedLine = true;
+    }
+
+    private void ClearCurrentLine()
+    {
+        if (_hasRenderedLine)
+        {
+            ProgressToolbox.ClearPreviousLines(1);
+            _hasRenderedLine = false;
+        }
     }
 }

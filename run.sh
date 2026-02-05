@@ -21,8 +21,8 @@ mkdir -p "$SCRIPT_DIR/logs"
 source "$SCRIPT_DIR/scripts/common.sh"
 
 # Test configuration defaults
-EVENTS=1000
-DURATION="5s"
+EVENTS=20000
+DURATION="120s"
 NATIVE="--native"
 
 # Generate timestamp for results folder
