@@ -458,6 +458,21 @@ docker exec -i performancetest-postgres psql -U admin -d postgres < scripts/infr
 - Services create their own table schemas on startup (code-first approach)
 - `clean-service-data.sh` dynamically discovers and truncates tables (works for all services)
 
+### RabbitMQ Queue Cleanup
+
+After each service's performance test completes, the test script automatically unbinds its queue from the shared exchange (`referenceservice.comparison`). This prevents RabbitMQ from routing messages to idle queues during subsequent tests.
+
+If you need to manually unbind a queue:
+```bash
+source scripts/common.sh
+unbind_queue "queue_name" "referenceservice.comparison" "instrument.status.changed"
+```
+
+To list current bindings:
+```bash
+docker exec performancetest-rabbitmq rabbitmqadmin -u admin -p admin list bindings
+```
+
 ### Clearing RabbitMQ Queues
 
 ```bash
