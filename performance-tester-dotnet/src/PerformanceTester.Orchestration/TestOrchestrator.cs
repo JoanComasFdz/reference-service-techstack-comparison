@@ -432,10 +432,11 @@ public class TestOrchestrator : ITestOrchestrator
 
         // Create explicit consumer progress callback
         // (CODING_GUIDELINES: Explicit Parameters - callback logic visible here)
+        // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
         IProgress<ConsumerPhaseInfo>? consumerProgress = null;
         if (progress != null)
         {
-            consumerProgress = new Progress<ConsumerPhaseInfo>(info =>
+            consumerProgress = new SynchronousProgress<ConsumerPhaseInfo>(info =>
             {
                 // Only report on EventReceived with valid count
                 if (info.Phase == ConsumerPhase.EventReceived && info.EventCount.HasValue)
@@ -501,10 +502,11 @@ public class TestOrchestrator : ITestOrchestrator
 
         // Create explicit API progress callback
         // (CODING_GUIDELINES: Explicit Parameters - callback logic visible here)
+        // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
         IProgress<ApiLoadProgress>? apiProgress = null;
         if (progress != null)
         {
-            apiProgress = new Progress<ApiLoadProgress>(info =>
+            apiProgress = new SynchronousProgress<ApiLoadProgress>(info =>
             {
                 // Report via PhaseInfo - explicit message format
                 progress.Report(PhaseInfo.Starting(
