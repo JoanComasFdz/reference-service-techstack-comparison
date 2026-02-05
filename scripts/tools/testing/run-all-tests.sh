@@ -598,6 +598,7 @@ main() {
         "dotnet bin/Release/net9.0/dotnet9ReferenceService.dll" \
         "$ROOT_DIR/implementations/dotnet9" \
         "$MAX_SERVICE_STARTUP_WAIT"
+    unbind_queue "$QUEUE_NAME_DOTNET9" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
 
     # Build .NET 9 AOT native binary
     log_section "Building .NET 9 AOT Native Binary"
@@ -613,6 +614,7 @@ main() {
         "./bin/Release/net9.0/linux-x64/publish/dotnet9AotReferenceService" \
         "$ROOT_DIR/implementations/dotnet9aot" \
         "$MAX_SERVICE_STARTUP_WAIT"
+    unbind_queue "$QUEUE_NAME_DOTNET9AOT" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
 
     # Build Go binary
     log_section "Building Go Binary"
@@ -628,6 +630,7 @@ main() {
         "./goReferenceService" \
         "$ROOT_DIR/implementations/go" \
         "$MAX_SERVICE_STARTUP_WAIT"
+    unbind_queue "$QUEUE_NAME_GO" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
 
     # Build shared Java 21 library (needed by all Java 21 services)
     log_section "Building Shared Java 21 Library"
@@ -661,6 +664,7 @@ main() {
             "./target/java21QuarkusReferenceService-runner" \
             "$ROOT_DIR/implementations/java21quarkusgraal" \
             "$MAX_SERVICE_STARTUP_WAIT"
+        unbind_queue "$QUEUE_NAME_JAVA21_QUARKUS_GRAAL" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
     else
         log_section "Building Java 21 Quarkus GraalVM JAR"
         if [ -d "$ROOT_DIR/implementations/java21quarkusgraal" ]; then
@@ -676,6 +680,7 @@ main() {
             "mise exec java@$JAVA_21_VERSION -- java -jar target/java21QuarkusReferenceService.jar" \
             "$ROOT_DIR/implementations/java21quarkusgraal" \
             "$MAX_SERVICE_STARTUP_WAIT"
+        unbind_queue "$QUEUE_NAME_JAVA21_QUARKUS_GRAAL" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
     fi
 
     # Build Java 21 Spring Boot JAR
@@ -693,6 +698,7 @@ main() {
         "mise exec java@$JAVA_21_VERSION -- java -jar target/java21SpringBootReferenceService.jar" \
         "$ROOT_DIR/implementations/java21springboot" \
         "$MAX_SERVICE_STARTUP_WAIT"
+    unbind_queue "$QUEUE_NAME_JAVA21_SPRINGBOOT" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
 
     # Build Java 21 Spring Boot GraalVM
     if [ "$GRAAL_MODE" = "native" ]; then
@@ -710,6 +716,7 @@ main() {
             "./target/java21SpringBootGraalReferenceService" \
             "$ROOT_DIR/implementations/java21springbootgraal" \
             "$MAX_SERVICE_STARTUP_WAIT"
+        unbind_queue "$QUEUE_NAME_JAVA21_SPRINGBOOT_GRAAL" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
     else
         log_section "Building Java 21 Spring Boot GraalVM JAR"
         if [ -d "$ROOT_DIR/implementations/java21springbootgraal" ]; then
@@ -725,6 +732,7 @@ main() {
             "mise exec java@$JAVA_21_VERSION -- java -jar target/java21SpringBootGraalReferenceService.jar" \
             "$ROOT_DIR/implementations/java21springbootgraal" \
             "$MAX_SERVICE_STARTUP_WAIT"
+        unbind_queue "$QUEUE_NAME_JAVA21_SPRINGBOOT_GRAAL" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
     fi
 
     # Build shared Java 25 library (needed by all Java 25 services)
@@ -760,6 +768,7 @@ main() {
             "./target/java25QuarkusReferenceService-runner" \
             "$ROOT_DIR/implementations/java25quarkusgraal" \
             "$MAX_SERVICE_STARTUP_WAIT"
+        unbind_queue "$QUEUE_NAME_JAVA25_QUARKUS_GRAAL" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
     else
         log_section "Building Java 25 Quarkus GraalVM JAR (Experimental)"
         if [ -d "$ROOT_DIR/implementations/java25quarkusgraal" ]; then
@@ -776,6 +785,7 @@ main() {
             "mise exec java@$JAVA_25_VERSION -- java -jar target/java25QuarkusReferenceService.jar" \
             "$ROOT_DIR/implementations/java25quarkusgraal" \
             "$MAX_SERVICE_STARTUP_WAIT"
+        unbind_queue "$QUEUE_NAME_JAVA25_QUARKUS_GRAAL" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
     fi
 
     # Build Java 25 Spring Boot JAR
@@ -793,6 +803,7 @@ main() {
         "mise exec java@$JAVA_25_VERSION -- java -jar target/java25SpringBootReferenceService.jar" \
         "$ROOT_DIR/implementations/java25springboot" \
         "$MAX_SERVICE_STARTUP_WAIT"
+    unbind_queue "$QUEUE_NAME_JAVA25_SPRINGBOOT" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
 
     # Build Java 25 Spring Boot GraalVM
     if [ "$GRAAL_MODE" = "native" ]; then
@@ -810,6 +821,7 @@ main() {
             "./target/java25SpringBootGraalReferenceService" \
             "$ROOT_DIR/implementations/java25springbootgraal" \
             "$MAX_SERVICE_STARTUP_WAIT"
+        unbind_queue "$QUEUE_NAME_JAVA25_SPRINGBOOT_GRAAL" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
     else
         log_section "Building Java 25 Spring Boot GraalVM JAR"
         if [ -d "$ROOT_DIR/implementations/java25springbootgraal" ]; then
@@ -825,6 +837,7 @@ main() {
             "mise exec java@$JAVA_25_VERSION -- java -jar target/java25SpringBootGraalReferenceService.jar" \
             "$ROOT_DIR/implementations/java25springbootgraal" \
             "$MAX_SERVICE_STARTUP_WAIT"
+        unbind_queue "$QUEUE_NAME_JAVA25_SPRINGBOOT_GRAAL" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
     fi
 
     # 11. Python (interpreted - no build needed)
@@ -832,6 +845,7 @@ main() {
         "./pythonReferenceService" \
         "$ROOT_DIR/implementations/python" \
         "$MAX_SERVICE_STARTUP_WAIT"
+    unbind_queue "$QUEUE_NAME_PYTHON" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
 
     # Build Rust binary
     log_section "Building Rust Binary"
@@ -847,6 +861,7 @@ main() {
         "./target/release/rustReferenceService" \
         "$ROOT_DIR/implementations/rust" \
         "$MAX_SERVICE_STARTUP_WAIT"
+    unbind_queue "$QUEUE_NAME_RUST" "$RABBITMQ_EXCHANGE" "$RABBITMQ_ROUTING_KEY" || true
 
     # Summary
     log_section "All Tests Completed!"
