@@ -125,7 +125,7 @@ public class TestOrchestrator : ITestOrchestrator
             currentPhase = TestPhase.ApiTest;
             progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDurationOrDefault.TotalSeconds}s"));
             var (apiResult, apiTestStartTime, apiTestEndTime) =
-                await ExecuteApiTestPhaseAsync(configuration, cancellationToken);
+                await ExecuteApiTestPhaseAsync(configuration, progress, cancellationToken);
             // Report phase completion - Failed if aborted due to consecutive errors, Completed otherwise
             var apiPhaseResult = apiResult.WasAborted
                 ? PhaseInfo.Failed(TestPhase.ApiTest, apiResult.AbortReason ?? "API test aborted")
@@ -487,6 +487,7 @@ public class TestOrchestrator : ITestOrchestrator
     private async Task<(ApiLoadTestResult Result, DateTime StartTime, DateTime EndTime)>
         ExecuteApiTestPhaseAsync(
             TestConfiguration config,
+            IProgress<PhaseInfo>? progress,
             CancellationToken cancellationToken)
     {
         using var _ = LogContext.PushProperty("Phase", "ApiTest");
@@ -498,13 +499,27 @@ public class TestOrchestrator : ITestOrchestrator
 
         var startTime = DateTime.UtcNow;
 
+        // Create explicit API progress callback
+        // (CODING_GUIDELINES: Explicit Parameters - callback logic visible here)
+        IProgress<ApiLoadProgress>? apiProgress = null;
+        if (progress != null)
+        {
+            apiProgress = new Progress<ApiLoadProgress>(info =>
+            {
+                // Report via PhaseInfo - explicit message format
+                progress.Report(PhaseInfo.Starting(
+                    TestPhase.ApiTest,
+                    $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
+            });
+        }
+
         var result = await _apiLoadTester.StartTestAsync(
             config.ApiUrl,
             config.ApiDurationOrDefault,
             config.ApiWorkers,
             config.MaxConsecutiveApiFailures,
             config.ResultsFolder,
-            progress: null,  // Will be wired in Task 10
+            progress: apiProgress,
             cancellationToken);
 
         var endTime = DateTime.UtcNow;
