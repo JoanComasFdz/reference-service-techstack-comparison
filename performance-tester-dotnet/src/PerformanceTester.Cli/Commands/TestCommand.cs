@@ -175,11 +175,20 @@ public static class TestCommand
             var orchestrator = host.Services.GetRequiredService<ITestOrchestrator>();
 
             consoleWriter.WriteHeader("Running Performance Test");
-            progressReporter.Start();
+            progressReporter.Initialize();
 
-            var report = await orchestrator.RunTestAsync(config, cancellationToken: cancellationToken);
+            // Create progress adapter - all parameters explicit at call site
+            var progressAdapter = new OrchestratorProgressAdapter(
+                progressReporter: progressReporter,
+                totalEventCount: config.EventCount,
+                apiDuration: config.ApiDurationOrDefault);
 
-            progressReporter.Stop();
+            var report = await orchestrator.RunTestAsync(
+                configuration: config,
+                progress: progressAdapter,
+                cancellationToken: cancellationToken);
+
+            progressReporter.Complete();
 
             // Display results
             consoleWriter.WriteLine();
@@ -192,27 +201,31 @@ public static class TestCommand
         }
         catch (OperationCanceledException)
         {
-            progressReporter.Stop();
+            progressReporter.SetPhaseStatus(PhaseStatus.Cancelled);
+            progressReporter.Complete();
             consoleWriter.WriteWarning("Test cancelled by user");
             return 130; // Standard exit code for SIGINT
         }
         catch (TimeoutException ex)
         {
-            progressReporter.Stop();
+            progressReporter.SetPhaseStatus(PhaseStatus.Failed, message: ex.Message);
+            progressReporter.Complete();
             consoleWriter.WriteError($"Timeout: {ex.Message}");
             logger.LogError(ex, "Test failed with timeout");
             return 2;
         }
         catch (InvalidOperationException ex)
         {
-            progressReporter.Stop();
+            progressReporter.SetPhaseStatus(PhaseStatus.Failed, message: ex.Message);
+            progressReporter.Complete();
             consoleWriter.WriteError($"Test failed: {ex.Message}");
             logger.LogError(ex, "Test failed with invalid operation");
             return 3;
         }
         catch (Exception ex)
         {
-            progressReporter.Stop();
+            progressReporter.SetPhaseStatus(PhaseStatus.Failed, message: ex.Message);
+            progressReporter.Complete();
             consoleWriter.WriteError($"Unexpected error: {ex.Message}");
             logger.LogError(ex, "Test failed with unexpected error");
             return 1;
