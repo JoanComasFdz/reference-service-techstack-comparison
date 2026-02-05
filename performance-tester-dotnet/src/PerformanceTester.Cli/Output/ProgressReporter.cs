@@ -47,6 +47,12 @@ public sealed class ProgressReporter : IProgressReporter
                 return;
             }
 
+            // Don't show progress bar at 0 - wait until there's actual progress
+            if (progress.Current <= 0)
+            {
+                return;
+            }
+
             // Update and render current progress
             _currentProgress = progress;
             RenderCurrentProgress();
