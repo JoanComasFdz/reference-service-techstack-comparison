@@ -48,8 +48,11 @@ public sealed class ProgressReporter : IProgressReporter
             }
 
             // Don't show progress bar at 0 - wait until there's actual progress
-            if (progress.Current <= 0)
+            // Don't show at 100% either - phase will complete and log will show it
+            if (progress.Current <= 0 || (progress.Total > 0 && progress.Current >= progress.Total))
             {
+                ClearCurrentLine();
+                _currentProgress = null;
                 return;
             }
 

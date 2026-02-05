@@ -17,6 +17,7 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
     private int _currentEventCount;
     private DateTime _apiStartTime;
     private int _apiRequestCount;
+    private bool _apiTrackingStarted;
 
     public OrchestratorProgressAdapter(
         IProgressReporter progressReporter,
@@ -88,6 +89,17 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
                     totalSeconds: parsed.Value.Total,
                     requestCount: parsed.Value.Requests);
             }
+
+            // Don't show progress until API tracking has started (k6 is running)
+            if (!_apiTrackingStarted)
+            {
+                return PhaseInfoConverter.CreateApiProgress(
+                    status,
+                    elapsedSeconds: 0,
+                    totalSeconds: _apiDuration.TotalSeconds,
+                    requestCount: 0,
+                    message: message);
+            }
         }
 
         // Fallback to stored values
@@ -120,6 +132,7 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
     {
         _apiStartTime = DateTime.UtcNow;
         _apiRequestCount = 0;
+        _apiTrackingStarted = true;
     }
 
     /// <summary>
