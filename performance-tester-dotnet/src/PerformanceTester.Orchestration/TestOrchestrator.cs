@@ -438,11 +438,21 @@ public class TestOrchestrator : ITestOrchestrator
         var lastProgressTime = DateTime.MinValue;
         var progressThrottleMs = 200;
         var progressLock = new object();
+        var callbackCount = 0;
         IProgress<ConsumerPhaseInfo>? consumerProgress = null;
         if (progress != null)
         {
             consumerProgress = new SynchronousProgress<ConsumerPhaseInfo>(info =>
             {
+                Interlocked.Increment(ref callbackCount);
+
+                // When target reached, clear the progress bar immediately (before log appears)
+                if (info.Phase == ConsumerPhase.TargetReached)
+                {
+                    progress.Report(PhaseInfo.Completed(TestPhase.EventTest, "Complete"));
+                    return;
+                }
+
                 // Only report on EventReceived with valid count
                 if (info.Phase == ConsumerPhase.EventReceived && info.EventCount.HasValue)
                 {
@@ -486,10 +496,11 @@ public class TestOrchestrator : ITestOrchestrator
         var eventThroughput = config.EventCount / totalDuration.TotalSeconds;
 
         _logger.LogInformation(
-            "Event throughput test complete: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
+            "Event throughput test complete: {Count} events in {Duration:F2}s ({Rate:F2} events/s), progress callbacks: {Callbacks}",
             config.EventCount,
             totalDuration.TotalSeconds,
-            eventThroughput);
+            eventThroughput,
+            callbackCount);
 
         _logger.LogInformation(
             "Publishing: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
