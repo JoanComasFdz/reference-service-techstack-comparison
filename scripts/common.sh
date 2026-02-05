@@ -390,5 +390,38 @@ detect_container_environment() {
 }
 
 ################################################################################
+# RabbitMQ Queue Management
+################################################################################
+
+# Unbind a queue from an exchange
+# Usage: unbind_queue <queue_name> <exchange_name> <routing_key> [vhost]
+# Returns: 0 on success, 1 on failure (logs warning but does not exit)
+unbind_queue() {
+    local queue_name=$1
+    local exchange_name=$2
+    local routing_key=$3
+    local vhost=${4:-/}
+    local container=${RABBITMQ_CONTAINER:-performancetest-rabbitmq}
+    local user=${RABBITMQ_USER:-admin}
+    local pass=${RABBITMQ_PASSWORD:-admin}
+
+    if [[ -z "$queue_name" || -z "$exchange_name" || -z "$routing_key" ]]; then
+        log_warn "unbind_queue: missing required arguments (queue=$queue_name, exchange=$exchange_name, routing_key=$routing_key)"
+        return 1
+    fi
+
+    log_info "Unbinding queue '$queue_name' from exchange '$exchange_name' (routing_key=$routing_key)"
+
+    if docker exec "$container" rabbitmqadmin -u "$user" -p "$pass" -V "$vhost" \
+        delete binding source="$exchange_name" destination_type=queue destination="$queue_name" properties_key="$routing_key" 2>/dev/null; then
+        log_success "Unbound queue '$queue_name' from exchange '$exchange_name'"
+        return 0
+    else
+        log_warn "Failed to unbind queue '$queue_name' (may not exist or already unbound)"
+        return 1
+    fi
+}
+
+################################################################################
 # End of common.sh
 ################################################################################
