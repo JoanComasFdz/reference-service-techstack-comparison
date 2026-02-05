@@ -21,10 +21,11 @@ public partial class Program
     public static async Task<int> Main(string[] args)
     {
         // Configure Serilog early for startup logging
+        // Use progress-aware sink to coordinate with progress bar display
+        const string outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}";
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Information()
-            .WriteTo.Console(
-                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .WriteTo.Sink(new ProgressAwareConsoleSink(outputTemplate))
             .CreateBootstrapLogger();
 
         try
@@ -80,10 +81,12 @@ public partial class Program
             })
             .UseSerilog((context, services, loggerConfig) =>
             {
-                // Console and File sinks are configured in appsettings.json
-                // Do NOT add WriteTo.Console() or WriteTo.File() here - it causes duplicate logging
+                // File sink is configured in appsettings.json
+                // Console uses our progress-aware sink to coordinate with progress bar
+                const string consoleTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}";
                 loggerConfig
                     .ReadFrom.Configuration(context.Configuration)
+                    .WriteTo.Sink(new ProgressAwareConsoleSink(consoleTemplate))
                     .Enrich.FromLogContext()
                     .Enrich.WithMachineName()
                     .Enrich.WithThreadId();

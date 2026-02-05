@@ -27,6 +27,11 @@ public sealed class ProgressReporter : IProgressReporter
             _hasRenderedLine = false;
             _isInitialized = true;
             _isCompleted = false;
+
+            // Register with coordinator so logs can clear/re-render progress
+            ConsoleCoordinator.RegisterProgress(
+                clearProgress: ClearForLog,
+                renderProgress: RenderForLog);
         }
     }
 
@@ -96,6 +101,9 @@ public sealed class ProgressReporter : IProgressReporter
             _isCompleted = true;
             ClearCurrentLine();
             _currentProgress = null;
+
+            // Unregister from coordinator
+            ConsoleCoordinator.UnregisterProgress();
         }
     }
 
@@ -121,6 +129,31 @@ public sealed class ProgressReporter : IProgressReporter
         {
             ProgressToolbox.ClearPreviousLines(1);
             _hasRenderedLine = false;
+        }
+    }
+
+    /// <summary>
+    /// Called by ConsoleCoordinator before writing a log line.
+    /// Clears progress so log appears above it.
+    /// </summary>
+    private void ClearForLog()
+    {
+        if (_hasRenderedLine)
+        {
+            ProgressToolbox.ClearPreviousLines(1);
+        }
+    }
+
+    /// <summary>
+    /// Called by ConsoleCoordinator after writing a log line.
+    /// Re-renders progress so it stays at the bottom.
+    /// </summary>
+    private void RenderForLog()
+    {
+        if (_hasRenderedLine && _currentProgress is { } progress)
+        {
+            var line = ProgressLineRenderer.RenderSimple(progress);
+            Console.WriteLine(line);
         }
     }
 }
