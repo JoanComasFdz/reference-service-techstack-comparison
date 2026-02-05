@@ -433,6 +433,9 @@ public class TestOrchestrator : ITestOrchestrator
         // Create explicit consumer progress callback
         // (CODING_GUIDELINES: Explicit Parameters - callback logic visible here)
         // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
+        // Throttle to every 50 events to avoid excessive updates
+        const int progressInterval = 50;
+        var lastReportedCount = 0;
         IProgress<ConsumerPhaseInfo>? consumerProgress = null;
         if (progress != null)
         {
@@ -441,10 +444,16 @@ public class TestOrchestrator : ITestOrchestrator
                 // Only report on EventReceived with valid count
                 if (info.Phase == ConsumerPhase.EventReceived && info.EventCount.HasValue)
                 {
-                    // Report via PhaseInfo - adapter converts to TestProgress
-                    progress.Report(PhaseInfo.Starting(
-                        TestPhase.EventTest,
-                        $"Processing: {info.EventCount}/{config.EventCount} events"));
+                    var count = info.EventCount.Value;
+                    // Throttle: only report every N events
+                    if (count - lastReportedCount >= progressInterval)
+                    {
+                        lastReportedCount = count;
+                        // Report via PhaseInfo - adapter converts to TestProgress
+                        progress.Report(PhaseInfo.Starting(
+                            TestPhase.EventTest,
+                            $"Processing: {count}/{config.EventCount} events"));
+                    }
                 }
             });
         }
