@@ -14,9 +14,9 @@ internal sealed class MetricsAggregator
     private readonly List<double> _requestDurations = new();
 
     /// <summary>
-    /// Processes a single k6 metric.
+    /// Accumulates a single k6 metric into the running aggregation.
     /// </summary>
-    public void ProcessMetric(K6Metric metric)
+    public void AccumulateK6Metric(K6Metric metric)
     {
         if (metric.Data == null) return;
 

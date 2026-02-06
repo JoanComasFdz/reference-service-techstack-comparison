@@ -76,7 +76,7 @@ internal sealed class ApiLoadTestService : IApiLoadTester
             var aggregator = new MetricsAggregator();
             foreach (var metric in executionResult.Metrics)
             {
-                aggregator.ProcessMetric(metric);
+                aggregator.AccumulateK6Metric(metric);
             }
 
             var result = aggregator.ComputeResult(actualDuration, testStartTime) with
