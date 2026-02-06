@@ -460,12 +460,12 @@ docker exec -i performancetest-postgres psql -U admin -d postgres < scripts/infr
 
 ### RabbitMQ Queue Cleanup
 
-After each service's performance test completes, the test script automatically unbinds its queue from the shared exchange (`referenceservice.comparison`). This prevents RabbitMQ from routing messages to idle queues during subsequent tests.
+After each service's performance test completes successfully, the test script automatically deletes its queue from RabbitMQ. This fully cleans up after each test and prevents idle queues from accumulating messages. If a test fails, the queue is left intact for debugging.
 
-If you need to manually unbind a queue:
+If you need to manually delete a queue:
 ```bash
 source scripts/common.sh
-unbind_queue "queue_name" "referenceservice.comparison" "instrument.status.changed"
+delete_queue "queue_name"
 ```
 
 To list current bindings:
