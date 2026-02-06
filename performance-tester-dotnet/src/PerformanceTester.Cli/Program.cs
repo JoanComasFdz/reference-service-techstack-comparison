@@ -105,8 +105,8 @@ public partial class Program
                     postgresContainerName: appConfig.PostgresContainerName);
 
                 // Register CLI-specific services
-                services.AddSingleton<IConsoleWriter, ConsoleWriter>();
-                services.AddSingleton<IProgressReporter, ProgressReporter>();
+                services.AddSingleton<ConsoleWriter>();
+                services.AddSingleton<ProgressReporter>();
             });
     }
 }

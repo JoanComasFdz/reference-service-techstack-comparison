@@ -132,8 +132,8 @@ public static class TestCommand
         CancellationToken cancellationToken)
     {
         var logger = host.Services.GetRequiredService<ILogger<Program>>();
-        var consoleWriter = host.Services.GetRequiredService<IConsoleWriter>();
-        var progressReporter = host.Services.GetRequiredService<IProgressReporter>();
+        var consoleWriter = host.Services.GetRequiredService<ConsoleWriter>();
+        var progressReporter = host.Services.GetRequiredService<ProgressReporter>();
 
         try
         {

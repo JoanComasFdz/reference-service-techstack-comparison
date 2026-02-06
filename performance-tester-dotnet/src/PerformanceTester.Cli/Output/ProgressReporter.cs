@@ -6,7 +6,7 @@ namespace PerformanceTester.Cli.Output;
 /// Instance class - has mutable state (CODING_GUIDELINES: Static Classes for Pure Logic - this has state).
 /// Delegates all rendering to static classes (CODING_GUIDELINES: Toolbox Pattern).
 /// </summary>
-public sealed class ProgressReporter : IProgressReporter
+public sealed class ProgressReporter
 {
     // Phases that show progress (Event Processing = 3, API Test = 4)
     private static readonly HashSet<int> ProgressPhases = [3, 4];

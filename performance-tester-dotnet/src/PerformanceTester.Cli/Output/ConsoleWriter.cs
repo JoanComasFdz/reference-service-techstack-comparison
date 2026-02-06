@@ -5,7 +5,7 @@ namespace PerformanceTester.Cli.Output;
 /// <summary>
 /// Default console writer with colored output.
 /// </summary>
-public sealed class ConsoleWriter : IConsoleWriter
+public sealed class ConsoleWriter
 {
     public void WriteHeader(string text)
     {

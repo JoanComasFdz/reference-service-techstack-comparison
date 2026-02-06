@@ -9,7 +9,7 @@ namespace PerformanceTester.Cli.Output;
 /// </summary>
 public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
 {
-    private readonly IProgressReporter _progressReporter;
+    private readonly ProgressReporter _progressReporter;
     private readonly int _totalEventCount;
     private readonly TimeSpan _apiDuration;
 
@@ -20,7 +20,7 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
     private bool _apiTrackingStarted;
 
     public OrchestratorProgressAdapter(
-        IProgressReporter progressReporter,
+        ProgressReporter progressReporter,
         int totalEventCount,
         TimeSpan apiDuration)
     {
