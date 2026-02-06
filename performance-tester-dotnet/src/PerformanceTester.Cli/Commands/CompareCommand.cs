@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Output;
 using PerformanceTester.Reporting;
 using PerformanceTester.Reporting.ComparisonGeneration;
+using PerformanceTester.Cli.Toolbox;
 using PerformanceTester.Reporting.Shared.Utilities;
 
 namespace PerformanceTester.Cli.Commands;
@@ -218,163 +219,83 @@ public static class CompareCommand
     /// <summary>
     /// Loads throughput samples from events-throughput or api-throughput JSON files.
     /// </summary>
-    private static async Task<IReadOnlyList<ThroughputMetricSample>> LoadThroughputSamplesAsync(
+    private static Task<IReadOnlyList<ThroughputMetricSample>> LoadThroughputSamplesAsync(
         string filePath,
         string rateFieldName,
         string countFieldName,
         CancellationToken cancellationToken)
     {
-        if (!File.Exists(filePath))
-            return Array.Empty<ThroughputMetricSample>();
-
-        try
-        {
-            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            if (!root.TryGetProperty("samples", out var samplesElement))
-                return Array.Empty<ThroughputMetricSample>();
-
-            var samples = new List<ThroughputMetricSample>();
-            foreach (var sample in samplesElement.EnumerateArray())
+        return JsonFileToolbox.LoadSamplesAsync<ThroughputMetricSample>(filePath, (sample, root) =>
+            new ThroughputMetricSample
             {
-                var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
-                var elapsedSeconds = sample.GetProperty("elapsed_seconds").GetDouble();
-                var rate = sample.GetProperty(rateFieldName).GetDouble();
-                var count = sample.GetProperty(countFieldName).GetInt32();
-
-                samples.Add(new ThroughputMetricSample
-                {
-                    Timestamp = timestamp,
-                    ElapsedSeconds = elapsedSeconds,
-                    Rate = rate,
-                    CumulativeCount = count
-                });
-            }
-
-            return samples;
-        }
-        catch
-        {
-            return Array.Empty<ThroughputMetricSample>();
-        }
+                Timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!),
+                ElapsedSeconds = sample.GetProperty("elapsed_seconds").GetDouble(),
+                Rate = sample.GetProperty(rateFieldName).GetDouble(),
+                CumulativeCount = sample.GetProperty(countFieldName).GetInt32()
+            }, cancellationToken);
     }
 
     /// <summary>
     /// Loads process resource samples from resource-metrics JSON file.
     /// </summary>
-    private static async Task<IReadOnlyList<ProcessResourceSample>> LoadProcessResourceSamplesAsync(
+    private static Task<IReadOnlyList<ProcessResourceSample>> LoadProcessResourceSamplesAsync(
         string filePath,
         CancellationToken cancellationToken)
     {
-        if (!File.Exists(filePath))
-            return Array.Empty<ProcessResourceSample>();
-
-        try
+        return JsonFileToolbox.LoadSamplesAsync<ProcessResourceSample>(filePath, (sample, root) =>
         {
-            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            if (!root.TryGetProperty("samples", out var samplesElement))
-                return Array.Empty<ProcessResourceSample>();
+            var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
 
             // Get test_date to calculate elapsed seconds
-            DateTime? testDate = null;
-            if (root.TryGetProperty("test_date", out var testDateElement))
+            DateTime? testDate = root.TryGetProperty("test_date", out var testDateElement)
+                ? DateTime.Parse(testDateElement.GetString()!)
+                : null;
+
+            var elapsedSeconds = testDate.HasValue
+                ? (timestamp - testDate.Value).TotalSeconds
+                : 0.0;
+
+            return new ProcessResourceSample
             {
-                testDate = DateTime.Parse(testDateElement.GetString()!);
-            }
-
-            var samples = new List<ProcessResourceSample>();
-            foreach (var sample in samplesElement.EnumerateArray())
-            {
-                var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
-                var cpuPercent = sample.GetProperty("cpu_percent").GetDouble();
-                var memoryRssMb = sample.GetProperty("memory_rss_mb").GetDouble();
-                var threads = sample.GetProperty("threads").GetInt32();
-
-                // Calculate elapsed seconds from test start
-                var elapsedSeconds = testDate.HasValue
-                    ? (timestamp - testDate.Value).TotalSeconds
-                    : 0.0;
-
-                samples.Add(new ProcessResourceSample
-                {
-                    Timestamp = timestamp,
-                    ElapsedSeconds = elapsedSeconds,
-                    CpuPercent = cpuPercent,
-                    MemoryRssMb = memoryRssMb,
-                    Threads = threads
-                });
-            }
-
-            return samples;
-        }
-        catch
-        {
-            return Array.Empty<ProcessResourceSample>();
-        }
+                Timestamp = timestamp,
+                ElapsedSeconds = elapsedSeconds,
+                CpuPercent = sample.GetProperty("cpu_percent").GetDouble(),
+                MemoryRssMb = sample.GetProperty("memory_rss_mb").GetDouble(),
+                Threads = sample.GetProperty("threads").GetInt32()
+            };
+        }, cancellationToken);
     }
 
     /// <summary>
     /// Loads system-wide resource samples from system-metrics JSON file.
     /// </summary>
-    private static async Task<IReadOnlyList<SystemResourceSample>> LoadSystemResourceSamplesAsync(
+    private static Task<IReadOnlyList<SystemResourceSample>> LoadSystemResourceSamplesAsync(
         string filePath,
         CancellationToken cancellationToken)
     {
-        if (!File.Exists(filePath))
-            return Array.Empty<SystemResourceSample>();
-
-        try
+        return JsonFileToolbox.LoadSamplesAsync<SystemResourceSample>(filePath, (sample, root) =>
         {
-            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            if (!root.TryGetProperty("samples", out var samplesElement))
-                return Array.Empty<SystemResourceSample>();
+            var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
 
             // Get test_date to calculate elapsed seconds
-            DateTime? testDate = null;
-            if (root.TryGetProperty("test_date", out var testDateElement))
+            DateTime? testDate = root.TryGetProperty("test_date", out var testDateElement)
+                ? DateTime.Parse(testDateElement.GetString()!)
+                : null;
+
+            var elapsedSeconds = testDate.HasValue
+                ? (timestamp - testDate.Value).TotalSeconds
+                : 0.0;
+
+            return new SystemResourceSample
             {
-                testDate = DateTime.Parse(testDateElement.GetString()!);
-            }
-
-            var samples = new List<SystemResourceSample>();
-            foreach (var sample in samplesElement.EnumerateArray())
-            {
-                var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
-                var cpuPercent = sample.GetProperty("cpu_percent").GetDouble();
-                var memoryUsedMb = sample.GetProperty("memory_used_mb").GetDouble();
-                var memoryTotalMb = sample.GetProperty("memory_total_mb").GetDouble();
-                var memoryPercent = sample.GetProperty("memory_percent").GetDouble();
-
-                // Calculate elapsed seconds from test start
-                var elapsedSeconds = testDate.HasValue
-                    ? (timestamp - testDate.Value).TotalSeconds
-                    : 0.0;
-
-                samples.Add(new SystemResourceSample
-                {
-                    Timestamp = timestamp,
-                    ElapsedSeconds = elapsedSeconds,
-                    CpuPercent = cpuPercent,
-                    MemoryUsedMb = memoryUsedMb,
-                    MemoryTotalMb = memoryTotalMb,
-                    MemoryPercent = memoryPercent
-                });
-            }
-
-            return samples;
-        }
-        catch
-        {
-            return Array.Empty<SystemResourceSample>();
-        }
+                Timestamp = timestamp,
+                ElapsedSeconds = elapsedSeconds,
+                CpuPercent = sample.GetProperty("cpu_percent").GetDouble(),
+                MemoryUsedMb = sample.GetProperty("memory_used_mb").GetDouble(),
+                MemoryTotalMb = sample.GetProperty("memory_total_mb").GetDouble(),
+                MemoryPercent = sample.GetProperty("memory_percent").GetDouble()
+            };
+        }, cancellationToken);
     }
 }
 
