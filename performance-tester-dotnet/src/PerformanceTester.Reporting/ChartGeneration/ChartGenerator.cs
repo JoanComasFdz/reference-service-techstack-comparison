@@ -22,8 +22,6 @@ internal sealed class ChartGenerator : IChartGenerator
 {
     private readonly ILogger<ChartGenerator> _logger;
     private readonly ChartConfig _config;
-    private readonly ChartDataLoader _dataLoader;
-    private readonly ChartImageComposer _imageComposer;
 
     public ChartGenerator(ILogger<ChartGenerator> logger)
         : this(logger, ChartConfig.Default)
@@ -34,8 +32,6 @@ internal sealed class ChartGenerator : IChartGenerator
     {
         _logger = logger;
         _config = config;
-        _dataLoader = new ChartDataLoader(logger);
-        _imageComposer = new ChartImageComposer(config.Dimensions);
     }
 
     /// <inheritdoc />
@@ -52,12 +48,12 @@ internal sealed class ChartGenerator : IChartGenerator
         ValidateDataFilesExist(dataFiles, outputPath);
 
         // Load data
-        var eventsData = _dataLoader.LoadThroughputReport(dataFiles.EventsThroughput);
-        var apiData = _dataLoader.LoadThroughputReport(dataFiles.ApiThroughput);
-        var serviceData = _dataLoader.LoadProcessResourceReport(dataFiles.ResourceMetrics);
-        var rabbitmqData = _dataLoader.LoadResourceReport(dataFiles.RabbitmqMetrics);
-        var postgresData = _dataLoader.LoadResourceReport(dataFiles.PostgresMetrics);
-        var systemData = _dataLoader.LoadResourceReport(dataFiles.SystemMetrics);
+        var eventsData = ChartDataLoader.LoadThroughputReport(dataFiles.EventsThroughput, _logger);
+        var apiData = ChartDataLoader.LoadThroughputReport(dataFiles.ApiThroughput, _logger);
+        var serviceData = ChartDataLoader.LoadProcessResourceReport(dataFiles.ResourceMetrics, _logger);
+        var rabbitmqData = ChartDataLoader.LoadResourceReport(dataFiles.RabbitmqMetrics, _logger);
+        var postgresData = ChartDataLoader.LoadResourceReport(dataFiles.PostgresMetrics, _logger);
+        var systemData = ChartDataLoader.LoadResourceReport(dataFiles.SystemMetrics, _logger);
 
         // Build plots
         var plots = BuildPlots(eventsData, apiData, serviceData, rabbitmqData, postgresData, systemData);
@@ -79,7 +75,7 @@ internal sealed class ChartGenerator : IChartGenerator
 
         try
         {
-            _imageComposer.CombineAndSave(bitmaps, outputPath);
+            ChartImageComposer.CombineAndSave(bitmaps, outputPath);
         }
         finally
         {
@@ -208,9 +204,10 @@ internal sealed class ChartGenerator : IChartGenerator
     private List<SkiaSharp.SKBitmap> RenderPlots(List<Plot> plots)
     {
         return plots
-            .Select((p, i) => _imageComposer.RenderPlotToBitmap(
+            .Select((p, i) => ChartImageComposer.RenderPlotToBitmap(
                 p,
-                i == 0 ? _config.Dimensions.ThroughputHeight : _config.Dimensions.Height))
+                i == 0 ? _config.Dimensions.ThroughputHeight : _config.Dimensions.Height,
+                _config.Dimensions))
             .ToList();
     }
 

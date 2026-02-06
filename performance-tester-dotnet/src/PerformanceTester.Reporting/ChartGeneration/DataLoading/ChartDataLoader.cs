@@ -6,20 +6,13 @@ namespace PerformanceTester.Reporting.ChartGeneration.DataLoading;
 /// <summary>
 /// Loads chart data from JSON files.
 /// </summary>
-internal sealed class ChartDataLoader
+internal static class ChartDataLoader
 {
-    private readonly ILogger _logger;
-
-    public ChartDataLoader(ILogger logger)
-    {
-        _logger = logger;
-    }
-
     /// <summary>
     /// Loads throughput report from JSON file.
     /// Handles both events and API throughput formats.
     /// </summary>
-    public ThroughputReport? LoadThroughputReport(string filePath)
+    public static ThroughputReport? LoadThroughputReport(string filePath, ILogger? logger = null)
     {
         if (!File.Exists(filePath))
             return null;
@@ -43,7 +36,7 @@ internal sealed class ChartDataLoader
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load throughput report from {FilePath}", filePath);
+            logger?.LogWarning(ex, "Failed to load throughput report from {FilePath}", filePath);
             return null;
         }
     }
@@ -52,7 +45,7 @@ internal sealed class ChartDataLoader
     /// Loads resource metrics report from JSON file.
     /// Used for RabbitMQ, PostgreSQL, and system metrics.
     /// </summary>
-    public ResourceMetricsReport? LoadResourceReport(string filePath)
+    public static ResourceMetricsReport? LoadResourceReport(string filePath, ILogger? logger = null)
     {
         if (!File.Exists(filePath))
             return null;
@@ -77,7 +70,7 @@ internal sealed class ChartDataLoader
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load resource report from {FilePath}", filePath);
+            logger?.LogWarning(ex, "Failed to load resource report from {FilePath}", filePath);
             return null;
         }
     }
@@ -86,7 +79,7 @@ internal sealed class ChartDataLoader
     /// Loads process resource metrics report from JSON file.
     /// Used for service (monitored process) metrics.
     /// </summary>
-    public ResourceMetricsReport? LoadProcessResourceReport(string filePath)
+    public static ResourceMetricsReport? LoadProcessResourceReport(string filePath, ILogger? logger = null)
     {
         if (!File.Exists(filePath))
             return null;
@@ -111,7 +104,7 @@ internal sealed class ChartDataLoader
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load process resource report from {FilePath}", filePath);
+            logger?.LogWarning(ex, "Failed to load process resource report from {FilePath}", filePath);
             return null;
         }
     }
