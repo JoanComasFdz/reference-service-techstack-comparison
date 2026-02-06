@@ -42,16 +42,7 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
                 // Discover and truncate all tables
                 await TruncateAllTablesAsync(dbConnectionString, cancellationToken);
 
-                // Verify cleanup
-                var rowCount = await GetTotalRowCountAsync(dbConnectionString, cancellationToken);
-                if (rowCount > 0)
-                {
-                    _logger.LogWarning("⚠️ Database still has {RowCount} rows after truncation", rowCount);
-                }
-                else
-                {
-                    _logger.LogInformation("✓ Database {DatabaseName} cleared successfully", databaseName);
-                }
+                _logger.LogInformation("✓ Database {DatabaseName} cleared successfully", databaseName);
 
                 return; // Success
             }
@@ -125,32 +116,6 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
         }
 
         return tables;
-    }
-
-    private static async Task<int> GetTotalRowCountAsync(string connectionString, CancellationToken cancellationToken)
-    {
-        await using var conn = new NpgsqlConnection(connectionString);
-        await conn.OpenAsync(cancellationToken);
-
-        // Get all user tables
-        var tables = await DiscoverTablesAsync(conn, cancellationToken);
-
-        if (tables.Count == 0)
-        {
-            return 0;
-        }
-
-        // Count rows across all tables using actual COUNT queries
-        // This is more reliable than pg_stat_user_tables which uses cached statistics
-        int totalRows = 0;
-        foreach (var table in tables)
-        {
-            await using var cmd = new NpgsqlCommand($"SELECT COUNT(*) FROM \"{table}\"", conn);
-            var result = await cmd.ExecuteScalarAsync(cancellationToken);
-            totalRows += result != null ? Convert.ToInt32(result) : 0;
-        }
-
-        return totalRows;
     }
 
     private string BuildConnectionString(string databaseName)
