@@ -422,6 +422,33 @@ unbind_queue() {
     fi
 }
 
+# Delete a queue from RabbitMQ
+# Usage: delete_queue <queue_name> [vhost]
+# Returns: 0 on success, 1 on failure (logs warning but does not exit)
+delete_queue() {
+    local queue_name=$1
+    local vhost=${2:-/}
+    local container=${RABBITMQ_CONTAINER:-performancetest-rabbitmq}
+    local user=${RABBITMQ_USER:-admin}
+    local pass=${RABBITMQ_PASSWORD:-admin}
+
+    if [[ -z "$queue_name" ]]; then
+        log_warn "delete_queue: missing required argument (queue=$queue_name)"
+        return 1
+    fi
+
+    log_info "Deleting queue '$queue_name'"
+
+    if docker exec "$container" rabbitmqadmin -u "$user" -p "$pass" -V "$vhost" \
+        delete queue name="$queue_name" 2>/dev/null; then
+        log_success "Deleted queue '$queue_name'"
+        return 0
+    else
+        log_warn "Failed to delete queue '$queue_name' (may not exist)"
+        return 1
+    fi
+}
+
 ################################################################################
 # End of common.sh
 ################################################################################
