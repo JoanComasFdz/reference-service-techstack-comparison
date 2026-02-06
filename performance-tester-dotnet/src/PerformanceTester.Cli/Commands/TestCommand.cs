@@ -208,27 +208,30 @@ public static class TestCommand
         }
         catch (TimeoutException ex)
         {
-            progressReporter.SetPhaseStatus(PhaseStatus.Failed, message: ex.Message);
-            progressReporter.Complete();
-            consoleWriter.WriteError($"Timeout: {ex.Message}");
-            logger.LogError(ex, "Test failed with timeout");
-            return 2;
+            return HandleTestError(ex, progressReporter, consoleWriter, logger, $"Timeout: {ex.Message}", 2);
         }
         catch (InvalidOperationException ex)
         {
-            progressReporter.SetPhaseStatus(PhaseStatus.Failed, message: ex.Message);
-            progressReporter.Complete();
-            consoleWriter.WriteError($"Test failed: {ex.Message}");
-            logger.LogError(ex, "Test failed with invalid operation");
-            return 3;
+            return HandleTestError(ex, progressReporter, consoleWriter, logger, $"Test failed: {ex.Message}", 3);
         }
         catch (Exception ex)
         {
+            return HandleTestError(ex, progressReporter, consoleWriter, logger, $"Unexpected error: {ex.Message}", 1);
+        }
+
+        static int HandleTestError(
+            Exception ex,
+            ProgressReporter progressReporter,
+            ConsoleWriter consoleWriter,
+            ILogger logger,
+            string userMessage,
+            int exitCode)
+        {
             progressReporter.SetPhaseStatus(PhaseStatus.Failed, message: ex.Message);
             progressReporter.Complete();
-            consoleWriter.WriteError($"Unexpected error: {ex.Message}");
-            logger.LogError(ex, "Test failed with unexpected error");
-            return 1;
+            consoleWriter.WriteError(userMessage);
+            logger.LogError(ex, "Test failed: {Message}", userMessage);
+            return exitCode;
         }
     }
 
