@@ -79,13 +79,6 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
         _authHeader = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authToken);
     }
 
-    private HttpRequestMessage CreateRequest(HttpMethod method, string url)
-    {
-        var request = new HttpRequestMessage(method, url);
-        request.Headers.Authorization = _authHeader;
-        return request;
-    }
-
     /// <inheritdoc />
     public async Task ClearAllQueuesAsync(CancellationToken cancellationToken = default)
     {
@@ -154,7 +147,8 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
             var encodedVhost = Uri.EscapeDataString(_vhost);
             var url = $"{_managementUrl}/queues/{encodedVhost}";
 
-            using var request = CreateRequest(HttpMethod.Get, url);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = _authHeader;
             var response = await SharedHttpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
@@ -176,7 +170,8 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
         var encodedQueueName = Uri.EscapeDataString(queueName);
         var url = $"{_managementUrl}/queues/{encodedVhost}/{encodedQueueName}/contents";
 
-        using var request = CreateRequest(HttpMethod.Delete, url);
+        using var request = new HttpRequestMessage(HttpMethod.Delete, url);
+        request.Headers.Authorization = _authHeader;
         var response = await SharedHttpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
