@@ -427,9 +427,6 @@ public class TestOrchestrator : ITestOrchestrator
         await Task.WhenAll(dockerStartTasks);
         _logger.LogInformation("Docker container monitors started (first samples collected)");
 
-        var startTime = DateTime.UtcNow;
-        var stopwatch = Stopwatch.StartNew();
-
         // Create explicit consumer progress callback
         // (CODING_GUIDELINES: Explicit Parameters - callback logic visible here)
         // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
@@ -473,6 +470,11 @@ public class TestOrchestrator : ITestOrchestrator
                 }
             });
         }
+
+        // Capture startTime immediately before launching concurrent publisher/consumer
+        // to minimize gap between monitoring start and measurement start
+        var startTime = DateTime.UtcNow;
+        var stopwatch = Stopwatch.StartNew();
 
         // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
         var consumerTask = _eventConsumer.StartTrackingEventsAsync(
