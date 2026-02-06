@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text;
+using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 
 namespace PerformanceTester.Infrastructure.RabbitMQ;
@@ -80,7 +81,7 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public async Task ClearAllQueuesAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<Unit>> ClearAllQueuesAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("=========================================");
         _logger.LogInformation("Clearing RabbitMQ Queues");
@@ -94,7 +95,7 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
             if (queues.Count == 0)
             {
                 _logger.LogInformation("No queues found or unable to list queues");
-                return;
+                return new Result<Unit>.Success(Unit.Value);
             }
 
             _logger.LogInformation("Found {QueueCount} queues: {QueueNames}",
@@ -129,13 +130,15 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
 
             if (failureCount > 0)
             {
-                throw new InvalidOperationException($"Failed to purge {failureCount} out of {queues.Count} queues");
+                return new Result<Unit>.Failure($"Failed to purge {failureCount} out of {queues.Count} queues");
             }
+
+            return new Result<Unit>.Success(Unit.Value);
         }
-        catch (Exception ex) when (ex is not InvalidOperationException)
+        catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to clear RabbitMQ queues");
-            throw new InvalidOperationException("Failed to clear RabbitMQ queues", ex);
+            return new Result<Unit>.Failure($"Failed to clear RabbitMQ queues: {ex.Message}");
         }
     }
 

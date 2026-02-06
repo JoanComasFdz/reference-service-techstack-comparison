@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using JoanComasFdz.Result;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -7,6 +8,7 @@ using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure;
+using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
 using PerformanceTester.Reporting.ChartGeneration;
@@ -228,12 +230,12 @@ public class TestOrchestrator : ITestOrchestrator
         // Step 1: Find service process
         _logger.LogInformation("Discovering service on port {Port}...", config.ServicePort);
 
-        var serviceProcessId = await _serviceDiscovery.FindServiceProcessIdAsync(
+        var serviceDiscoveryResult = await _serviceDiscovery.FindServiceProcessIdAsync(
             config.ServicePort,
             timeout: TimeSpan.FromSeconds(30),
             cancellationToken);
 
-        if (serviceProcessId is null)
+        if (serviceDiscoveryResult is not Result<int>.Success(var serviceProcessId))
         {
             throw new TimeoutException(
                 $"Service not found on port {config.ServicePort} within 30 seconds. " +
@@ -242,7 +244,7 @@ public class TestOrchestrator : ITestOrchestrator
 
         _logger.LogInformation(
             "Service discovered: PID {ProcessId}",
-            serviceProcessId.Value);
+            serviceProcessId);
 
         // Step 2: Start IHost (all BackgroundServices start, ProcessMonitor waits)
         // Check if host is already started (e.g., by System.CommandLine.Hosting in CLI)
@@ -270,12 +272,20 @@ public class TestOrchestrator : ITestOrchestrator
 
         // Step 4: Clear database
         _logger.LogInformation("Clearing database {Database}...", config.DatabaseName);
-        await _database.ClearDatabaseAsync(config.DatabaseName, cancellationToken);
+        var clearDbResult = await _database.ClearDatabaseAsync(config.DatabaseName, cancellationToken);
+        if (clearDbResult is Result<Unit, ClearDatabaseError>.Failure(var clearDbError))
+        {
+            throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}': {clearDbError}");
+        }
         _logger.LogInformation("Database cleared");
 
         // Step 5: Clear RabbitMQ queues
         _logger.LogInformation("Clearing RabbitMQ queues...");
-        await _rabbitMq.ClearAllQueuesAsync(cancellationToken);
+        var clearQueuesResult = await _rabbitMq.ClearAllQueuesAsync(cancellationToken);
+        if (clearQueuesResult is Result<Unit>.Failure(var clearQueuesError))
+        {
+            throw new InvalidOperationException($"Failed to clear RabbitMQ queues: {clearQueuesError}");
+        }
         _logger.LogInformation("RabbitMQ queues cleared");
 
         // Allow time for RabbitMQ consumers to recover after queue purge
@@ -289,7 +299,7 @@ public class TestOrchestrator : ITestOrchestrator
 
         _logger.LogInformation("Setup phase complete");
 
-        return serviceProcessId.Value;
+        return serviceProcessId;
     }
 
     private async Task ExecuteWarmupPhaseAsync(
@@ -346,8 +356,16 @@ public class TestOrchestrator : ITestOrchestrator
 
             // Clear database and queues again
             _logger.LogInformation("Warmup: Clearing database and queues before measured test");
-            await _database.ClearDatabaseAsync(config.DatabaseName, cancellationToken);
-            await _rabbitMq.ClearAllQueuesAsync(cancellationToken);
+            var warmupClearResult = await _database.ClearDatabaseAsync(config.DatabaseName, cancellationToken);
+            if (warmupClearResult is Result<Unit, ClearDatabaseError>.Failure(var warmupClearError))
+            {
+                throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}' during warmup: {warmupClearError}");
+            }
+            var warmupClearQueuesResult = await _rabbitMq.ClearAllQueuesAsync(cancellationToken);
+            if (warmupClearQueuesResult is Result<Unit>.Failure(var warmupClearQueuesError))
+            {
+                throw new InvalidOperationException($"Failed to clear RabbitMQ queues during warmup: {warmupClearQueuesError}");
+            }
 
             _logger.LogInformation("Warmup phase complete - starting measured test");
         }

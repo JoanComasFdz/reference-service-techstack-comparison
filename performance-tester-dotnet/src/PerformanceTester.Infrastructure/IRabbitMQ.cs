@@ -1,3 +1,5 @@
+using JoanComasFdz.Result;
+
 namespace PerformanceTester.Infrastructure;
 
 /// <summary>
@@ -9,6 +11,6 @@ public interface IRabbitMQ
     /// Purges all messages from all queues in the default vhost.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="InvalidOperationException">Queue clearing failed.</exception>
-    Task ClearAllQueuesAsync(CancellationToken cancellationToken = default);
+    /// <returns>Success with Unit, or a Failure describing what went wrong.</returns>
+    Task<Result<Unit>> ClearAllQueuesAsync(CancellationToken cancellationToken = default);
 }

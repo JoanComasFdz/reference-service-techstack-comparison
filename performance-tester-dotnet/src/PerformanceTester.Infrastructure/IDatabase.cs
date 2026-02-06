@@ -1,3 +1,6 @@
+using JoanComasFdz.Result;
+using PerformanceTester.Infrastructure.Database;
+
 namespace PerformanceTester.Infrastructure;
 
 /// <summary>
@@ -10,7 +13,6 @@ public interface IDatabase
     /// </summary>
     /// <param name="databaseName">Name of the database to clear.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="ArgumentException">Database name is null or empty.</exception>
-    /// <exception cref="InvalidOperationException">Database clearing failed after retries.</exception>
-    Task ClearDatabaseAsync(string databaseName, CancellationToken cancellationToken = default);
+    /// <returns>Success with Unit, or a ClearDatabaseError describing the failure.</returns>
+    Task<Result<Unit, ClearDatabaseError>> ClearDatabaseAsync(string databaseName, CancellationToken cancellationToken = default);
 }

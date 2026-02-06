@@ -1,4 +1,5 @@
 using JoanComasFdz.AssertingThat;
+using JoanComasFdz.Result;
 using PerformanceTester.Infrastructure.IntegrationTests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
@@ -22,9 +23,10 @@ public sealed class RabbitMqCleanerTests(ITestOutputHelper output) : Integration
         await Asserting.That(System.RabbitMQ).QueueHasMessageCount(testQueue, 10);
 
         // Act
-        await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+        var result = await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
 
         // Assert - Queue should still exist but have no messages
+        Assert.IsType<Result<Unit>.Success>(result);
         await Asserting.That(System.RabbitMQ).QueueHasNoMessages(testQueue);
 
         // Cleanup
@@ -37,8 +39,11 @@ public sealed class RabbitMqCleanerTests(ITestOutputHelper output) : Integration
         // Arrange - No queues created for this test (ClearAllQueuesAsync should handle empty state gracefully)
         // Note: We intentionally don't delete all queues to avoid interfering with parallel tests
 
-        // Act & Assert - should not throw even if other tests have queues
-        await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+        // Act
+        var result = await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+
+        // Assert
+        Assert.IsType<Result<Unit>.Success>(result);
     }
 
     [Fact]
@@ -60,9 +65,10 @@ public sealed class RabbitMqCleanerTests(ITestOutputHelper output) : Integration
         await Asserting.That(System.RabbitMQ).QueueHasMessageCount(queue3, 7);
 
         // Act
-        await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+        var result = await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
 
         // Assert - All queues should have no messages
+        Assert.IsType<Result<Unit>.Success>(result);
         await Asserting.That(System.RabbitMQ).QueueHasNoMessages(queue1);
         await Asserting.That(System.RabbitMQ).QueueHasNoMessages(queue2);
         await Asserting.That(System.RabbitMQ).QueueHasNoMessages(queue3);
@@ -87,9 +93,10 @@ public sealed class RabbitMqCleanerTests(ITestOutputHelper output) : Integration
         await System.RabbitMQ.CreateQueueWithMessagesAsync(queue3, 2);
 
         // Act
-        await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+        var result = await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
 
         // Assert - All queues should have no messages
+        Assert.IsType<Result<Unit>.Success>(result);
         await Asserting.That(System.RabbitMQ).QueueHasNoMessages(queue1);
         await Asserting.That(System.RabbitMQ).QueueHasNoMessages(queue2);
         await Asserting.That(System.RabbitMQ).QueueHasNoMessages(queue3);
@@ -110,10 +117,11 @@ public sealed class RabbitMqCleanerTests(ITestOutputHelper output) : Integration
         await System.RabbitMQ.CreateQueueWithMessagesAsync(queue1, 0);
         await System.RabbitMQ.CreateQueueWithMessagesAsync(queue2, 0);
 
-        // Act & Assert - should not throw
-        await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+        // Act
+        var result = await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
 
-        // Verify queues are still empty
+        // Assert
+        Assert.IsType<Result<Unit>.Success>(result);
         await Asserting.That(System.RabbitMQ).QueueHasNoMessages(queue1);
         await Asserting.That(System.RabbitMQ).QueueHasNoMessages(queue2);
 

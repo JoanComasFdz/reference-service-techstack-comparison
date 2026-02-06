@@ -1,3 +1,4 @@
+using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
@@ -15,26 +16,29 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
     private readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(2);
 
     /// <inheritdoc />
-    public async Task ClearDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
+    public async Task<Result<Unit, ClearDatabaseError>> ClearDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(databaseName))
         {
-            throw new ArgumentException("Database name cannot be null or empty", nameof(databaseName));
+            return new Result<Unit, ClearDatabaseError>.Failure(new ClearDatabaseError.EmptyName());
         }
 
         _logger.LogInformation("=== Clearing database: {DatabaseName} ===", databaseName);
+
+        // Verify database exists before retrying
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!await DatabaseExistsAsync(databaseName, cancellationToken))
+        {
+            return new Result<Unit, ClearDatabaseError>.Failure(new ClearDatabaseError.DatabaseNotFound(databaseName));
+        }
+
+        Exception? lastException = null;
 
         for (int attempt = 1; attempt <= MaxRetries; attempt++)
         {
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-
-                // Verify database exists
-                if (!await DatabaseExistsAsync(databaseName, cancellationToken))
-                {
-                    throw new InvalidOperationException($"Database '{databaseName}' does not exist");
-                }
 
                 // Get connection string for target database
                 var dbConnectionString = new NpgsqlConnectionStringBuilder(_baseConnectionString)
@@ -47,18 +51,19 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
 
                 _logger.LogInformation("✓ Database {DatabaseName} cleared successfully", databaseName);
 
-                return; // Success
+                return new Result<Unit, ClearDatabaseError>.Success(Unit.Value);
             }
-            catch (Exception ex) when (attempt < MaxRetries)
+            catch (Exception ex) when (attempt < MaxRetries && ex is not OperationCanceledException)
             {
+                lastException = ex;
                 _logger.LogWarning(ex, "⚠️ Attempt {Attempt}/{MaxRetries} failed, retrying in {DelaySeconds}s...",
                     attempt, MaxRetries, _retryDelay.TotalSeconds);
                 await Task.Delay(_retryDelay, cancellationToken);
             }
         }
 
-        // All retries exhausted
-        throw new InvalidOperationException($"Failed to clear database '{databaseName}' after {MaxRetries} attempts");
+        return new Result<Unit, ClearDatabaseError>.Failure(
+            new ClearDatabaseError.RetriesExhausted(MaxRetries, lastException!));
     }
 
     private async Task<bool> DatabaseExistsAsync(string databaseName, CancellationToken cancellationToken)

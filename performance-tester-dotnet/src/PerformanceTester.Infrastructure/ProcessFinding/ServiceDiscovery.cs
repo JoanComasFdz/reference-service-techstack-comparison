@@ -1,4 +1,5 @@
 using System.Net.NetworkInformation;
+using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 
 namespace PerformanceTester.Infrastructure.ProcessFinding;
@@ -19,7 +20,7 @@ internal sealed class ServiceDiscovery : IServiceDiscovery
     }
 
     /// <inheritdoc />
-    public async Task<int?> FindServiceProcessIdAsync(
+    public async Task<Result<int>> FindServiceProcessIdAsync(
         int port,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -45,7 +46,7 @@ internal sealed class ServiceDiscovery : IServiceDiscovery
                 if (processId.HasValue)
                 {
                     _logger.LogInformation("✓ Found service on port {Port}: PID {ProcessId}", port, processId.Value);
-                    return processId.Value;
+                    return new Result<int>.Success(processId.Value);
                 }
             }
 
@@ -61,7 +62,7 @@ internal sealed class ServiceDiscovery : IServiceDiscovery
         }
 
         _logger.LogWarning("⚠️ Service not found on port {Port} after {Timeout}s", port, timeout.TotalSeconds);
-        return null;
+        return new Result<int>.Failure($"No service found on port {port} within {timeout}");
     }
 
     private bool IsPortListening(int port)

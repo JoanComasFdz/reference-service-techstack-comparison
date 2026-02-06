@@ -1,4 +1,6 @@
 using JoanComasFdz.AssertingThat;
+using JoanComasFdz.Result;
+using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.IntegrationTesting;
 using Xunit;
 
@@ -37,14 +39,14 @@ public static class InfrastructureAssertions
         int port,
         TimeSpan timeout)
     {
-        var processId = await assertingThat.InstanceToAssert.FindServiceProcessIdAsync(port, timeout);
+        var result = await assertingThat.InstanceToAssert.FindServiceProcessIdAsync(port, timeout);
 
-        Assert.NotNull(processId);
-        Assert.Equal(Environment.ProcessId, processId.Value);
+        var success = Assert.IsType<Result<int>.Success>(result);
+        Assert.Equal(Environment.ProcessId, success.Value);
     }
 
     /// <summary>
-    /// Asserts that FindServiceProcessIdAsync returns null when no service is running on the port.
+    /// Asserts that FindServiceProcessIdAsync returns a failure when no service is running on the port.
     /// </summary>
     /// <param name="assertingThat">The AssertingThat wrapper around IServiceDiscovery</param>
     /// <param name="port">The port to check for a process</param>
@@ -54,35 +56,34 @@ public static class InfrastructureAssertions
         int port,
         TimeSpan timeout)
     {
-        var processId = await assertingThat.InstanceToAssert.FindServiceProcessIdAsync(port, timeout);
-        Assert.Null(processId);
+        var result = await assertingThat.InstanceToAssert.FindServiceProcessIdAsync(port, timeout);
+        Assert.IsType<Result<int>.Failure>(result);
     }
 
     /// <summary>
-    /// Asserts that calling ClearDatabaseAsync with non-existent database throws InvalidOperationException.
+    /// Asserts that calling ClearDatabaseAsync with non-existent database returns DatabaseNotFound failure.
     /// </summary>
-    public static AssertingThat<IDatabase> ClearDatabaseAsyncThrowsInvalidOperationForNonExistentDatabase(
+    public static async Task ClearDatabaseAsyncReturnsDatabaseNotFound(
         this AssertingThat<IDatabase> assertingThat,
         string databaseName)
     {
-        var exception = Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await assertingThat.InstanceToAssert.ClearDatabaseAsync(databaseName))
-            .Result;
+        var result = await assertingThat.InstanceToAssert.ClearDatabaseAsync(databaseName);
 
-        Assert.Contains("does not exist", exception.Message);
-        return assertingThat;
+        var failure = Assert.IsType<Result<Unit, ClearDatabaseError>.Failure>(result);
+        var error = Assert.IsType<ClearDatabaseError.DatabaseNotFound>(failure.Error);
+        Assert.Equal(databaseName, error.Name);
     }
 
     /// <summary>
-    /// Asserts that calling ClearDatabaseAsync with null throws ArgumentException.
+    /// Asserts that calling ClearDatabaseAsync with null returns EmptyName failure.
     /// </summary>
-    public static AssertingThat<IDatabase> ClearDatabaseAsyncThrowsArgumentExceptionForNullDatabaseName(
+    public static async Task ClearDatabaseAsyncReturnsEmptyNameForNullDatabaseName(
         this AssertingThat<IDatabase> assertingThat)
     {
-        Assert.ThrowsAsync<ArgumentException>(
-            async () => await assertingThat.InstanceToAssert.ClearDatabaseAsync(null!))
-            .Wait();
-        return assertingThat;
+        var result = await assertingThat.InstanceToAssert.ClearDatabaseAsync(null!);
+
+        var failure = Assert.IsType<Result<Unit, ClearDatabaseError>.Failure>(result);
+        Assert.IsType<ClearDatabaseError.EmptyName>(failure.Error);
     }
 
     /// <summary>

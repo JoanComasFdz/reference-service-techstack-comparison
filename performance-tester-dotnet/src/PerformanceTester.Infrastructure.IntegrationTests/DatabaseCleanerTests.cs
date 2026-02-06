@@ -1,4 +1,6 @@
 using JoanComasFdz.AssertingThat;
+using JoanComasFdz.Result;
+using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.IntegrationTests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
@@ -19,9 +21,10 @@ public sealed class DatabaseCleanerTests(ITestOutputHelper output) : Integration
         await Asserting.That(System.PostgreSQL).DatabaseTableHasRows(testDbName, "test_table");
 
         // Act
-        await System.Infrastructure.Database.ClearDatabaseAsync(testDbName);
+        var result = await System.Infrastructure.Database.ClearDatabaseAsync(testDbName);
 
         // Assert
+        Assert.IsType<Result<Unit, ClearDatabaseError>.Success>(result);
         await Asserting.That(System.PostgreSQL).DatabaseTableHasNoRows(testDbName, "test_table");
 
         // Cleanup
@@ -29,34 +32,37 @@ public sealed class DatabaseCleanerTests(ITestOutputHelper output) : Integration
     }
 
     [Fact]
-    public async Task ClearDatabaseAsync_WhenDatabaseIsEmpty_ShouldNotThrow()
+    public async Task ClearDatabaseAsync_WhenDatabaseIsEmpty_ShouldSucceed()
     {
         // Arrange - Clean up any previous state
         var testDbName = $"test_empty_db_{Guid.NewGuid():N}";
         await System.PostgreSQL.DropTestDatabaseAsync(testDbName); // Ensure clean state
         await System.PostgreSQL.CreateTestDatabaseAsync(testDbName);
 
-        // Act & Assert - should not throw
-        await System.Infrastructure.Database.ClearDatabaseAsync(testDbName);
+        // Act
+        var result = await System.Infrastructure.Database.ClearDatabaseAsync(testDbName);
+
+        // Assert
+        Assert.IsType<Result<Unit, ClearDatabaseError>.Success>(result);
 
         // Cleanup
         await System.PostgreSQL.DropTestDatabaseAsync(testDbName);
     }
 
     [Fact]
-    public void ClearDatabaseAsync_WhenDatabaseDoesNotExist_ShouldThrow()
+    public async Task ClearDatabaseAsync_WhenDatabaseDoesNotExist_ShouldReturnDatabaseNotFound()
     {
         // Arrange
         const string nonExistentDb = "database_that_does_not_exist_12345";
 
         // Act & Assert
-        Asserting.That(System.Infrastructure.Database).ClearDatabaseAsyncThrowsInvalidOperationForNonExistentDatabase(nonExistentDb);
+        await Asserting.That(System.Infrastructure.Database).ClearDatabaseAsyncReturnsDatabaseNotFound(nonExistentDb);
     }
 
     [Fact]
-    public void ClearDatabaseAsync_WhenDatabaseNameIsNull_ShouldThrow()
+    public async Task ClearDatabaseAsync_WhenDatabaseNameIsNull_ShouldReturnEmptyName()
     {
         // Act & Assert
-        Asserting.That(System.Infrastructure.Database).ClearDatabaseAsyncThrowsArgumentExceptionForNullDatabaseName();
+        await Asserting.That(System.Infrastructure.Database).ClearDatabaseAsyncReturnsEmptyNameForNullDatabaseName();
     }
 }
