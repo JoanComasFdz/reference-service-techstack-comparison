@@ -15,6 +15,11 @@ public sealed class Reporting : IDisposable
     private IHost? _host;
 
     /// <summary>
+    /// Logger for chart generation and other reporting operations.
+    /// </summary>
+    public ILogger Logger { get; private set; } = null!;
+
+    /// <summary>
     /// System information detector for accessing hardware/OS information.
     /// </summary>
     public ISystemInfoDetector SystemInfoDetector { get; private set; } = null!;
@@ -23,11 +28,6 @@ public sealed class Reporting : IDisposable
     /// Report generator for creating JSON test reports.
     /// </summary>
     public IReportGenerator ReportGenerator { get; private set; } = null!;
-
-    /// <summary>
-    /// Chart generator for creating PNG visualization charts.
-    /// </summary>
-    public IChartGenerator ChartGenerator { get; private set; } = null!;
 
     /// <summary>
     /// Comparison report generator for creating comparison reports from multiple test results.
@@ -54,9 +54,9 @@ public sealed class Reporting : IDisposable
         _host = builder.Build();
 
         // Resolve services
+        Logger = _host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Reporting");
         SystemInfoDetector = _host.Services.GetRequiredService<ISystemInfoDetector>();
         ReportGenerator = _host.Services.GetRequiredService<IReportGenerator>();
-        ChartGenerator = _host.Services.GetRequiredService<IChartGenerator>();
         ComparisonReportGenerator = _host.Services.GetRequiredService<IComparisonReportGenerator>();
     }
 

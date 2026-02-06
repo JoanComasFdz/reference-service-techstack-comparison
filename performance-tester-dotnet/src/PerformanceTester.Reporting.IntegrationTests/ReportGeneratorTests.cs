@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using PerformanceTester.Reporting.ChartGeneration;
 using PerformanceTester.Reporting.IntegrationTests.Builders;
 using PerformanceTester.Reporting.IntegrationTests.Infrastructure;
 using Xunit;
@@ -483,7 +484,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
             var sanitizedName = testReport.MonitoredProcess.Name.ToLowerInvariant();
             var chartPath = Path.Combine(outputDirectory, $"test-report-{timestamp}-{sanitizedName}.chart.png");
             
-            await System.Reporting.ChartGenerator.GenerateChartAsync(chartPath, testReport);
+            await ChartGenerator.GenerateChartAsync(chartPath, testReport, System.Reporting.Logger);
 
             // Assert - Verify chart was created successfully
             Assert.True(File.Exists(chartPath), "Chart PNG file should exist after round-trip");

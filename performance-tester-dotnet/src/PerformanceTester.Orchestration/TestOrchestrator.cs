@@ -9,6 +9,7 @@ using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
+using PerformanceTester.Reporting.ChartGeneration;
 using PerformanceTester.SystemMonitoring;
 using Serilog.Context;
 
@@ -40,7 +41,6 @@ public class TestOrchestrator : ITestOrchestrator
     // Phase 3: Reporting
     private readonly ISystemInfoDetector _systemInfoDetector;
     private readonly IReportGenerator _reportGenerator;
-    private readonly IChartGenerator _chartGenerator;
 
     public TestOrchestrator(
         IHost host,
@@ -57,8 +57,7 @@ public class TestOrchestrator : ITestOrchestrator
         IEnumerable<IDockerMonitor> dockerMonitors,
         IApiLoadTester apiLoadTester,
         ISystemInfoDetector systemInfoDetector,
-        IReportGenerator reportGenerator,
-        IChartGenerator chartGenerator)
+        IReportGenerator reportGenerator)
     {
         _host = host ?? throw new ArgumentNullException(nameof(host));
         _hostLifetime = hostLifetime ?? throw new ArgumentNullException(nameof(hostLifetime));
@@ -75,7 +74,6 @@ public class TestOrchestrator : ITestOrchestrator
         _apiLoadTester = apiLoadTester ?? throw new ArgumentNullException(nameof(apiLoadTester));
         _systemInfoDetector = systemInfoDetector ?? throw new ArgumentNullException(nameof(systemInfoDetector));
         _reportGenerator = reportGenerator ?? throw new ArgumentNullException(nameof(reportGenerator));
-        _chartGenerator = chartGenerator ?? throw new ArgumentNullException(nameof(chartGenerator));
     }
 
     /// <inheritdoc />
@@ -645,10 +643,11 @@ public class TestOrchestrator : ITestOrchestrator
 
         _logger.LogInformation("Generating chart to {Path}", chartPath);
 
-        await _chartGenerator.GenerateChartAsync(
+        await ChartGenerator.GenerateChartAsync(
             chartPath,
             testReport,
-            cancellationToken);
+            _logger,
+            cancellationToken: cancellationToken);
 
         _logger.LogInformation("Chart generated");
 

@@ -10,7 +10,6 @@ using ScottPlot;
 namespace PerformanceTester.Reporting.ChartGeneration;
 
 /// <summary>
-/// Default implementation of chart generator.
 /// Generates performance visualization charts using ScottPlot with 5 subplots:
 /// 1. Throughput (events/sec + API calls/sec)
 /// 2. Service CPU/RAM (dual Y-axes)
@@ -18,28 +17,25 @@ namespace PerformanceTester.Reporting.ChartGeneration;
 /// 4. PostgreSQL CPU/RAM (dual Y-axes)
 /// 5. System CPU/RAM (dual Y-axes)
 /// </summary>
-internal sealed class ChartGenerator : IChartGenerator
+public static class ChartGenerator
 {
-    private readonly ILogger<ChartGenerator> _logger;
-    private readonly ChartConfig _config;
-
-    public ChartGenerator(ILogger<ChartGenerator> logger)
-        : this(logger, ChartConfig.Default)
-    {
-    }
-
-    public ChartGenerator(ILogger<ChartGenerator> logger, ChartConfig config)
-    {
-        _logger = logger;
-        _config = config;
-    }
-
-    /// <inheritdoc />
-    public async Task GenerateChartAsync(
+    /// <summary>
+    /// Generates a PNG chart with 5 subplots showing all performance metrics.
+    /// </summary>
+    /// <param name="outputPath">Full path to output PNG file.</param>
+    /// <param name="testReport">Complete test report data.</param>
+    /// <param name="logger">Logger instance.</param>
+    /// <param name="config">Optional chart configuration. Uses ChartConfig.Default if not specified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async Task GenerateChartAsync(
         string outputPath,
         TestReport testReport,
+        ILogger logger,
+        ChartConfig? config = null,
         CancellationToken cancellationToken = default)
     {
+        config ??= ChartConfig.Default;
+
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath, nameof(outputPath));
         ArgumentNullException.ThrowIfNull(testReport, nameof(testReport));
 
@@ -48,30 +44,30 @@ internal sealed class ChartGenerator : IChartGenerator
         ValidateDataFilesExist(dataFiles, outputPath);
 
         // Load data
-        var eventsData = ChartDataLoader.LoadThroughputReport(dataFiles.EventsThroughput, _logger);
-        var apiData = ChartDataLoader.LoadThroughputReport(dataFiles.ApiThroughput, _logger);
-        var serviceData = ChartDataLoader.LoadProcessResourceReport(dataFiles.ResourceMetrics, _logger);
-        var rabbitmqData = ChartDataLoader.LoadResourceReport(dataFiles.RabbitmqMetrics, _logger);
-        var postgresData = ChartDataLoader.LoadResourceReport(dataFiles.PostgresMetrics, _logger);
-        var systemData = ChartDataLoader.LoadResourceReport(dataFiles.SystemMetrics, _logger);
+        var eventsData = ChartDataLoader.LoadThroughputReport(dataFiles.EventsThroughput, logger);
+        var apiData = ChartDataLoader.LoadThroughputReport(dataFiles.ApiThroughput, logger);
+        var serviceData = ChartDataLoader.LoadProcessResourceReport(dataFiles.ResourceMetrics, logger);
+        var rabbitmqData = ChartDataLoader.LoadResourceReport(dataFiles.RabbitmqMetrics, logger);
+        var postgresData = ChartDataLoader.LoadResourceReport(dataFiles.PostgresMetrics, logger);
+        var systemData = ChartDataLoader.LoadResourceReport(dataFiles.SystemMetrics, logger);
 
         // Build plots
-        var plots = BuildPlots(eventsData, apiData, serviceData, rabbitmqData, postgresData, systemData);
+        var plots = BuildPlots(eventsData, apiData, serviceData, rabbitmqData, postgresData, systemData, config);
 
         // Add phase overlays
-        AddPhaseOverlays(plots, testReport);
+        AddPhaseOverlays(plots, testReport, config);
 
         // Configure top plot (title, headroom)
-        ConfigureTopPlot(plots[0], testReport);
+        ConfigureTopPlot(plots[0], testReport, config);
 
         // Configure bottom plot (X-axis label, tick rotation)
-        ConfigureBottomPlot(plots[4]);
+        ConfigureBottomPlot(plots[4], config);
 
         // Synchronize X-axis limits
         SyncXAxisLimits(plots);
 
         // Render and combine
-        var bitmaps = RenderPlots(plots);
+        var bitmaps = RenderPlots(plots, config);
 
         try
         {
@@ -82,7 +78,7 @@ internal sealed class ChartGenerator : IChartGenerator
             ChartImageComposer.DisposeBitmaps(bitmaps);
         }
 
-        _logger.LogInformation("Metrics chart saved to: {OutputPath}", outputPath);
+        logger.LogInformation("Metrics chart saved to: {OutputPath}", outputPath);
 
         await Task.CompletedTask;
     }
@@ -122,33 +118,34 @@ internal sealed class ChartGenerator : IChartGenerator
         }
     }
 
-    private List<Plot> BuildPlots(
+    private static List<Plot> BuildPlots(
         ThroughputReport? eventsData,
         ThroughputReport? apiData,
         ResourceMetricsReport? serviceData,
         ResourceMetricsReport? rabbitmqData,
         ResourceMetricsReport? postgresData,
-        ResourceMetricsReport? systemData)
+        ResourceMetricsReport? systemData,
+        ChartConfig config)
     {
         return
         [
-            ThroughputPlotBuilder.Build(eventsData, apiData, _config),
-            ServiceMetricsPlotBuilder.Build(serviceData, _config),
-            RabbitMqMetricsPlotBuilder.Build(rabbitmqData, _config),
-            PostgresMetricsPlotBuilder.Build(postgresData, _config),
-            SystemMetricsPlotBuilder.Build(systemData, _config)
+            ThroughputPlotBuilder.Build(eventsData, apiData, config),
+            ServiceMetricsPlotBuilder.Build(serviceData, config),
+            RabbitMqMetricsPlotBuilder.Build(rabbitmqData, config),
+            PostgresMetricsPlotBuilder.Build(postgresData, config),
+            SystemMetricsPlotBuilder.Build(systemData, config)
         ];
     }
 
-    private void AddPhaseOverlays(List<Plot> plots, TestReport testReport)
+    private static void AddPhaseOverlays(List<Plot> plots, TestReport testReport, ChartConfig config)
     {
         foreach (var plot in plots)
         {
-            PhaseOverlayRenderer.AddPhaseBoundaries(plot, testReport, _config);
+            PhaseOverlayRenderer.AddPhaseBoundaries(plot, testReport, config);
         }
     }
 
-    private void ConfigureTopPlot(Plot plot, TestReport testReport)
+    private static void ConfigureTopPlot(Plot plot, TestReport testReport, ChartConfig config)
     {
         // Force auto-scaling before getting limits
         plot.Axes.AutoScale();
@@ -159,13 +156,13 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Axes.SetLimitsY(limits.Bottom, yMax);
 
         // Add phase labels and title
-        PhaseOverlayRenderer.AddPhaseLabels(plot, testReport, yMax, _config);
-        PhaseOverlayRenderer.AddTitle(plot, testReport, _config);
+        PhaseOverlayRenderer.AddPhaseLabels(plot, testReport, yMax, config);
+        PhaseOverlayRenderer.AddTitle(plot, testReport, config);
     }
 
-    private void ConfigureBottomPlot(Plot plot)
+    private static void ConfigureBottomPlot(Plot plot, ChartConfig config)
     {
-        PlotToolbox.ConfigureBottomAxisLabel(plot, _config.Font);
+        PlotToolbox.ConfigureBottomAxisLabel(plot, config.Font);
 
         // Rotate tick labels 45° for readability on bottom axis
         plot.Axes.Bottom.TickLabelStyle.Rotation = 45;
@@ -201,13 +198,13 @@ internal sealed class ChartGenerator : IChartGenerator
         }
     }
 
-    private List<SkiaSharp.SKBitmap> RenderPlots(List<Plot> plots)
+    private static List<SkiaSharp.SKBitmap> RenderPlots(List<Plot> plots, ChartConfig config)
     {
         return plots
             .Select((p, i) => ChartImageComposer.RenderPlotToBitmap(
                 p,
-                i == 0 ? _config.Dimensions.ThroughputHeight : _config.Dimensions.Height,
-                _config.Dimensions))
+                i == 0 ? config.Dimensions.ThroughputHeight : config.Dimensions.Height,
+                config.Dimensions))
             .ToList();
     }
 

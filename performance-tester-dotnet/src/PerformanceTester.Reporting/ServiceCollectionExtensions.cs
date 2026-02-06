@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using PerformanceTester.Reporting.ChartGeneration;
 using PerformanceTester.Reporting.ComparisonGeneration;
 using PerformanceTester.Reporting.ReportGeneration;
 using PerformanceTester.Reporting.SystemInfoDetection;
@@ -41,7 +40,6 @@ public static class ServiceCollectionExtensions
 
         // Register report generators
         services.AddSingleton<IReportGenerator, ReportGenerator>();
-        services.AddSingleton<IChartGenerator, ChartGenerator>();
         services.AddSingleton<IComparisonReportGenerator, ComparisonReportGenerator>();
 
         return services;
