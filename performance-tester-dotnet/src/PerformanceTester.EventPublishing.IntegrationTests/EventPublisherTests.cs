@@ -30,10 +30,10 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
         // Act
         var metrics = await System.EventPublishing.Publisher.PublishEventsAsync(eventCount);
 
-        // Assert - Should publish at least 10 events/sec (conservative baseline)
+        // Assert - Should publish at least 100 events/sec (baseline with channel reuse)
         Asserting.That(metrics)
             .HasPublishedSuccessfully(eventCount)
-            .HasMinimumThroughput(10.0);
+            .HasMinimumThroughput(100.0);
     }
 
     [Fact]
