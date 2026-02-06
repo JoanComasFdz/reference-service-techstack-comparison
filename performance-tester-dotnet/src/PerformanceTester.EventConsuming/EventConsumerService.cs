@@ -351,6 +351,7 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
         Interlocked.Exchange(ref _receivedEventCount, 0);
         _trackingCompletionSource = null;
         _progress = null;
+        _lastEventReceivedTime = DateTime.UtcNow;
     }
 
     private async Task OnMessageReceivedAsync(object sender, BasicDeliverEventArgs eventArgs)
