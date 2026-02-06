@@ -37,7 +37,10 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
                 }
 
                 // Get connection string for target database
-                var dbConnectionString = BuildConnectionString(databaseName);
+                var dbConnectionString = new NpgsqlConnectionStringBuilder(_baseConnectionString)
+                {
+                    Database = databaseName
+                }.ConnectionString;
 
                 // Discover and truncate all tables
                 await TruncateAllTablesAsync(dbConnectionString, cancellationToken);
@@ -116,14 +119,5 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
         }
 
         return tables;
-    }
-
-    private string BuildConnectionString(string databaseName)
-    {
-        var builder = new NpgsqlConnectionStringBuilder(_baseConnectionString)
-        {
-            Database = databaseName
-        };
-        return builder.ConnectionString;
     }
 }
