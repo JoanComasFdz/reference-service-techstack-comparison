@@ -255,38 +255,13 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
                 if (completedTask == connectionSuccessTcs.Task
                     && connectionSuccessTcs.Task.IsCompletedSuccessfully)
                 {
-                    // === REPORT: Connected ===
-                    var wasReconnecting = _consecutiveFailures > 0;
-                    _progress?.Report(DockerMonitorPhaseInfo.Completed(
-                        DockerMonitorPhase.StreamConnected,
-                        _containerName,
-                        message: wasReconnecting
-                            ? $"Reconnected to {_containerName}"
-                            : $"Connected to {_containerName}"));
-
-                    // Reset failure tracking on successful connection
-                    _consecutiveFailures = 0;
-                    lock (_backoffLock)
-                    {
-                        _currentBackoffDelay = StreamingConstants.InitialReconnectDelay;
-                    }
-
-                    // Now wait for stream to end (cancellation or error)
-                    try
-                    {
-                        await streamTask;
-                        // Stream ended without exception (unexpected for Stream=true)
-                        _logger.LogWarning(
-                            "Stats stream ended unexpectedly for container {ContainerName}",
-                            _containerName);
-                        break;
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Normal shutdown - exit loop
-                        break;
-                    }
-                    // Other exceptions fall through to outer catch for reconnection
+                    HandleConnectionSuccess();
+                    await streamTask;
+                    // Stream ended without exception (unexpected for Stream=true)
+                    _logger.LogWarning(
+                        "Stats stream ended unexpectedly for container {ContainerName}",
+                        _containerName);
+                    break;
                 }
                 else
                 {
@@ -301,74 +276,123 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             }
             catch (Exception ex)
             {
-                _consecutiveFailures++;
-                _dockerClient.InvalidateContainerCache(_containerName);
-
-                if (_consecutiveFailures > StreamingConstants.MaxReconnectAttempts)
-                {
-                    // === REPORT: Failed Permanently ===
-                    _logger.LogError(ex,
-                        "Streaming failed permanently after {Failures} attempts for container {ContainerName}",
-                        _consecutiveFailures, _containerName);
-
-                    _progress?.Report(DockerMonitorPhaseInfo.Failed(
-                        DockerMonitorPhase.StreamFailed,
-                        _containerName,
-                        message: $"Connection failed permanently after {_consecutiveFailures} attempts"));
-
-                    _streamingFailed = true;
-                    break;
-                }
-
-                // Calculate backoff delay
-                TimeSpan delayToUse;
-                lock (_backoffLock)
-                {
-                    delayToUse = _currentBackoffDelay;
-                    var jitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 500));
-                    _currentBackoffDelay = TimeSpan.FromTicks(Math.Min(
-                        _currentBackoffDelay.Ticks * 2,
-                        StreamingConstants.MaxReconnectDelay.Ticks)) + jitter;
-                }
-
-                // === REPORT: Disconnected (will retry) ===
-                _logger.LogWarning(ex,
-                    "Stream disconnected for container {ContainerName}, " +
-                    "reconnecting in {Delay:F1}s (attempt {Count}/{Max})",
-                    _containerName, delayToUse.TotalSeconds,
-                    _consecutiveFailures, StreamingConstants.MaxReconnectAttempts);
-
-                _progress?.Report(DockerMonitorPhaseInfo.Failed(
-                    DockerMonitorPhase.StreamDisconnected,
-                    _containerName,
-                    message: $"Disconnected, retrying in {delayToUse.TotalSeconds:F1}s " +
-                             $"(attempt {_consecutiveFailures}/{StreamingConstants.MaxReconnectAttempts})"));
-
-                try
-                {
-                    await Task.Delay(delayToUse, cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-
-                // Try to resolve new container ID (may have restarted)
-                var newContainerId = await _dockerClient.GetContainerIdAsync(
-                    _containerName, cancellationToken);
-
-                if (newContainerId == null)
-                {
-                    _logger.LogWarning(
-                        "Container {ContainerName} not found during reconnection",
-                        _containerName);
-                    // Continue loop - will increment failure count on next iteration
-                    continue;
-                }
-
-                currentContainerId = newContainerId;
+                if (!ShouldRetry(ex)) break;
+                currentContainerId = await AttemptReconnectionAsync(
+                    ex, currentContainerId, cancellationToken);
             }
         }
+    }
+
+    /// <summary>
+    /// Reports successful connection and resets failure tracking state.
+    /// Called when the connection success TCS completes, indicating valid stats were received.
+    /// </summary>
+    private void HandleConnectionSuccess()
+    {
+        // === REPORT: Connected ===
+        var wasReconnecting = _consecutiveFailures > 0;
+        _progress?.Report(DockerMonitorPhaseInfo.Completed(
+            DockerMonitorPhase.StreamConnected,
+            _containerName,
+            message: wasReconnecting
+                ? $"Reconnected to {_containerName}"
+                : $"Connected to {_containerName}"));
+
+        // Reset failure tracking on successful connection
+        _consecutiveFailures = 0;
+        lock (_backoffLock)
+        {
+            _currentBackoffDelay = StreamingConstants.InitialReconnectDelay;
+        }
+    }
+
+    /// <summary>
+    /// Determines whether a reconnection should be attempted after a streaming failure.
+    /// Increments the failure counter, invalidates the container cache, and reports permanent
+    /// failure if the maximum retry count has been exceeded.
+    /// </summary>
+    /// <returns>true if a reconnection attempt should be made; false if the loop should exit.</returns>
+    private bool ShouldRetry(Exception ex)
+    {
+        _consecutiveFailures++;
+        _dockerClient.InvalidateContainerCache(_containerName);
+
+        if (_consecutiveFailures <= StreamingConstants.MaxReconnectAttempts)
+            return true;
+
+        // === REPORT: Failed Permanently ===
+        _logger.LogError(ex,
+            "Streaming failed permanently after {Failures} attempts for container {ContainerName}",
+            _consecutiveFailures, _containerName);
+
+        _progress?.Report(DockerMonitorPhaseInfo.Failed(
+            DockerMonitorPhase.StreamFailed,
+            _containerName,
+            message: $"Connection failed permanently after {_consecutiveFailures} attempts"));
+
+        _streamingFailed = true;
+        return false;
+    }
+
+    /// <summary>
+    /// Calculates the next reconnection delay using exponential backoff with jitter.
+    /// Thread-safe: uses <see cref="_backoffLock"/> to protect shared backoff state.
+    /// </summary>
+    /// <returns>The delay to wait before the next reconnection attempt.</returns>
+    private TimeSpan CalculateReconnectionDelay()
+    {
+        lock (_backoffLock)
+        {
+            var delayToUse = _currentBackoffDelay;
+            var jitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 500));
+            _currentBackoffDelay = TimeSpan.FromTicks(Math.Min(
+                _currentBackoffDelay.Ticks * 2,
+                StreamingConstants.MaxReconnectDelay.Ticks)) + jitter;
+            return delayToUse;
+        }
+    }
+
+    /// <summary>
+    /// Performs a reconnection attempt: waits for the backoff delay, then resolves the current
+    /// container ID (which may have changed if the container was restarted).
+    /// </summary>
+    /// <returns>The resolved container ID to use for the next connection attempt.</returns>
+    private async Task<string> AttemptReconnectionAsync(
+        Exception ex,
+        string currentContainerId,
+        CancellationToken cancellationToken)
+    {
+        var delayToUse = CalculateReconnectionDelay();
+
+        // === REPORT: Disconnected (will retry) ===
+        _logger.LogWarning(ex,
+            "Stream disconnected for container {ContainerName}, " +
+            "reconnecting in {Delay:F1}s (attempt {Count}/{Max})",
+            _containerName, delayToUse.TotalSeconds,
+            _consecutiveFailures, StreamingConstants.MaxReconnectAttempts);
+
+        _progress?.Report(DockerMonitorPhaseInfo.Failed(
+            DockerMonitorPhase.StreamDisconnected,
+            _containerName,
+            message: $"Disconnected, retrying in {delayToUse.TotalSeconds:F1}s " +
+                     $"(attempt {_consecutiveFailures}/{StreamingConstants.MaxReconnectAttempts})"));
+
+        await Task.Delay(delayToUse, cancellationToken);
+
+        // Try to resolve new container ID (may have restarted)
+        var newContainerId = await _dockerClient.GetContainerIdAsync(
+            _containerName, cancellationToken);
+
+        if (newContainerId == null)
+        {
+            _logger.LogWarning(
+                "Container {ContainerName} not found during reconnection",
+                _containerName);
+            // Return current ID - loop will increment failure count on next iteration
+            return currentContainerId;
+        }
+
+        return newContainerId;
     }
 
     /// <summary>
