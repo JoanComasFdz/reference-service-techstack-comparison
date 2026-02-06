@@ -7,28 +7,21 @@ namespace PerformanceTester.Reporting.ChartGeneration.ImageComposition;
 /// <summary>
 /// Composes multiple plots into a single vertically-stacked image.
 /// </summary>
-internal sealed class ChartImageComposer
+internal static class ChartImageComposer
 {
-    private readonly PlotDimensions _dimensions;
-
-    public ChartImageComposer(PlotDimensions dimensions)
-    {
-        _dimensions = dimensions;
-    }
-
     /// <summary>
     /// Renders a plot to a bitmap with the specified height.
     /// </summary>
-    public SKBitmap RenderPlotToBitmap(Plot plot, int height)
+    public static SKBitmap RenderPlotToBitmap(Plot plot, int height, PlotDimensions dimensions)
     {
-        var image = plot.GetImage(_dimensions.Width, height);
+        var image = plot.GetImage(dimensions.Width, height);
         return SKBitmap.Decode(image.GetImageBytes());
     }
 
     /// <summary>
     /// Combines multiple bitmaps vertically and saves to file.
     /// </summary>
-    public void CombineAndSave(IReadOnlyList<SKBitmap> bitmaps, string outputPath)
+    public static void CombineAndSave(IReadOnlyList<SKBitmap> bitmaps, string outputPath)
     {
         if (bitmaps.Count == 0)
             throw new ArgumentException("No bitmaps to combine", nameof(bitmaps));
