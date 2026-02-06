@@ -11,7 +11,8 @@ namespace PerformanceTester.Infrastructure.RabbitMQ;
 /// </summary>
 internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
 {
-    private readonly HttpClient _httpClient;
+    private static readonly HttpClient SharedHttpClient = new();
+    private readonly System.Net.Http.Headers.AuthenticationHeaderValue _authHeader;
     private readonly ILogger<RabbitMqCleaner> _logger;
     private readonly string _managementUrl;
     private readonly string _vhost;
@@ -73,11 +74,16 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
 
         _managementUrl = $"http://{host}:{resolvedManagementPort}/api";
 
-        // Create HttpClient with basic authentication
-        _httpClient = new HttpClient();
+        // Store auth header for per-request use (static HttpClient is shared)
         var authToken = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authToken);
+        _authHeader = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authToken);
+    }
+
+    private HttpRequestMessage CreateRequest(HttpMethod method, string url)
+    {
+        var request = new HttpRequestMessage(method, url);
+        request.Headers.Authorization = _authHeader;
+        return request;
     }
 
     /// <inheritdoc />
@@ -148,7 +154,8 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
             var encodedVhost = Uri.EscapeDataString(_vhost);
             var url = $"{_managementUrl}/queues/{encodedVhost}";
 
-            var response = await _httpClient.GetAsync(url, cancellationToken);
+            using var request = CreateRequest(HttpMethod.Get, url);
+            var response = await SharedHttpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var queues = await response.Content.ReadFromJsonAsync<List<QueueInfo>>(cancellationToken);
@@ -169,13 +176,14 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
         var encodedQueueName = Uri.EscapeDataString(queueName);
         var url = $"{_managementUrl}/queues/{encodedVhost}/{encodedQueueName}/contents";
 
-        var response = await _httpClient.DeleteAsync(url, cancellationToken);
+        using var request = CreateRequest(HttpMethod.Delete, url);
+        var response = await SharedHttpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 
     public ValueTask DisposeAsync()
     {
-        _httpClient.Dispose();
+        // Static HttpClient is intentionally not disposed — it's shared across instances
         return ValueTask.CompletedTask;
     }
 
