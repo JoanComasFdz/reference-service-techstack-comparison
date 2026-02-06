@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Hosting;
 using System.CommandLine.Invocation;
+using JoanComasFdz.Result;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -145,9 +146,9 @@ public static class TestCommand
                 return 1;
             }
 
-            // Parse durations
-            var apiDuration = DurationParser.Parse(options.ApiDuration);
-            var inactivityTimeout = DurationParser.Parse(options.InactivityTimeout);
+            // Parse durations (already validated by ValidateOptions)
+            var apiDuration = ((Result<TimeSpan, DurationParseError>.Success)DurationParser.Parse(options.ApiDuration)).Value;
+            var inactivityTimeout = ((Result<TimeSpan, DurationParseError>.Success)DurationParser.Parse(options.InactivityTimeout)).Value;
 
             // Build configuration
             var config = new TestConfiguration(

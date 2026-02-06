@@ -1,4 +1,5 @@
 using FluentAssertions;
+using JoanComasFdz.Result;
 using PerformanceTester.Cli.Configuration;
 using Xunit;
 
@@ -17,7 +18,9 @@ public class DurationParserTests
     public void Parse_ValidSeconds_ReturnsCorrectTimeSpan(string input, int expectedSeconds)
     {
         var result = DurationParser.Parse(input);
-        result.Should().Be(TimeSpan.FromSeconds(expectedSeconds));
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.FromSeconds(expectedSeconds));
     }
 
     #endregion
@@ -32,7 +35,9 @@ public class DurationParserTests
     public void Parse_ValidMinutes_ReturnsCorrectTimeSpan(string input, int expectedMinutes)
     {
         var result = DurationParser.Parse(input);
-        result.Should().Be(TimeSpan.FromMinutes(expectedMinutes));
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.FromMinutes(expectedMinutes));
     }
 
     #endregion
@@ -46,7 +51,9 @@ public class DurationParserTests
     public void Parse_ValidHours_ReturnsCorrectTimeSpan(string input, int expectedHours)
     {
         var result = DurationParser.Parse(input);
-        result.Should().Be(TimeSpan.FromHours(expectedHours));
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.FromHours(expectedHours));
     }
 
     #endregion
@@ -61,6 +68,8 @@ public class DurationParserTests
     {
         var result = DurationParser.Parse(input);
 
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+
         var unit = input.ToLowerInvariant().Last();
         var expected = unit switch
         {
@@ -70,28 +79,34 @@ public class DurationParserTests
             _ => throw new InvalidOperationException($"Unknown unit: {unit}")
         };
 
-        result.Should().Be(expected);
+        success.Value.Should().Be(expected);
     }
 
     [Fact]
     public void Parse_UppercaseSeconds_ReturnsCorrectTimeSpan()
     {
         var result = DurationParser.Parse("30S");
-        result.Should().Be(TimeSpan.FromSeconds(30));
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.FromSeconds(30));
     }
 
     [Fact]
     public void Parse_UppercaseMinutes_ReturnsCorrectTimeSpan()
     {
         var result = DurationParser.Parse("5M");
-        result.Should().Be(TimeSpan.FromMinutes(5));
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.FromMinutes(5));
     }
 
     [Fact]
     public void Parse_UppercaseHours_ReturnsCorrectTimeSpan()
     {
         var result = DurationParser.Parse("2H");
-        result.Should().Be(TimeSpan.FromHours(2));
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.FromHours(2));
     }
 
     #endregion
@@ -107,7 +122,9 @@ public class DurationParserTests
     public void Parse_WithWhitespace_TrimsAndReturnsCorrectTimeSpan(string input, int expectedSeconds)
     {
         var result = DurationParser.Parse(input);
-        result.Should().Be(TimeSpan.FromSeconds(expectedSeconds));
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.FromSeconds(expectedSeconds));
     }
 
     #endregion
@@ -115,27 +132,30 @@ public class DurationParserTests
     #region Parse - Null/Empty Input
 
     [Fact]
-    public void Parse_NullInput_ThrowsArgumentException()
+    public void Parse_NullInput_ReturnsEmpty()
     {
-        var action = () => DurationParser.Parse(null!);
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Duration cannot be empty*");
+        var result = DurationParser.Parse(null!);
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.Empty>(failure.Error);
     }
 
     [Fact]
-    public void Parse_EmptyString_ThrowsArgumentException()
+    public void Parse_EmptyString_ReturnsEmpty()
     {
-        var action = () => DurationParser.Parse("");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Duration cannot be empty*");
+        var result = DurationParser.Parse("");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.Empty>(failure.Error);
     }
 
     [Fact]
-    public void Parse_WhitespaceOnly_ThrowsArgumentException()
+    public void Parse_WhitespaceOnly_ReturnsEmpty()
     {
-        var action = () => DurationParser.Parse("   ");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Duration cannot be empty*");
+        var result = DurationParser.Parse("   ");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.Empty>(failure.Error);
     }
 
     [Theory]
@@ -144,11 +164,12 @@ public class DurationParserTests
     [InlineData("   ")]
     [InlineData("\t")]
     [InlineData("\n")]
-    public void Parse_NullOrWhitespace_ThrowsArgumentException(string? input)
+    public void Parse_NullOrWhitespace_ReturnsEmpty(string? input)
     {
-        var action = () => DurationParser.Parse(input!);
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Duration cannot be empty*");
+        var result = DurationParser.Parse(input!);
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.Empty>(failure.Error);
     }
 
     #endregion
@@ -165,59 +186,67 @@ public class DurationParserTests
     [InlineData("30ss", "duplicate unit")]
     [InlineData("abc", "non-numeric value")]
     [InlineData("30s30s", "multiple values")]
-    public void Parse_InvalidFormat_ThrowsArgumentException(string input, string description)
+    public void Parse_InvalidFormat_ReturnsInvalidFormat(string input, string description)
     {
-        var action = () => DurationParser.Parse(input);
-        action.Should().Throw<ArgumentException>($"Input '{input}' ({description}) should throw")
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse(input);
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        var error = Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
+        error.Input.Should().Be(input, $"Input '{input}' ({description}) should return InvalidFormat");
     }
 
     [Fact]
-    public void Parse_NumberWithoutUnit_ThrowsArgumentException()
+    public void Parse_NumberWithoutUnit_ReturnsInvalidFormat()
     {
-        var action = () => DurationParser.Parse("30");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse("30");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
     }
 
     [Fact]
-    public void Parse_UnitWithoutNumber_ThrowsArgumentException()
+    public void Parse_UnitWithoutNumber_ReturnsInvalidFormat()
     {
-        var action = () => DurationParser.Parse("s");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse("s");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
     }
 
     [Fact]
-    public void Parse_SpaceBetweenNumberAndUnit_ThrowsArgumentException()
+    public void Parse_SpaceBetweenNumberAndUnit_ReturnsInvalidFormat()
     {
-        var action = () => DurationParser.Parse("30 s");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse("30 s");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
     }
 
     [Fact]
-    public void Parse_DecimalNumber_ThrowsArgumentException()
+    public void Parse_DecimalNumber_ReturnsInvalidFormat()
     {
-        var action = () => DurationParser.Parse("30.5s");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse("30.5s");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
     }
 
     [Fact]
-    public void Parse_NegativeNumber_ThrowsArgumentException()
+    public void Parse_NegativeNumber_ReturnsInvalidFormat()
     {
-        var action = () => DurationParser.Parse("-30s");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse("-30s");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
     }
 
     [Fact]
-    public void Parse_UnitBeforeNumber_ThrowsArgumentException()
+    public void Parse_UnitBeforeNumber_ReturnsInvalidFormat()
     {
-        var action = () => DurationParser.Parse("s30");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse("s30");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
     }
 
     #endregion
@@ -233,43 +262,49 @@ public class DurationParserTests
     [InlineData("30sec", "long unit name")]
     [InlineData("30min", "long unit name")]
     [InlineData("30hr", "long unit name")]
-    public void Parse_InvalidUnit_ThrowsArgumentException(string input, string description)
+    public void Parse_InvalidUnit_ReturnsInvalidFormat(string input, string description)
     {
-        var action = () => DurationParser.Parse(input);
-        action.Should().Throw<ArgumentException>($"Input '{input}' ({description}) should throw")
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse(input);
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        var error = Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
+        error.Input.Should().Be(input, $"Input '{input}' ({description}) should return InvalidFormat");
     }
 
     [Fact]
-    public void Parse_DaysUnit_ThrowsArgumentException()
+    public void Parse_DaysUnit_ReturnsInvalidFormat()
     {
-        var action = () => DurationParser.Parse("30d");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse("30d");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
     }
 
     [Fact]
-    public void Parse_MillisecondsUnit_ThrowsArgumentException()
+    public void Parse_MillisecondsUnit_ReturnsInvalidFormat()
     {
-        var action = () => DurationParser.Parse("30ms");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse("30ms");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
     }
 
     [Fact]
-    public void Parse_WeeksUnit_ThrowsArgumentException()
+    public void Parse_WeeksUnit_ReturnsInvalidFormat()
     {
-        var action = () => DurationParser.Parse("1w");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse("1w");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
     }
 
     [Fact]
-    public void Parse_YearsUnit_ThrowsArgumentException()
+    public void Parse_YearsUnit_ReturnsInvalidFormat()
     {
-        var action = () => DurationParser.Parse("1y");
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Invalid duration format*");
+        var result = DurationParser.Parse("1y");
+
+        var failure = Assert.IsType<Result<TimeSpan, DurationParseError>.Failure>(result);
+        Assert.IsType<DurationParseError.InvalidFormat>(failure.Error);
     }
 
     #endregion
@@ -513,28 +548,36 @@ public class DurationParserTests
     public void Parse_ZeroSeconds_ReturnsZeroTimeSpan()
     {
         var result = DurationParser.Parse("0s");
-        result.Should().Be(TimeSpan.Zero);
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.Zero);
     }
 
     [Fact]
     public void Parse_ZeroMinutes_ReturnsZeroTimeSpan()
     {
         var result = DurationParser.Parse("0m");
-        result.Should().Be(TimeSpan.Zero);
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.Zero);
     }
 
     [Fact]
     public void Parse_ZeroHours_ReturnsZeroTimeSpan()
     {
         var result = DurationParser.Parse("0h");
-        result.Should().Be(TimeSpan.Zero);
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.Zero);
     }
 
     [Fact]
     public void Parse_LargeValue_ReturnsCorrectTimeSpan()
     {
         var result = DurationParser.Parse("999999s");
-        result.Should().Be(TimeSpan.FromSeconds(999999));
+
+        var success = Assert.IsType<Result<TimeSpan, DurationParseError>.Success>(result);
+        success.Value.Should().Be(TimeSpan.FromSeconds(999999));
     }
 
     [Fact]

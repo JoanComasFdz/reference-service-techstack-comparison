@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using JoanComasFdz.Result;
 
 namespace PerformanceTester.Cli.Configuration;
 
@@ -14,28 +15,25 @@ public static partial class DurationParser
     /// Parses a duration string to TimeSpan.
     /// </summary>
     /// <param name="duration">Duration string (e.g., "30s", "5m", "2h")</param>
-    /// <returns>Parsed TimeSpan</returns>
-    /// <exception cref="ArgumentException">Invalid format</exception>
-    public static TimeSpan Parse(string duration)
+    /// <returns>Result containing parsed TimeSpan or a DurationParseError.</returns>
+    public static Result<TimeSpan, DurationParseError> Parse(string duration)
     {
         if (string.IsNullOrWhiteSpace(duration))
-            throw new ArgumentException("Duration cannot be empty", nameof(duration));
+            return new Result<TimeSpan, DurationParseError>.Failure(new DurationParseError.Empty());
 
         var match = DurationPattern().Match(duration.Trim().ToLowerInvariant());
         if (!match.Success)
-            throw new ArgumentException(
-                $"Invalid duration format: '{duration}'. Expected format: <number><unit> where unit is s (seconds), m (minutes), or h (hours). Examples: 30s, 5m, 2h",
-                nameof(duration));
+            return new Result<TimeSpan, DurationParseError>.Failure(new DurationParseError.InvalidFormat(duration));
 
         var value = int.Parse(match.Groups[1].Value);
         var unit = match.Groups[2].Value;
 
         return unit switch
         {
-            "s" => TimeSpan.FromSeconds(value),
-            "m" => TimeSpan.FromMinutes(value),
-            "h" => TimeSpan.FromHours(value),
-            _ => throw new ArgumentException($"Unknown duration unit: {unit}", nameof(duration))
+            "s" => new Result<TimeSpan, DurationParseError>.Success(TimeSpan.FromSeconds(value)),
+            "m" => new Result<TimeSpan, DurationParseError>.Success(TimeSpan.FromMinutes(value)),
+            "h" => new Result<TimeSpan, DurationParseError>.Success(TimeSpan.FromHours(value)),
+            _ => new Result<TimeSpan, DurationParseError>.Failure(new DurationParseError.UnknownUnit(unit[0]))
         };
     }
 
@@ -47,16 +45,14 @@ public static partial class DurationParser
     /// <returns>True if parsing succeeded</returns>
     public static bool TryParse(string duration, out TimeSpan result)
     {
-        try
+        if (Parse(duration) is Result<TimeSpan, DurationParseError>.Success(var value))
         {
-            result = Parse(duration);
+            result = value;
             return true;
         }
-        catch
-        {
-            result = TimeSpan.Zero;
-            return false;
-        }
+
+        result = TimeSpan.Zero;
+        return false;
     }
 
     /// <summary>
@@ -64,10 +60,6 @@ public static partial class DurationParser
     /// </summary>
     /// <param name="duration">Duration string to validate</param>
     /// <returns>True if valid format</returns>
-    public static bool IsValid(string duration)
-    {
-        if (string.IsNullOrWhiteSpace(duration))
-            return false;
-        return DurationPattern().IsMatch(duration.Trim().ToLowerInvariant());
-    }
+    public static bool IsValid(string duration) =>
+        Parse(duration) is Result<TimeSpan, DurationParseError>.Success;
 }
