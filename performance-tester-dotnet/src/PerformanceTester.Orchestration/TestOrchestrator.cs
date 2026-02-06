@@ -10,6 +10,7 @@ using PerformanceTester.Infrastructure;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
 using PerformanceTester.Reporting.ChartGeneration;
+using PerformanceTester.Reporting.ReportGeneration;
 using PerformanceTester.SystemMonitoring;
 using Serilog.Context;
 
@@ -40,7 +41,7 @@ public class TestOrchestrator : ITestOrchestrator
 
     // Phase 3: Reporting
     private readonly ISystemInfoDetector _systemInfoDetector;
-    private readonly IReportGenerator _reportGenerator;
+    private readonly ReportGenerator _reportGenerator;
 
     public TestOrchestrator(
         IHost host,
@@ -57,7 +58,7 @@ public class TestOrchestrator : ITestOrchestrator
         IEnumerable<IDockerMonitor> dockerMonitors,
         IApiLoadTester apiLoadTester,
         ISystemInfoDetector systemInfoDetector,
-        IReportGenerator reportGenerator)
+        ReportGenerator reportGenerator)
     {
         _host = host ?? throw new ArgumentNullException(nameof(host));
         _hostLifetime = hostLifetime ?? throw new ArgumentNullException(nameof(hostLifetime));
@@ -763,7 +764,11 @@ public class TestOrchestrator : ITestOrchestrator
             Configuration = new Reporting.TestConfiguration
             {
                 NumEvents = config.EventCount,
-                ApiDuration = FormatDuration(config.ApiDurationOrDefault),
+                ApiDuration = config.ApiDurationOrDefault.TotalHours >= 1
+                    ? $"{(int)config.ApiDurationOrDefault.TotalHours}h"
+                    : config.ApiDurationOrDefault.TotalMinutes >= 1
+                        ? $"{(int)config.ApiDurationOrDefault.TotalMinutes}m"
+                        : $"{(int)config.ApiDurationOrDefault.TotalSeconds}s",
                 ApiConcurrentWorkers = config.ApiWorkers,
                 RabbitmqExchange = "referenceservice.comparison",
                 ConsumerQueue = "instrument-status-changed",
@@ -803,18 +808,5 @@ public class TestOrchestrator : ITestOrchestrator
             RabbitMqResourceSamples = rabbitMqResourceSamples,
             PostgresResourceSamples = postgresResourceSamples
         };
-    }
-
-    private static string FormatDuration(TimeSpan duration)
-    {
-        if (duration.TotalHours >= 1)
-        {
-            return $"{(int)duration.TotalHours}h";
-        }
-        if (duration.TotalMinutes >= 1)
-        {
-            return $"{(int)duration.TotalMinutes}m";
-        }
-        return $"{(int)duration.TotalSeconds}s";
     }
 }

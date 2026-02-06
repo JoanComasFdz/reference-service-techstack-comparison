@@ -7,7 +7,7 @@ namespace PerformanceTester.Reporting.ComparisonGeneration;
 /// Default implementation of comparison report generator.
 /// Generates Markdown comparison reports matching Python compare_test_results.py.
 /// </summary>
-internal sealed class ComparisonReportGenerator : IComparisonReportGenerator
+public sealed class ComparisonReportGenerator
 {
     private enum SortDirection
     {
@@ -18,7 +18,13 @@ internal sealed class ComparisonReportGenerator : IComparisonReportGenerator
         LowerIsBetter
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Generates a Markdown comparison report from multiple test reports.
+    /// </summary>
+    /// <param name="outputPath">Full path to output Markdown file.</param>
+    /// <param name="testReports">Collection of test reports to compare.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Task representing the async operation.</returns>
     public async Task GenerateComparisonReportAsync(
         string outputPath,
         IEnumerable<TestReport> testReports,

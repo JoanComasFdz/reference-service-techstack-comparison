@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Output;
 using PerformanceTester.Reporting;
+using PerformanceTester.Reporting.ComparisonGeneration;
 using PerformanceTester.Reporting.Shared.Utilities;
 
 namespace PerformanceTester.Cli.Commands;
@@ -72,7 +73,7 @@ public static class CompareCommand
         CancellationToken cancellationToken)
     {
         var logger = host.Services.GetRequiredService<ILogger<Program>>();
-        var consoleWriter = host.Services.GetRequiredService<IConsoleWriter>();
+        var consoleWriter = host.Services.GetRequiredService<ConsoleWriter>();
 
         try
         {
@@ -131,7 +132,7 @@ public static class CompareCommand
             }
 
             // Generate comparison report
-            var comparisonGenerator = host.Services.GetRequiredService<IComparisonReportGenerator>();
+            var comparisonGenerator = host.Services.GetRequiredService<ComparisonReportGenerator>();
 
             // Determine output path
             var outputPath = options.Output;

@@ -9,7 +9,7 @@ namespace PerformanceTester.Reporting.ReportGeneration;
 /// Default implementation of report generator.
 /// Generates JSON test reports from performance test data.
 /// </summary>
-internal sealed class ReportGenerator : IReportGenerator
+public sealed class ReportGenerator
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -19,7 +19,13 @@ internal sealed class ReportGenerator : IReportGenerator
         Converters = { new Iso8601DateTimeConverter() }
     };
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Generates all report files (JSON, resource metrics, throughput metrics).
+    /// </summary>
+    /// <param name="outputDirectory">Directory to write report files.</param>
+    /// <param name="testReport">Complete test report data.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Task representing the async operation.</returns>
     public async Task GenerateReportAsync(
         string outputDirectory,
         TestReport testReport,

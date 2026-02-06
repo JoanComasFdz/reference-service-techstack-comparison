@@ -39,8 +39,8 @@ public static class ServiceCollectionExtensions
         }
 
         // Register report generators
-        services.AddSingleton<IReportGenerator, ReportGenerator>();
-        services.AddSingleton<IComparisonReportGenerator, ComparisonReportGenerator>();
+        services.AddSingleton<ReportGenerator>();
+        services.AddSingleton<ComparisonReportGenerator>();
 
         return services;
     }

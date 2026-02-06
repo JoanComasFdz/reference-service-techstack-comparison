@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.IntegrationTesting.Logging;
+using PerformanceTester.Reporting.ComparisonGeneration;
+using PerformanceTester.Reporting.ReportGeneration;
 using Xunit.Abstractions;
 
 namespace PerformanceTester.Reporting.IntegrationTests.Infrastructure;
@@ -27,12 +29,12 @@ public sealed class Reporting : IDisposable
     /// <summary>
     /// Report generator for creating JSON test reports.
     /// </summary>
-    public IReportGenerator ReportGenerator { get; private set; } = null!;
+    public ReportGenerator ReportGenerator { get; private set; } = null!;
 
     /// <summary>
     /// Comparison report generator for creating comparison reports from multiple test results.
     /// </summary>
-    public IComparisonReportGenerator ComparisonReportGenerator { get; private set; } = null!;
+    public ComparisonReportGenerator ComparisonReportGenerator { get; private set; } = null!;
 
     public Reporting(ITestOutputHelper? output = null)
     {
@@ -56,8 +58,8 @@ public sealed class Reporting : IDisposable
         // Resolve services
         Logger = _host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Reporting");
         SystemInfoDetector = _host.Services.GetRequiredService<ISystemInfoDetector>();
-        ReportGenerator = _host.Services.GetRequiredService<IReportGenerator>();
-        ComparisonReportGenerator = _host.Services.GetRequiredService<IComparisonReportGenerator>();
+        ReportGenerator = _host.Services.GetRequiredService<ReportGenerator>();
+        ComparisonReportGenerator = _host.Services.GetRequiredService<ComparisonReportGenerator>();
     }
 
     public void Dispose()
