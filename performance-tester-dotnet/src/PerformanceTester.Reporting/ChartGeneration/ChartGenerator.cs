@@ -39,9 +39,31 @@ public static class ChartGenerator
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath, nameof(outputPath));
         ArgumentNullException.ThrowIfNull(testReport, nameof(testReport));
 
-        EnsureOutputDirectoryExists(outputPath);
-        var dataFiles = DeriveDataFilePaths(outputPath);
-        ValidateDataFilesExist(dataFiles, outputPath);
+        var outputDirectory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+
+        var basePath = outputPath.Replace(".chart.png", "");
+        var dataFiles = new DataFilePaths(
+            EventsThroughput: $"{basePath}.events-throughput.json",
+            ApiThroughput: $"{basePath}.api-throughput.json",
+            ResourceMetrics: $"{basePath}.resource-metrics.json",
+            RabbitmqMetrics: $"{basePath}.rabbitmq-metrics.json",
+            PostgresMetrics: $"{basePath}.postgres-metrics.json",
+            SystemMetrics: $"{basePath}.system-metrics.json"
+        );
+
+        if (!File.Exists(dataFiles.EventsThroughput) &&
+            !File.Exists(dataFiles.ApiThroughput) &&
+            !File.Exists(dataFiles.ResourceMetrics))
+        {
+            var dir = Path.GetDirectoryName(outputPath);
+            throw new InvalidOperationException(
+                "No metrics data files found for chart generation. " +
+                $"Expected files in directory: {dir}");
+        }
 
         // Load data
         var eventsData = ChartDataLoader.LoadThroughputReport(dataFiles.EventsThroughput, logger);
@@ -81,41 +103,6 @@ public static class ChartGenerator
         logger.LogInformation("Metrics chart saved to: {OutputPath}", outputPath);
 
         await Task.CompletedTask;
-    }
-
-    private static void EnsureOutputDirectoryExists(string outputPath)
-    {
-        var outputDirectory = Path.GetDirectoryName(outputPath);
-        if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
-        {
-            Directory.CreateDirectory(outputDirectory);
-        }
-    }
-
-    private static DataFilePaths DeriveDataFilePaths(string outputPath)
-    {
-        var basePath = outputPath.Replace(".chart.png", "");
-        return new DataFilePaths(
-            EventsThroughput: $"{basePath}.events-throughput.json",
-            ApiThroughput: $"{basePath}.api-throughput.json",
-            ResourceMetrics: $"{basePath}.resource-metrics.json",
-            RabbitmqMetrics: $"{basePath}.rabbitmq-metrics.json",
-            PostgresMetrics: $"{basePath}.postgres-metrics.json",
-            SystemMetrics: $"{basePath}.system-metrics.json"
-        );
-    }
-
-    private static void ValidateDataFilesExist(DataFilePaths dataFiles, string outputPath)
-    {
-        if (!File.Exists(dataFiles.EventsThroughput) &&
-            !File.Exists(dataFiles.ApiThroughput) &&
-            !File.Exists(dataFiles.ResourceMetrics))
-        {
-            var outputDirectory = Path.GetDirectoryName(outputPath);
-            throw new InvalidOperationException(
-                "No metrics data files found for chart generation. " +
-                $"Expected files in directory: {outputDirectory}");
-        }
     }
 
     private static List<Plot> BuildPlots(
