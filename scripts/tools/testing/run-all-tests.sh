@@ -30,6 +30,7 @@ MAX_SERVICE_STARTUP_WAIT=90  # Maximum time (in seconds) to wait for a service t
 RESULTS_FOLDER=""  # Set after argument parsing based on tester type
 
 DOTNET_TESTER_DIR="$ROOT_DIR/performance-tester-dotnet/src/PerformanceTester.Cli"
+DOTNET_TESTER_BIN="$DOTNET_TESTER_DIR/bin/Release/net9.0/performance-tester"
 
 # Queue names for each service (used for unbinding after tests)
 # These must match the queue names declared by each service implementation
@@ -489,7 +490,7 @@ run_test() {
     log_info "Running performance tests..."
 
     local test_result=0
-    if dotnet run --project "$DOTNET_TESTER_DIR" -- test \
+    if "$DOTNET_TESTER_BIN" test \
         --port "$port" \
         --events "$NUM_EVENTS" \
         --api-duration "$API_DURATION" \
@@ -559,6 +560,12 @@ main() {
 
     # Clear RabbitMQ queues
     clear_rabbitmq
+
+    # Build performance tester once in Release mode
+    log_section "Building Performance Tester (Release)"
+    log_info "Building .NET performance tester..."
+    dotnet build "$DOTNET_TESTER_DIR" -c Release -v quiet
+    log_success "Performance tester built successfully"
 
     # Test each service
     # Note: All compiled languages are built in release mode before testing
@@ -869,7 +876,7 @@ main() {
 
     # Generate comparison report
     log_section "Generating Comparison Report"
-    if dotnet run --project "$DOTNET_TESTER_DIR" -- compare --folder "$RESULTS_FOLDER"; then
+    if "$DOTNET_TESTER_BIN" compare --folder "$RESULTS_FOLDER"; then
         log_success "Comparison report generated successfully"
 
         # Find the most recent comparison report
@@ -879,7 +886,7 @@ main() {
         fi
     else
         log_warn "Failed to generate comparison report"
-        log_info "You can manually run: dotnet run --project \"$DOTNET_TESTER_DIR\" -- compare --folder \"$RESULTS_FOLDER\""
+        log_info "You can manually run: \"$DOTNET_TESTER_BIN\" compare --folder \"$RESULTS_FOLDER\""
     fi
 }
 
