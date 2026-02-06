@@ -4,13 +4,12 @@ using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Retry;
 using RabbitMQ.Client;
-using System.Text;
 
 namespace PerformanceTester.EventPublishing;
 
 /// <summary>
 /// Handles RabbitMQ connection management and message publishing.
-/// Uses single persistent connection (expensive) with per-operation channels (cheap).
+/// Uses single persistent connection with a single persistent channel.
 /// Call ConnectAsync() before publishing, DisconnectAsync() for graceful shutdown.
 /// </summary>
 internal sealed class RabbitMqPublisher : IAsyncDisposable
@@ -26,6 +25,7 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
 
     private IConnection? _connection;
     private bool _isConnected;
+    private IChannel? _channel;
 
     /// <summary>
     /// Initializes a new instance of RabbitMqPublisher.
@@ -74,13 +74,41 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
 
             var factory = new ConnectionFactory { Uri = new Uri(_connectionString) };
             _connection = await factory.CreateConnectionAsync(cancellationToken);
-            _isConnected = true;
 
-            _logger.LogInformation("RabbitMQ connection established");
+            // Create persistent channel for publishing
+            _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+            // Declare exchange once (idempotent)
+            await _channel.ExchangeDeclareAsync(
+                exchange: ExchangeName,
+                type: "topic",
+                durable: true,
+                autoDelete: false,
+                arguments: null,
+                cancellationToken: cancellationToken);
+
+            _logger.LogInformation("RabbitMQ publisher channel created and exchange '{ExchangeName}' declared", ExchangeName);
+            _isConnected = true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to connect to RabbitMQ");
+
+            // Cleanup partially created resources
+            if (_channel != null)
+            {
+                try { await _channel.CloseAsync(cancellationToken); } catch { /* ignore cleanup errors */ }
+                _channel.Dispose();
+                _channel = null;
+            }
+            if (_connection != null)
+            {
+                try { await _connection.CloseAsync(cancellationToken); } catch { /* ignore cleanup errors */ }
+                _connection.Dispose();
+                _connection = null;
+            }
+            _isConnected = false;
+
             throw new InvalidOperationException($"Failed to connect to RabbitMQ: {ex.Message}", ex);
         }
         finally
@@ -106,6 +134,13 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
 
             _logger.LogInformation("Disconnecting from RabbitMQ");
 
+            if (_channel != null)
+            {
+                await _channel.CloseAsync(cancellationToken);
+                _channel.Dispose();
+                _channel = null;
+            }
+
             await _connection.CloseAsync(cancellationToken);
             _connection.Dispose();
             _connection = null;
@@ -125,7 +160,7 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
 
     /// <summary>
     /// Publishes a CloudEvent to RabbitMQ with retry logic.
-    /// Creates a new channel per operation (disposable).
+    /// Uses the persistent channel created during ConnectAsync.
     /// Requires ConnectAsync() to be called first.
     /// </summary>
     /// <param name="cloudEvent">CloudEvent to publish.</param>
@@ -136,17 +171,6 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
         await _retryPolicy.ExecuteAsync(async () =>
         {
             EnsureConnected();
-
-            await using var channel = await _connection!.CreateChannelAsync(cancellationToken: cancellationToken);
-
-            // Declare exchange (idempotent)
-            await channel.ExchangeDeclareAsync(
-                exchange: ExchangeName,
-                type: "topic",
-                durable: true,
-                autoDelete: false,
-                arguments: null,
-                cancellationToken: cancellationToken);
 
             // Serialize CloudEvent to JSON
             var jsonBytes = SerializeCloudEvent(cloudEvent);
@@ -160,8 +184,8 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
                 ContentType = "application/json"
             };
 
-            // Publish message
-            await channel.BasicPublishAsync(
+            // Publish message on persistent channel
+            await _channel!.BasicPublishAsync(
                 exchange: ExchangeName,
                 routingKey: RoutingKey,
                 mandatory: false,
@@ -173,7 +197,7 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
 
     private void EnsureConnected()
     {
-        if (!_isConnected || _connection == null)
+        if (!_isConnected || _connection == null || _channel == null)
         {
             throw new InvalidOperationException(
                 "Not connected to RabbitMQ. Call ConnectAsync() before publishing.");
