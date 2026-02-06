@@ -392,36 +392,22 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
                 _logger.LogDebug("Consumed {Current} events...", count);
             }
 
-            // Check if target reached
-            if (_trackingCompletionSource != null && count >= _expectedCount)
-            {
-                _logger.LogInformation("✓ Target count reached: {Current}/{Expected} events", count, _expectedCount);
-
-                // Report target reached
-                _progress?.Report(ConsumerPhaseInfo.Completed(ConsumerPhase.TargetReached,
-                    eventCount: count,
-                    message: $"Target reached: {count} events"));
-
-                // Write final throughput sample to capture any remaining events not yet sampled
-                // (e.g., if all events processed in < 500ms sampling interval)
-                var finalSample = _throughputTracker.GetFinalSample();
-                if (finalSample != null)
-                {
-                    await _throughputChannel.Writer.WriteAsync(finalSample, _trackingCancellationToken);
-                    _logger.LogDebug("Final throughput sample at target: {EventsPerSec:F1} events/sec, {Total} total",
-                        finalSample.ThroughputEventsPerSecond,
-                        finalSample.CumulativeEventCount);
-                }
-
-                _trackingCompletionSource.TrySetResult(true);
-                _inactivityTimer?.Dispose();
-                _inactivityTimer = null;
-            }
-
             // Manual ACK after processing (using captured reference)
             if (channel != null)
             {
                 await channel.BasicAckAsync(deliveryTag: eventArgs.DeliveryTag, multiple: false);
+            }
+
+            // Early return when not tracking events
+            if (_trackingCompletionSource == null)
+            {
+                return;
+            }
+
+            // Check if target reached
+            if (count >= _expectedCount)
+            {
+                await HandleTargetReachedAsync(count);
             }
         }
         catch (Exception ex)
@@ -445,5 +431,34 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Handles the completion of event tracking when the target count is reached.
+    /// Logs completion, reports progress, writes final throughput sample, and signals the completion source.
+    /// </summary>
+    private async Task HandleTargetReachedAsync(int count)
+    {
+        _logger.LogInformation("✓ Target count reached: {Current}/{Expected} events", count, _expectedCount);
+
+        // Report target reached
+        _progress?.Report(ConsumerPhaseInfo.Completed(ConsumerPhase.TargetReached,
+            eventCount: count,
+            message: $"Target reached: {count} events"));
+
+        // Write final throughput sample to capture any remaining events not yet sampled
+        // (e.g., if all events processed in < 500ms sampling interval)
+        var finalSample = _throughputTracker.GetFinalSample();
+        if (finalSample != null)
+        {
+            await _throughputChannel.Writer.WriteAsync(finalSample, _trackingCancellationToken);
+            _logger.LogDebug("Final throughput sample at target: {EventsPerSec:F1} events/sec, {Total} total",
+                finalSample.ThroughputEventsPerSecond,
+                finalSample.CumulativeEventCount);
+        }
+
+        _trackingCompletionSource!.TrySetResult(true);
+        _inactivityTimer?.Dispose();
+        _inactivityTimer = null;
     }
 }
