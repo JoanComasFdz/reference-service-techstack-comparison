@@ -336,37 +336,8 @@ public class TestOrchestrator : ITestOrchestrator
                 "Warmup: Making {Count} HTTP calls to API endpoint",
                 config.WarmupApiCallCount);
 
-            using var httpClient = new HttpClient();
-            var successCount = 0;
-            var failCount = 0;
-
-            for (var i = 0; i < config.WarmupApiCallCount; i++)
-            {
-                try
-                {
-                    var response = await httpClient.GetAsync(config.ApiUrl, cancellationToken);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        successCount++;
-                    }
-                    else
-                    {
-                        failCount++;
-                        _logger.LogWarning(
-                            "Warmup API call {Index} failed with status {StatusCode}",
-                            i + 1,
-                            response.StatusCode);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    failCount++;
-                    _logger.LogWarning(
-                        ex,
-                        "Warmup API call {Index} failed with exception",
-                        i + 1);
-                }
-            }
+            var (successCount, failCount) = await ExecuteWarmupApiCallsAsync(
+                config.ApiUrl, config.WarmupApiCallCount, _logger, cancellationToken);
 
             _logger.LogInformation(
                 "Warmup: API calls complete - {Success} succeeded, {Failed} failed",
@@ -426,46 +397,7 @@ public class TestOrchestrator : ITestOrchestrator
         await Task.WhenAll(dockerStartTasks);
         _logger.LogInformation("Docker container monitors started (first samples collected)");
 
-        // Create explicit consumer progress callback
-        // (CODING_GUIDELINES: Explicit Parameters - callback logic visible here)
-        // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
-        // Throttle by time (200ms) to avoid excessive updates while staying responsive
-        // Use lock for thread safety (RabbitMQ events can arrive concurrently)
-        var lastProgressTime = DateTime.MinValue;
-        var progressThrottleMs = 200;
-        var progressLock = new object();
-        IProgress<ConsumerPhaseInfo>? consumerProgress = null;
-        if (progress != null)
-        {
-            consumerProgress = new SynchronousProgress<ConsumerPhaseInfo>(info =>
-            {
-                // When target reached, clear the progress bar immediately (before log appears)
-                if (info.Phase == ConsumerPhase.TargetReached)
-                {
-                    progress.Report(PhaseInfo.Completed(TestPhase.EventTest, "Complete"));
-                    return;
-                }
-
-                // Only report on EventReceived with valid count
-                if (info.Phase == ConsumerPhase.EventReceived && info.EventCount.HasValue)
-                {
-                    lock (progressLock)
-                    {
-                        var now = DateTime.UtcNow;
-                        // Throttle: only report every 200ms
-                        if ((now - lastProgressTime).TotalMilliseconds >= progressThrottleMs)
-                        {
-                            lastProgressTime = now;
-                            var count = info.EventCount.Value;
-                            // Report via PhaseInfo - adapter converts to TestProgress
-                            progress.Report(PhaseInfo.Starting(
-                                TestPhase.EventTest,
-                                $"Processing: {count}/{config.EventCount} events"));
-                        }
-                    }
-                }
-            });
-        }
+        var consumerProgress = CreateConsumerProgressCallback(progress, config.EventCount);
 
         // Capture startTime immediately before launching concurrent publisher/consumer
         // to minimize gap between monitoring start and measurement start
@@ -808,5 +740,97 @@ public class TestOrchestrator : ITestOrchestrator
             RabbitMqResourceSamples = rabbitMqResourceSamples,
             PostgresResourceSamples = postgresResourceSamples
         };
+    }
+
+    /// <summary>
+    /// Creates a progress callback that adapts ConsumerPhaseInfo to PhaseInfo with throttling.
+    /// Returns null if the parent progress is null.
+    /// </summary>
+    private static IProgress<ConsumerPhaseInfo>? CreateConsumerProgressCallback(
+        IProgress<PhaseInfo>? progress,
+        int totalEventCount)
+    {
+        if (progress == null)
+            return null;
+
+        // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
+        // Throttle by time (200ms) to avoid excessive updates while staying responsive
+        // Use lock for thread safety (RabbitMQ events can arrive concurrently)
+        var lastProgressTime = DateTime.MinValue;
+        var progressThrottleMs = 200;
+        var progressLock = new object();
+
+        return new SynchronousProgress<ConsumerPhaseInfo>(info =>
+        {
+            // When target reached, clear the progress bar immediately (before log appears)
+            if (info.Phase == ConsumerPhase.TargetReached)
+            {
+                progress.Report(PhaseInfo.Completed(TestPhase.EventTest, "Complete"));
+                return;
+            }
+
+            // Only report on EventReceived with valid count
+            if (info.Phase == ConsumerPhase.EventReceived && info.EventCount.HasValue)
+            {
+                lock (progressLock)
+                {
+                    var now = DateTime.UtcNow;
+                    // Throttle: only report every 200ms
+                    if ((now - lastProgressTime).TotalMilliseconds >= progressThrottleMs)
+                    {
+                        lastProgressTime = now;
+                        var count = info.EventCount.Value;
+                        // Report via PhaseInfo - adapter converts to TestProgress
+                        progress.Report(PhaseInfo.Starting(
+                            TestPhase.EventTest,
+                            $"Processing: {count}/{totalEventCount} events"));
+                    }
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Executes warmup API calls and returns the success and failure counts.
+    /// </summary>
+    private static async Task<(int Success, int Failed)> ExecuteWarmupApiCallsAsync(
+        string apiUrl,
+        uint callCount,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        using var httpClient = new HttpClient();
+        var successCount = 0;
+        var failCount = 0;
+
+        for (uint i = 0; i < callCount; i++)
+        {
+            try
+            {
+                var response = await httpClient.GetAsync(apiUrl, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    successCount++;
+                }
+                else
+                {
+                    failCount++;
+                    logger.LogWarning(
+                        "Warmup API call {Index} failed with status {StatusCode}",
+                        i + 1,
+                        response.StatusCode);
+                }
+            }
+            catch (Exception ex)
+            {
+                failCount++;
+                logger.LogWarning(
+                    ex,
+                    "Warmup API call {Index} failed with exception",
+                    i + 1);
+            }
+        }
+
+        return (successCount, failCount);
     }
 }
