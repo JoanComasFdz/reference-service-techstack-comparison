@@ -4,13 +4,19 @@ using System.Runtime.InteropServices;
 namespace PerformanceTester.Common;
 
 /// <summary>
-/// Default implementation of OS platform detection.
+/// Detects the current operating system platform.
 /// Uses RuntimeInformation to detect Windows or Linux.
 /// </summary>
-public sealed class OSPlatformDetector : IOSPlatformDetector
+public static class OSPlatformDetector
 {
-    /// <inheritdoc />
-    public SupportedPlatform GetCurrentPlatform()
+    /// <summary>
+    /// Gets the current operating system platform.
+    /// </summary>
+    /// <returns>The detected platform (Windows or Linux).</returns>
+    /// <exception cref="PlatformNotSupportedException">
+    /// Thrown when the current platform is not Windows or Linux.
+    /// </exception>
+    public static SupportedPlatform GetCurrentPlatform()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {

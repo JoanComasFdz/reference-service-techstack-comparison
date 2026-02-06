@@ -27,8 +27,7 @@ public static class ServiceCollectionExtensions
         int? rabbitMqManagementPort = null)
     {
         // Platform detection happens ONCE at startup, not per method call
-        var platformDetector = new OSPlatformDetector();
-        var platform = platformDetector.GetCurrentPlatform();
+        var platform = OSPlatformDetector.GetCurrentPlatform();
 
         switch (platform)
         {

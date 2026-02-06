@@ -24,8 +24,7 @@ public static class ServiceCollectionExtensions
     {
         // Platform detection happens ONCE at startup, not per method call
         // Uses PerformanceTester.Common for OS detection (same pattern as Infrastructure)
-        var platformDetector = new OSPlatformDetector();
-        var platform = platformDetector.GetCurrentPlatform();
+        var platform = OSPlatformDetector.GetCurrentPlatform();
 
         switch (platform)
         {
