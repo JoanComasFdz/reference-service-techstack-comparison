@@ -40,7 +40,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(Channel.CreateUnbounded<EventThroughputSample>(new UnboundedChannelOptions
         {
             SingleReader = true,
-            SingleWriter = true
+            SingleWriter = false
         }));
 
         // Register EventConsumerService as both HostedService and IEventConsumer
