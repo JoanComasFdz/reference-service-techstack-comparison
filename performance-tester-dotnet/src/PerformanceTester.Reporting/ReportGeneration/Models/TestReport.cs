@@ -71,7 +71,7 @@ public sealed record TestReport
 
     /// <summary>
     /// RabbitMQ container resource samples.
-    /// Sampling interval: 3000ms.
+    /// Samples arrive at Docker's push rate (event-driven).
     /// </summary>
     public IReadOnlyList<ContainerResourceSample> RabbitMqResourceSamples { get; init; } = Array.Empty<ContainerResourceSample>();
 
@@ -82,7 +82,7 @@ public sealed record TestReport
 
     /// <summary>
     /// PostgreSQL container resource samples.
-    /// Sampling interval: 3000ms.
+    /// Samples arrive at Docker's push rate (event-driven).
     /// </summary>
     public IReadOnlyList<ContainerResourceSample> PostgresResourceSamples { get; init; } = Array.Empty<ContainerResourceSample>();
 

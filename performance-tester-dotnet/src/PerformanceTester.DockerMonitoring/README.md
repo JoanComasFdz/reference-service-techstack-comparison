@@ -8,7 +8,7 @@ This slice provides real-time Docker container monitoring capabilities using the
 
 ### Key Features
 
-- ✅ **Real-time monitoring** - Samples container CPU and memory usage at configurable intervals
+- ✅ **Event-driven monitoring** - Collects a sample directly from each Docker stats push (no polling)
 - ✅ **Docker.DotNet integration** - Uses official Docker SDK (no subprocess spawning)
 - ✅ **BackgroundService pattern** - Runs asynchronously during test execution
 - ✅ **Cross-platform** - Supports Linux (Unix socket) and Windows (named pipe)
@@ -28,13 +28,11 @@ var builder = Host.CreateApplicationBuilder();
 
 // Register Docker monitoring for PostgreSQL
 builder.Services.AddDockerMonitoring(
-    containerName: "performance-tester-postgres",
-    samplingInterval: TimeSpan.FromSeconds(3)); // Default: 3000ms
+    containerName: "performance-tester-postgres");
 
 // Register Docker monitoring for RabbitMQ
 builder.Services.AddDockerMonitoring(
-    containerName: "performance-tester-rabbitmq",
-    samplingInterval: TimeSpan.FromSeconds(3));
+    containerName: "performance-tester-rabbitmq");
 
 var host = builder.Build();
 
@@ -158,13 +156,11 @@ Extension method for registering Docker monitoring services.
 ```csharp
 public static IServiceCollection AddDockerMonitoring(
     this IServiceCollection services,
-    string containerName,
-    TimeSpan? samplingInterval = null) // Default: 3000ms
+    string containerName)
 ```
 
 **Parameters:**
 - `containerName` - Name of the Docker container to monitor (e.g., "performance-tester-rabbitmq")
-- `samplingInterval` - How often to sample metrics (optional, default: 3000ms)
 
 **Returns:** Service collection for fluent chaining.
 
@@ -243,13 +239,13 @@ IDockerMonitor.GetCollectedMetrics()
 
 **Single-Class Pattern:**
 - `DockerMonitorService` implements both `BackgroundService` and `IDockerMonitor`
-- Simpler than channel/consumer pattern for slow sampling intervals (3000ms)
+- Simpler than channel/consumer pattern for event-driven sampling
 - Writing to `ConcurrentBag<T>` is negligible overhead (~nanoseconds)
 
-**PeriodicTimer Pattern:**
-- Uses `PeriodicTimer` (not `Task.Delay` loops) for accurate intervals
-- Automatically adjusts for drift
-- Cancellation-aware via `CancellationToken`
+**Event-Driven Sampling:**
+- Each Docker stats push is collected directly as a sample in `OnStatsReceived()`
+- No intermediate buffer or polling timer - eliminates duplicates and missed data
+- Sample rate is determined by Docker's push frequency (~1s), not a configured interval
 
 **Graceful Degradation:**
 - Returns null if container not found (non-fatal error)
@@ -283,9 +279,8 @@ IDockerMonitor.GetCollectedMetrics()
 - Network overhead for Docker API communication
 
 **Recommendations:**
-- Use sampling intervals ≥ 3000ms for production (avoid overwhelming Docker API)
-- For tests, can use faster intervals (e.g., 500ms) to collect more samples
-- Expect 1-3 samples per 5 seconds of monitoring
+- Expect approximately 1 sample per second (Docker's default push rate)
+- Sample rate is determined by Docker, not configurable on this side
 
 ## Dependencies
 
@@ -310,7 +305,7 @@ dotnet test src/PerformanceTester.DockerMonitoring.IntegrationTests
 
 **Test Coverage:**
 - ✅ BackgroundService lifecycle (start/stop)
-- ✅ Metrics collection at regular intervals
+- ✅ Metrics collection on each Docker push
 - ✅ Container not found handling (graceful degradation)
 - ✅ CPU calculation validation
 - ✅ Memory calculation validation
@@ -320,8 +315,7 @@ dotnet test src/PerformanceTester.DockerMonitoring.IntegrationTests
 
 - **Container name matching:** Exact match required (no wildcards)
 - **Single Docker daemon:** Multi-host not supported
-- **No streaming:** Uses snapshot mode (not continuous streaming)
-- **First sample delay:** PeriodicTimer waits for first tick before sampling
+- **Sample rate:** Determined by Docker's push frequency (~1s), not configurable
 
 ## Future Enhancements (Out of Scope)
 

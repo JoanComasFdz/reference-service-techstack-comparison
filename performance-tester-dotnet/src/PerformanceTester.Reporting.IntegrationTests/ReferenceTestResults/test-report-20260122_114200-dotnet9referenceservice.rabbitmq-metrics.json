@@ -4,7 +4,6 @@
     "name": "performancetest-rabbitmq",
     "id": "02283bd99d8f"
   },
-  "sampling_interval_ms": 3000,
   "samples": [
     {
       "timestamp": "2026-01-22T11:41:41.817731",

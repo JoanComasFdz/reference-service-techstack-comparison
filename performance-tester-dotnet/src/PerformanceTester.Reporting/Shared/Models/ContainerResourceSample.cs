@@ -8,7 +8,8 @@ namespace PerformanceTester.Reporting;
 /// Container/system metrics differ from process metrics:
 /// - Uses memory_mb instead of memory_rss_mb
 /// - Does NOT include threads field
-/// - Sampling interval: 3000ms for containers, 500ms for system
+/// - Container samples arrive at Docker's push rate (event-driven, not a fixed configured interval)
+/// - System sampling interval: 500ms
 /// </remarks>
 public sealed record ContainerResourceSample
 {

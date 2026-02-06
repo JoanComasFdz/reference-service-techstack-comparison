@@ -4,7 +4,6 @@
     "name": "performancetest-postgres",
     "id": "44fefa633fa6"
   },
-  "sampling_interval_ms": 3000,
   "samples": [
     {
       "timestamp": "2026-01-22T11:41:42.824522",

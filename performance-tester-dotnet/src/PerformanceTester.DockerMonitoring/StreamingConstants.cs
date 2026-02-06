@@ -12,12 +12,6 @@ internal static class StreamingConstants
     public static readonly TimeSpan FirstStatsTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// Threshold for considering stats "stale" (stream may have disconnected).
-    /// Docker streams stats approximately every 1 second.
-    /// </summary>
-    public static readonly TimeSpan StaleStatsThreshold = TimeSpan.FromSeconds(5);
-
-    /// <summary>
     /// Timeout for waiting on streaming task during shutdown.
     /// </summary>
     public static readonly TimeSpan StreamingShutdownTimeout = TimeSpan.FromSeconds(5);

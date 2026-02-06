@@ -70,10 +70,10 @@ public sealed class RabbitMqMetricsContractTests : IntegrationTest
 
             // --- ROOT LEVEL FIELDS ---
             AssertTimestampFormat(root, "test_date", TimestampFormat.TestDate);
-            AssertIntegerValue(root, "sampling_interval_ms", 3000);
+            AssertFieldNotExists(root, "sampling_interval_ms", "root");
 
             // --- ROOT FIELD ORDER ---
-            AssertFieldOrder(rawJson, "test_date", "container_info", "sampling_interval_ms", "samples", "summary");
+            AssertFieldOrder(rawJson, "test_date", "container_info", "samples", "summary");
 
             // --- CONTAINER_INFO OBJECT (NOT process_info) ---
             var containerInfo = AssertObjectExists(root, "container_info");
@@ -294,10 +294,10 @@ public sealed class RabbitMqMetricsContractTests : IntegrationTest
             var doc = JsonDocument.Parse(await File.ReadAllTextAsync(filePath));
             var root = doc.RootElement;
 
-            // CONTRACT: Container metrics use 3000ms sampling interval
-            AssertIntegerValue(root, "sampling_interval_ms", 3000);
+            // CONTRACT: Container metrics no longer include sampling_interval_ms (event-driven)
+            AssertFieldNotExists(root, "sampling_interval_ms", "root");
 
-            Output.WriteLine("✓ 3000ms sampling interval verified");
+            Output.WriteLine("✓ sampling_interval_ms absent (event-driven) verified");
         }
         finally
         {

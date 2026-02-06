@@ -7,25 +7,19 @@ namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
 /// BackgroundService that monitors Docker container resource usage using streaming mode.
-/// Docker pushes stats continuously (~1s); we sample at configurable intervals.
+/// Each Docker stats push is collected directly as a sample (event-driven, no polling).
 /// Implements IDockerMonitor to provide access to collected metrics.
 /// Supports deferred start pattern - waits for StartMonitoring() before collecting metrics.
 /// </summary>
 internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
 {
     private readonly string _containerName;
-    private readonly TimeSpan _samplingInterval;
     private readonly DockerClientWrapper _dockerClient;
     private readonly ILogger<DockerMonitorService> _logger;
     private readonly ConcurrentBag<DockerMetrics> _collectedMetrics = new();
     private readonly TaskCompletionSource _startSignal = new();
     private readonly TaskCompletionSource _firstSampleCollected = new();
     private readonly TaskCompletionSource _firstValidStatsReceived = new();
-
-    // Streaming state
-    private ContainerStatsResponse? _latestStats;
-    private DateTime _latestStatsTimestamp;
-    private readonly Lock _statsLock = new();
 
     // Connection success signaling (for streaming loop to detect success)
     private TaskCompletionSource? _pendingConnectionSuccess;
@@ -47,12 +41,10 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
 
     public DockerMonitorService(
         string containerName,
-        TimeSpan samplingInterval,
         DockerClientWrapper dockerClient,
         ILogger<DockerMonitorService> logger)
     {
         _containerName = containerName;
-        _samplingInterval = samplingInterval;
         _dockerClient = dockerClient;
         _logger = logger;
     }
@@ -154,8 +146,8 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         }
 
         _logger.LogInformation(
-            "Docker monitor starting streaming for container: {ContainerName} (ID: {ContainerId}), sampling interval: {Interval}ms",
-            _containerName, containerId[..12], _samplingInterval.TotalMilliseconds);
+            "Docker monitor starting streaming for container: {ContainerName} (ID: {ContainerId})",
+            _containerName, containerId[..12]);
 
         // Start streaming in background task with reconnection support
         _streamingCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
@@ -175,29 +167,10 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
                 _containerName, StreamingConstants.FirstStatsTimeout.TotalSeconds);
         }
 
-        // Sampling loop - read latest stats at configured interval
-        using var timer = new PeriodicTimer(_samplingInterval);
-
+        // Wait for cancellation (streaming loop runs independently, samples collected in OnStatsReceived)
         try
         {
-            // Take immediate first sample
-            TakeSample();
-
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                await timer.WaitForNextTickAsync(stoppingToken);
-
-                // Check if streaming has failed permanently
-                if (_streamingFailed)
-                {
-                    _logger.LogWarning(
-                        "Streaming has failed for container {ContainerName}, stopping sampling loop",
-                        _containerName);
-                    break;
-                }
-
-                TakeSample();
-            }
+            await Task.Delay(Timeout.Infinite, stoppingToken);
         }
         catch (OperationCanceledException)
         {
@@ -399,7 +372,8 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
     }
 
     /// <summary>
-    /// Handles stats pushed by Docker. Signals connection success via TCS.
+    /// Handles stats pushed by Docker. Collects a sample directly from each push (event-driven).
+    /// Signals connection success via TCS.
     /// Does NOT report phases - that's the streaming loop's responsibility.
     /// </summary>
     private void OnStatsReceived(ContainerStatsResponse stats)
@@ -425,44 +399,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             _pendingConnectionSuccess?.TrySetResult();
         }
 
-        // Store latest stats for sampling loop to read
-        lock (_statsLock)
-        {
-            _latestStats = stats;
-            _latestStatsTimestamp = DateTime.UtcNow;
-        }
-    }
-
-    /// <summary>
-    /// Takes a sample from the latest streamed stats.
-    /// Called from the sampling loop on a periodic timer.
-    /// Does NOT report phases - sampling is an internal implementation detail.
-    /// </summary>
-    private void TakeSample()
-    {
-        ContainerStatsResponse? stats;
-        DateTime timestamp;
-
-        lock (_statsLock)
-        {
-            stats = _latestStats;
-            timestamp = _latestStatsTimestamp;
-        }
-
-        if (stats == null)
-        {
-            _logger.LogDebug("No stats available for container {ContainerName}, skipping sample", _containerName);
-            return;
-        }
-
-        // Check if stats are stale (stream may have disconnected)
-        var statsAge = DateTime.UtcNow - timestamp;
-        if (statsAge > StreamingConstants.StaleStatsThreshold)
-        {
-            _logger.LogWarning("Stats for container {ContainerName} are stale ({Age:F1}s old)",
-                _containerName, statsAge.TotalSeconds);
-        }
-
+        // Calculate and collect the sample directly (no intermediate storage)
         var metrics = new DockerMetrics
         {
             Timestamp = DateTime.UtcNow,
@@ -473,8 +410,6 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         };
 
         _collectedMetrics.Add(metrics);
-
-        // Signal first sample (unblocks StartMonitoringAsync)
         _firstSampleCollected.TrySetResult();
 
         _logger.LogDebug(

@@ -366,12 +366,11 @@ public sealed class ReportGeneratorTests : IntegrationTest
             samplingInterval = doc.RootElement.GetProperty("sampling_interval_ms").GetInt32();
             Assert.Equal(500, samplingInterval);
 
-            // Assert - RabbitMQ metrics: 3000ms
+            // Assert - RabbitMQ metrics: no sampling_interval_ms (event-driven from Docker)
             var rabbitmqMetricsPath = Directory.GetFiles(outputDirectory, "*.rabbitmq-metrics.json").First();
             json = await File.ReadAllTextAsync(rabbitmqMetricsPath);
             doc = JsonDocument.Parse(json);
-            samplingInterval = doc.RootElement.GetProperty("sampling_interval_ms").GetInt32();
-            Assert.Equal(3000, samplingInterval);
+            Assert.False(doc.RootElement.TryGetProperty("sampling_interval_ms", out _));
         }
         finally
         {

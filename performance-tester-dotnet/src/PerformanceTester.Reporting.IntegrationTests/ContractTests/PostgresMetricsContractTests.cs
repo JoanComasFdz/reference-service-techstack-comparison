@@ -70,10 +70,10 @@ public sealed class PostgresMetricsContractTests : IntegrationTest
 
             // --- ROOT LEVEL FIELDS ---
             AssertTimestampFormat(root, "test_date", TimestampFormat.TestDate);
-            AssertIntegerValue(root, "sampling_interval_ms", 3000);
+            AssertFieldNotExists(root, "sampling_interval_ms", "root");
 
             // --- ROOT FIELD ORDER ---
-            AssertFieldOrder(rawJson, "test_date", "container_info", "sampling_interval_ms", "samples", "summary");
+            AssertFieldOrder(rawJson, "test_date", "container_info", "samples", "summary");
 
             // --- CONTAINER_INFO OBJECT (NOT process_info) ---
             var containerInfo = AssertObjectExists(root, "container_info");
@@ -169,20 +169,14 @@ public sealed class PostgresMetricsContractTests : IntegrationTest
             AssertFieldExists(rabbitmqRoot, "container_info");
             AssertFieldExists(postgresRoot, "container_info");
 
-            AssertFieldExists(rabbitmqRoot, "sampling_interval_ms");
-            AssertFieldExists(postgresRoot, "sampling_interval_ms");
+            AssertFieldNotExists(rabbitmqRoot, "sampling_interval_ms", "rabbitmq root");
+            AssertFieldNotExists(postgresRoot, "sampling_interval_ms", "postgres root");
 
             AssertFieldExists(rabbitmqRoot, "samples");
             AssertFieldExists(postgresRoot, "samples");
 
             AssertFieldExists(rabbitmqRoot, "summary");
             AssertFieldExists(postgresRoot, "summary");
-
-            // Both should have same sampling interval
-            var rabbitmqInterval = rabbitmqRoot.GetProperty("sampling_interval_ms").GetInt32();
-            var postgresInterval = postgresRoot.GetProperty("sampling_interval_ms").GetInt32();
-            Assert.Equal(rabbitmqInterval, postgresInterval);
-            Assert.Equal(3000, rabbitmqInterval);
 
             Output.WriteLine("✓ PostgreSQL and RabbitMQ have identical structure");
         }

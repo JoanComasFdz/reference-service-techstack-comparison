@@ -70,7 +70,7 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     }
 
     [Fact]
-    public async Task DockerMonitorService_ShouldCollectMetricsAtRegularIntervals()
+    public async Task DockerMonitorService_ShouldCollectMetricsOnEachDockerPush()
     {
         // Arrange
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();

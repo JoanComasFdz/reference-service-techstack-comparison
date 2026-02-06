@@ -33,12 +33,10 @@ public sealed class DockerMonitoringSystem : SystemBase
         }
 
         builder.Services.AddDockerMonitoring(
-            containerName: "performance-tester-postgres",
-            samplingInterval: TimeSpan.FromMilliseconds(500));
+            containerName: "performance-tester-postgres");
 
         builder.Services.AddDockerMonitoring(
-            containerName: "performance-tester-rabbitmq",
-            samplingInterval: TimeSpan.FromMilliseconds(500));
+            containerName: "performance-tester-rabbitmq");
 
         builder.Services.Configure<HostOptions>(options =>
         {

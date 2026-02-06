@@ -332,7 +332,6 @@ internal sealed class ReportGenerator : IReportGenerator
                 name = containerInfo.Name,
                 id = containerInfo.Id
             },
-            sampling_interval_ms = 3000,
             samples = testReport.RabbitMqResourceSamples.Select(s => new
             {
                 timestamp = s.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff"),
@@ -382,7 +381,6 @@ internal sealed class ReportGenerator : IReportGenerator
                 name = containerInfo.Name,
                 id = containerInfo.Id
             },
-            sampling_interval_ms = 3000,
             samples = testReport.PostgresResourceSamples.Select(s => new
             {
                 timestamp = s.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff"),
