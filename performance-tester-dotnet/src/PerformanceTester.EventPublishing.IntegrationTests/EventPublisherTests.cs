@@ -25,15 +25,15 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
     public async Task PublishEventsAsync_WhenPublishing100Events_ShouldHaveReasonableThroughput()
     {
         // Arrange
-        const int eventCount = 100;
+        const int eventCount = 500;
 
         // Act
         var metrics = await System.EventPublishing.Publisher.PublishEventsAsync(eventCount);
 
-        // Assert - Should publish at least 100 events/sec (baseline with channel reuse)
+        // Assert - Should publish at least 500 events/sec with pipelined publishing
         Asserting.That(metrics)
             .HasPublishedSuccessfully(eventCount)
-            .HasMinimumThroughput(100.0);
+            .HasMinimumThroughput(500.0);
     }
 
     [Fact]
