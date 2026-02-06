@@ -23,7 +23,6 @@ internal sealed class ChartGenerator : IChartGenerator
     private readonly ILogger<ChartGenerator> _logger;
     private readonly ChartConfig _config;
     private readonly ChartDataLoader _dataLoader;
-    private readonly PhaseOverlayRenderer _phaseRenderer;
     private readonly ChartImageComposer _imageComposer;
 
     public ChartGenerator(ILogger<ChartGenerator> logger)
@@ -36,7 +35,6 @@ internal sealed class ChartGenerator : IChartGenerator
         _logger = logger;
         _config = config;
         _dataLoader = new ChartDataLoader(logger);
-        _phaseRenderer = new PhaseOverlayRenderer(config);
         _imageComposer = new ChartImageComposer(config.Dimensions);
     }
 
@@ -150,7 +148,7 @@ internal sealed class ChartGenerator : IChartGenerator
     {
         foreach (var plot in plots)
         {
-            _phaseRenderer.AddPhaseBoundaries(plot, testReport);
+            PhaseOverlayRenderer.AddPhaseBoundaries(plot, testReport, _config);
         }
     }
 
@@ -165,8 +163,8 @@ internal sealed class ChartGenerator : IChartGenerator
         plot.Axes.SetLimitsY(limits.Bottom, yMax);
 
         // Add phase labels and title
-        _phaseRenderer.AddPhaseLabels(plot, testReport, yMax);
-        _phaseRenderer.AddTitle(plot, testReport);
+        PhaseOverlayRenderer.AddPhaseLabels(plot, testReport, yMax, _config);
+        PhaseOverlayRenderer.AddTitle(plot, testReport, _config);
     }
 
     private void ConfigureBottomPlot(Plot plot)
