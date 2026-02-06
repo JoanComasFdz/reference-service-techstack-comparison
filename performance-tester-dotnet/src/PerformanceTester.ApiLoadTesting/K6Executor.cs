@@ -1,3 +1,4 @@
+using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Text;
@@ -80,34 +81,35 @@ internal sealed partial class K6Executor
         // Read and parse stdout (metrics)
         await foreach (var line in process.StandardOutput.ReadLinesAsync(cancellationToken))
         {
-            var metric = _metricsParser.ParseLine(line);
-            if (metric != null)
+            if (_metricsParser.ParseLine(line) is not Result<K6Metric, ParseLineError>.Success(var metric))
             {
-                metrics.Add(metric);
+                continue;
+            }
 
-                // Update counts from metric
-                if (metric.Metric == "http_req_duration")
-                {
-                    requestCount++;
-                }
-                else if (metric.Metric == "http_req_failed" && metric.Data?.Value > 0)
-                {
-                    failedCount++;
-                }
+            metrics.Add(metric);
 
-                // Report progress every 500ms (avoid flooding)
-                if (progress != null && (DateTime.UtcNow - lastProgressReport).TotalMilliseconds >= 500)
-                {
-                    var elapsed = (DateTime.UtcNow - testStartTime).TotalSeconds;
-                    successCount = requestCount - failedCount;
-                    progress.Report(new ApiLoadProgress(
-                        ElapsedSeconds: elapsed,
-                        TotalSeconds: totalDuration.TotalSeconds,
-                        RequestCount: requestCount,
-                        SuccessCount: successCount,
-                        FailedCount: failedCount));
-                    lastProgressReport = DateTime.UtcNow;
-                }
+            // Update counts from metric
+            if (metric.Metric == "http_req_duration")
+            {
+                requestCount++;
+            }
+            else if (metric.Metric == "http_req_failed" && metric.Data?.Value > 0)
+            {
+                failedCount++;
+            }
+
+            // Report progress every 500ms (avoid flooding)
+            if (progress != null && (DateTime.UtcNow - lastProgressReport).TotalMilliseconds >= 500)
+            {
+                var elapsed = (DateTime.UtcNow - testStartTime).TotalSeconds;
+                successCount = requestCount - failedCount;
+                progress.Report(new ApiLoadProgress(
+                    ElapsedSeconds: elapsed,
+                    TotalSeconds: totalDuration.TotalSeconds,
+                    RequestCount: requestCount,
+                    SuccessCount: successCount,
+                    FailedCount: failedCount));
+                lastProgressReport = DateTime.UtcNow;
             }
         }
 

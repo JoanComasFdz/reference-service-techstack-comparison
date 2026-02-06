@@ -1,4 +1,5 @@
 using System.Text.Json;
+using JoanComasFdz.Result;
 
 namespace PerformanceTester.ApiLoadTesting;
 
@@ -19,34 +20,39 @@ internal sealed class K6MetricsParser
     }
 
     /// <summary>
-    /// Parses a k6 JSON output line and returns the metric.
-    /// Returns null if line is not a valid metric or is not relevant.
+    /// Parses a k6 JSON output line and returns the metric or a typed failure.
     /// </summary>
     /// <param name="jsonLine">JSON line from k6 output.</param>
-    /// <returns>Parsed K6Metric or null.</returns>
-    public K6Metric? ParseLine(string jsonLine)
+    /// <returns>Parsed K6Metric on success, or a ParseLineError describing why the line was skipped.</returns>
+    public Result<K6Metric, ParseLineError> ParseLine(string jsonLine)
     {
         if (string.IsNullOrWhiteSpace(jsonLine))
         {
-            return null;
+            return new Result<K6Metric, ParseLineError>.Failure(new ParseLineError.EmptyInput());
         }
 
         try
         {
             var metric = JsonSerializer.Deserialize<K6Metric>(jsonLine, _jsonOptions);
 
-            // Only return metrics we care about
-            if (metric?.Type == "Point" && metric.Metric != null)
+            if (metric?.Type != "Point")
             {
-                return IsRelevantMetric(metric.Metric) ? metric : null;
+                return new Result<K6Metric, ParseLineError>.Failure(
+                    new ParseLineError.NonPointMetric(metric?.Type ?? "null"));
             }
 
-            return null;
+            if (metric.Metric == null || !IsRelevantMetric(metric.Metric))
+            {
+                return new Result<K6Metric, ParseLineError>.Failure(
+                    new ParseLineError.IrrelevantMetric(metric.Metric ?? "null"));
+            }
+
+            return new Result<K6Metric, ParseLineError>.Success(metric);
         }
         catch (JsonException)
         {
-            // Invalid JSON line, ignore
-            return null;
+            return new Result<K6Metric, ParseLineError>.Failure(
+                new ParseLineError.InvalidJson(jsonLine));
         }
     }
 
