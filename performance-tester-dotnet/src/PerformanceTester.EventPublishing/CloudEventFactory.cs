@@ -1,4 +1,5 @@
 using CloudNative.CloudEvents;
+using CloudNative.CloudEvents.SystemTextJson;
 
 namespace PerformanceTester.EventPublishing;
 
@@ -26,6 +27,8 @@ internal sealed class CloudEventFactory
         ("RUNNING", "ERROR"),
         ("ERROR", "RUNNING")
     };
+
+    private static readonly CloudEventFormatter Formatter = new JsonEventFormatter();
 
     private readonly Random _random = new();
 
@@ -75,5 +78,13 @@ internal sealed class CloudEventFactory
             deviceId,
             transition.Previous,
             transition.Current);
+    }
+
+    /// <summary>
+    /// Serializes a CloudEvent to JSON bytes for publishing.
+    /// </summary>
+    public ReadOnlyMemory<byte> Serialize(CloudEvent cloudEvent)
+    {
+        return Formatter.EncodeStructuredModeMessage(cloudEvent, out _);
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using RabbitMQ.Client;
 using System.Diagnostics;
 
 namespace PerformanceTester.EventPublishing;
@@ -49,18 +50,44 @@ internal sealed class EventPublisher : IEventPublisher
 
         try
         {
+            const int batchSize = 100;
+            var properties = new BasicProperties
+            {
+                DeliveryMode = DeliveryModes.Persistent,
+                ContentType = "application/json"
+            };
+
+            var publishTasks = new List<ValueTask>(batchSize);
+
             for (int i = 0; i < count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var cloudEvent = _factory.CreateRandomEvent();
-                await _publisher.PublishEventAsync(cloudEvent, cancellationToken);
+                var body = _factory.Serialize(cloudEvent);
+
+                publishTasks.Add(_publisher.PublishDirectAsync(properties, body, cancellationToken));
+
+                if (publishTasks.Count >= batchSize)
+                {
+                    foreach (var task in publishTasks)
+                    {
+                        await task;
+                    }
+                    publishTasks.Clear();
+                }
 
                 // Log progress every 1000 events
                 if ((i + 1) % 1000 == 0)
                 {
                     _logger.LogDebug("Published {Current}/{Total} events", i + 1, count);
                 }
+            }
+
+            // Flush remaining
+            foreach (var task in publishTasks)
+            {
+                await task;
             }
 
             stopwatch.Stop();
