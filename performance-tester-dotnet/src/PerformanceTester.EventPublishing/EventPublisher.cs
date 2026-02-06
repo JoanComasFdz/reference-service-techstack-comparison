@@ -11,16 +11,13 @@ namespace PerformanceTester.EventPublishing;
 internal sealed class EventPublisher : IEventPublisher
 {
     private readonly RabbitMqPublisher _publisher;
-    private readonly CloudEventFactory _factory;
     private readonly ILogger<EventPublisher> _logger;
 
     public EventPublisher(
         RabbitMqPublisher publisher,
-        CloudEventFactory factory,
         ILogger<EventPublisher> logger)
     {
         _publisher = publisher ?? throw new ArgumentNullException(nameof(publisher));
-        _factory = factory ?? throw new ArgumentNullException(nameof(factory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -63,8 +60,8 @@ internal sealed class EventPublisher : IEventPublisher
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var cloudEvent = _factory.CreateRandomEvent();
-                var body = _factory.Serialize(cloudEvent);
+                var cloudEvent = CloudEventFactory.CreateRandomEvent();
+                var body = CloudEventFactory.Serialize(cloudEvent);
 
                 publishTasks.Add(_publisher.PublishDirectAsync(properties, body, cancellationToken));
 

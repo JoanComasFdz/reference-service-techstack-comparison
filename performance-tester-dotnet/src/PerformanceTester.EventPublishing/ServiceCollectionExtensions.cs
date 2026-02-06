@@ -38,7 +38,6 @@ public static class ServiceCollectionExtensions
             throw new ArgumentException("RabbitMQ connection string cannot be null or empty", nameof(rabbitMqConnectionString));
 
         // Register internal dependencies
-        services.AddSingleton<CloudEventFactory>();
         services.AddSingleton<RabbitMqPublisher>(sp => new RabbitMqPublisher(
             rabbitMqConnectionString,
             sp.GetRequiredService<ILogger<RabbitMqPublisher>>()));

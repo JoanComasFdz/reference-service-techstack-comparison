@@ -7,7 +7,7 @@ namespace PerformanceTester.EventPublishing;
 /// Factory for creating CloudEvents v1.0 compliant test events.
 /// Uses official CloudNative.CloudEvents library.
 /// </summary>
-internal sealed class CloudEventFactory
+internal static class CloudEventFactory
 {
     private const string EventSource = "urn:uuid:dotnet-performance-tester";
     private const string EventType = "instrument.status.changed";
@@ -30,8 +30,6 @@ internal sealed class CloudEventFactory
 
     private static readonly CloudEventFormatter Formatter = new JsonEventFormatter();
 
-    private readonly Random _random = new();
-
     /// <summary>
     /// Creates a CloudEvent with specified device ID and status transition.
     /// </summary>
@@ -39,7 +37,7 @@ internal sealed class CloudEventFactory
     /// <param name="previousStatus">Previous status.</param>
     /// <param name="currentStatus">Current status.</param>
     /// <returns>CloudEvent instance conforming to v1.0 specification.</returns>
-    public CloudEvent CreateInstrumentStatusChangedEvent(
+    public static CloudEvent CreateInstrumentStatusChangedEvent(
         string deviceId,
         string previousStatus,
         string currentStatus)
@@ -69,10 +67,10 @@ internal sealed class CloudEventFactory
     /// Used for load testing scenarios.
     /// </summary>
     /// <returns>CloudEvent with randomized test data.</returns>
-    public CloudEvent CreateRandomEvent()
+    public static CloudEvent CreateRandomEvent()
     {
-        var deviceId = DeviceIds[_random.Next(DeviceIds.Length)];
-        var transition = StatusTransitions[_random.Next(StatusTransitions.Length)];
+        var deviceId = DeviceIds[Random.Shared.Next(DeviceIds.Length)];
+        var transition = StatusTransitions[Random.Shared.Next(StatusTransitions.Length)];
 
         return CreateInstrumentStatusChangedEvent(
             deviceId,
@@ -83,7 +81,7 @@ internal sealed class CloudEventFactory
     /// <summary>
     /// Serializes a CloudEvent to JSON bytes for publishing.
     /// </summary>
-    public ReadOnlyMemory<byte> Serialize(CloudEvent cloudEvent)
+    public static ReadOnlyMemory<byte> Serialize(CloudEvent cloudEvent)
     {
         return Formatter.EncodeStructuredModeMessage(cloudEvent, out _);
     }
