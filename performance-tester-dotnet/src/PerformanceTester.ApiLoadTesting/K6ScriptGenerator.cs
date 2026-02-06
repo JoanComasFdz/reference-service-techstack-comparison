@@ -3,6 +3,7 @@ namespace PerformanceTester.ApiLoadTesting;
 /// <summary>
 /// Generates k6 test scripts for API load testing.
 /// Uses template pattern with placeholder replacement.
+/// A new script is generated per service under test because each service listens on a different URL.
 /// </summary>
 internal static class K6ScriptGenerator
 {
