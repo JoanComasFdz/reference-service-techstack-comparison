@@ -355,6 +355,10 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
 
     private async Task OnMessageReceivedAsync(object sender, BasicDeliverEventArgs eventArgs)
     {
+        // Capture channel reference to avoid TOCTOU race with DisconnectAsync
+        // If channel is null (shutting down), we skip ACK/NACK gracefully
+        var channel = _channel;
+
         try
         {
             // Increment received count (thread-safe)
@@ -413,23 +417,31 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
                 _inactivityTimer = null;
             }
 
-            // Manual ACK after processing
-            if (_channel != null)
+            // Manual ACK after processing (using captured reference)
+            if (channel != null)
             {
-                await _channel.BasicAckAsync(deliveryTag: eventArgs.DeliveryTag, multiple: false);
+                await channel.BasicAckAsync(deliveryTag: eventArgs.DeliveryTag, multiple: false);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ Error processing message");
 
-            // NACK message and requeue
-            if (_channel != null)
+            // NACK message and requeue (using captured reference)
+            if (channel != null)
             {
-                await _channel.BasicNackAsync(
-                    deliveryTag: eventArgs.DeliveryTag,
-                    multiple: false,
-                    requeue: true);
+                try
+                {
+                    await channel.BasicNackAsync(
+                        deliveryTag: eventArgs.DeliveryTag,
+                        multiple: false,
+                        requeue: true);
+                }
+                catch (Exception nackEx)
+                {
+                    // Channel may have been disposed during shutdown — log and continue
+                    _logger.LogDebug(nackEx, "Failed to NACK message (channel may be closing)");
+                }
             }
         }
     }
