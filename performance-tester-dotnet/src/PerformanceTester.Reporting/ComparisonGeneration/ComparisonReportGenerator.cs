@@ -126,6 +126,19 @@ public sealed class ComparisonReportGenerator
         markdown.AppendLine();
 
         // Disk information
+        WriteDiskInformation(markdown, systemInfo, isWsl);
+
+        // Test Run Information
+        markdown.AppendLine("**Test Run Information:**");
+        markdown.AppendLine($"- **Start Time:** {startTime:yyyy-MM-dd HH:mm:ss}");
+        markdown.AppendLine($"- **End Time:** {endTime:yyyy-MM-dd HH:mm:ss}");
+        markdown.AppendLine($"- **Total Duration:** {FormatDuration(totalDuration)}");
+        markdown.AppendLine($"- **Number of Services Tested:** {reports.Count}");
+        markdown.AppendLine();
+    }
+
+    private static void WriteDiskInformation(StringBuilder markdown, SystemInfo systemInfo, bool isWsl)
+    {
         if (systemInfo.Disks.Any())
         {
             var driveCountDesc = isWsl
@@ -153,14 +166,6 @@ public sealed class ComparisonReportGenerator
             markdown.AppendLine("**Storage:** Unable to retrieve disk information");
             markdown.AppendLine();
         }
-
-        // Test Run Information
-        markdown.AppendLine("**Test Run Information:**");
-        markdown.AppendLine($"- **Start Time:** {startTime:yyyy-MM-dd HH:mm:ss}");
-        markdown.AppendLine($"- **End Time:** {endTime:yyyy-MM-dd HH:mm:ss}");
-        markdown.AppendLine($"- **Total Duration:** {FormatDuration(totalDuration)}");
-        markdown.AppendLine($"- **Number of Services Tested:** {reports.Count}");
-        markdown.AppendLine();
     }
 
     private static void WriteTestRunsOverview(StringBuilder markdown, List<TestReport> reports)
