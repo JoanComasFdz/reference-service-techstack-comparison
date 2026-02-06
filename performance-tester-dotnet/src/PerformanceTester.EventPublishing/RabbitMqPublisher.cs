@@ -17,6 +17,9 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
     private const string ExchangeName = "referenceservice.comparison";
     private const string RoutingKey = "instrument.status.changed";
 
+    private static readonly CachedString CachedExchangeName = new(ExchangeName);
+    private static readonly CachedString CachedRoutingKey = new(RoutingKey);
+
     private readonly string _connectionString;
     private readonly ILogger<RabbitMqPublisher> _logger;
     private readonly CloudEventFormatter _formatter;
@@ -193,6 +196,24 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
                 body: jsonBytes,
                 cancellationToken: cancellationToken);
         });
+    }
+
+    /// <summary>
+    /// Publishes a pre-serialized message directly to the channel without retry wrapping.
+    /// Returns the raw ValueTask for pipelining (collect and await in batches).
+    /// Requires ConnectAsync() to be called first.
+    /// </summary>
+    public ValueTask PublishDirectAsync(BasicProperties properties, ReadOnlyMemory<byte> body, CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+
+        return _channel!.BasicPublishAsync(
+            exchange: CachedExchangeName,
+            routingKey: CachedRoutingKey,
+            mandatory: false,
+            basicProperties: properties,
+            body: body,
+            cancellationToken: cancellationToken);
     }
 
     private void EnsureConnected()
