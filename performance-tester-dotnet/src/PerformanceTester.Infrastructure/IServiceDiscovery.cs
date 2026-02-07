@@ -16,5 +16,5 @@ public interface IServiceDiscovery
     /// <returns>Success with process ID if found, or Failure with reason if not found within timeout.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Port is not in valid range.</exception>
     /// <exception cref="OperationCanceledException">Operation was cancelled.</exception>
-    Task<Result<int>> FindServiceProcessIdAsync(int port, TimeSpan timeout, CancellationToken cancellationToken = default);
+    Task<Result<int, string>> FindServiceProcessIdAsync(int port, TimeSpan timeout, CancellationToken cancellationToken = default);
 }

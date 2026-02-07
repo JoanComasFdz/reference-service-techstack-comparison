@@ -20,7 +20,7 @@ internal sealed class ServiceDiscovery : IServiceDiscovery
     }
 
     /// <inheritdoc />
-    public async Task<Result<int>> FindServiceProcessIdAsync(
+    public async Task<Result<int, string>> FindServiceProcessIdAsync(
         int port,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -46,7 +46,7 @@ internal sealed class ServiceDiscovery : IServiceDiscovery
                 if (processId.HasValue)
                 {
                     _logger.LogInformation("✓ Found service on port {Port}: PID {ProcessId}", port, processId.Value);
-                    return new Result<int>.Success(processId.Value);
+                    return new Result<int, string>.Success(processId.Value);
                 }
             }
 
@@ -62,7 +62,7 @@ internal sealed class ServiceDiscovery : IServiceDiscovery
         }
 
         _logger.LogWarning("⚠️ Service not found on port {Port} after {Timeout}s", port, timeout.TotalSeconds);
-        return new Result<int>.Failure($"No service found on port {port} within {timeout}");
+        return new Result<int, string>.Failure($"No service found on port {port} within {timeout}");
     }
 
     private bool IsPortListening(int port)

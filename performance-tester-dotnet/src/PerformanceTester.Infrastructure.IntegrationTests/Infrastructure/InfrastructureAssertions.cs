@@ -41,7 +41,7 @@ public static class InfrastructureAssertions
     {
         var result = await assertingThat.InstanceToAssert.FindServiceProcessIdAsync(port, timeout);
 
-        var success = Assert.IsType<Result<int>.Success>(result);
+        var success = Assert.IsType<Result<int, string>.Success>(result);
         Assert.Equal(Environment.ProcessId, success.Value);
     }
 
@@ -57,7 +57,7 @@ public static class InfrastructureAssertions
         TimeSpan timeout)
     {
         var result = await assertingThat.InstanceToAssert.FindServiceProcessIdAsync(port, timeout);
-        Assert.IsType<Result<int>.Failure>(result);
+        Assert.IsType<Result<int, string>.Failure>(result);
     }
 
     /// <summary>

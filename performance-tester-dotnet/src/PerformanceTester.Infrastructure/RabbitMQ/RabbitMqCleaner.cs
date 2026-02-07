@@ -81,7 +81,7 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public async Task<Result<Unit>> ClearAllQueuesAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<Unit, string>> ClearAllQueuesAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("=========================================");
         _logger.LogInformation("Clearing RabbitMQ Queues");
@@ -95,7 +95,7 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
             if (queues.Count == 0)
             {
                 _logger.LogInformation("No queues found or unable to list queues");
-                return new Result<Unit>.Success(Unit.Value);
+                return new Result<Unit, string>.Success(Unit.Value);
             }
 
             _logger.LogInformation("Found {QueueCount} queues: {QueueNames}",
@@ -130,15 +130,15 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
 
             if (failureCount > 0)
             {
-                return new Result<Unit>.Failure($"Failed to purge {failureCount} out of {queues.Count} queues");
+                return new Result<Unit, string>.Failure($"Failed to purge {failureCount} out of {queues.Count} queues");
             }
 
-            return new Result<Unit>.Success(Unit.Value);
+            return new Result<Unit, string>.Success(Unit.Value);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to clear RabbitMQ queues");
-            return new Result<Unit>.Failure($"Failed to clear RabbitMQ queues: {ex.Message}");
+            return new Result<Unit, string>.Failure($"Failed to clear RabbitMQ queues: {ex.Message}");
         }
     }
 

@@ -12,5 +12,5 @@ public interface IRabbitMQ
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Success with Unit, or a Failure describing what went wrong.</returns>
-    Task<Result<Unit>> ClearAllQueuesAsync(CancellationToken cancellationToken = default);
+    Task<Result<Unit, string>> ClearAllQueuesAsync(CancellationToken cancellationToken = default);
 }
