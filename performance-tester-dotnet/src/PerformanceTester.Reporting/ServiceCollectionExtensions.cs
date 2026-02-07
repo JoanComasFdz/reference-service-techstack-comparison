@@ -22,20 +22,19 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddReporting(this IServiceCollection services)
     {
         // Platform detection happens ONCE at startup, not per method call
-        // Uses PerformanceTester.Common for OS detection (same pattern as Infrastructure)
-        var platform = OSPlatformDetector.GetCurrentPlatform();
-
-        switch (platform)
+        // Uses OperatingSystem checks for CA1416 analyzer compatibility
+        if (OperatingSystem.IsWindows())
         {
-            case SupportedPlatform.Linux:
-                services.AddSingleton<ISystemInfoDetector, LinuxSystemInfoDetector>();
-                break;
-            case SupportedPlatform.Windows:
-                services.AddSingleton<ISystemInfoDetector, WindowsSystemInfoDetector>();
-                break;
-            default:
-                throw new PlatformNotSupportedException(
-                    $"Platform {platform} is not supported. Only Linux and Windows are supported.");
+            services.AddSingleton<ISystemInfoDetector, WindowsSystemInfoDetector>();
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            services.AddSingleton<ISystemInfoDetector, LinuxSystemInfoDetector>();
+        }
+        else
+        {
+            throw new PlatformNotSupportedException(
+                "Only Linux and Windows are supported.");
         }
 
         // Register report generators

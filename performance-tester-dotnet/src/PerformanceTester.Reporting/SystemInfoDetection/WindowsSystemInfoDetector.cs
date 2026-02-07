@@ -1,6 +1,7 @@
 #if WINDOWS
 using System.Management;
 #endif
+using System.Runtime.Versioning;
 
 namespace PerformanceTester.Reporting.SystemInfoDetection;
 
@@ -21,6 +22,7 @@ namespace PerformanceTester.Reporting.SystemInfoDetection;
 /// All queries have timeouts to prevent hanging (WMI: 5s, PowerShell: 10s).
 /// Results are cached using Lazy&lt;T&gt; for performance.
 /// </remarks>
+[SupportedOSPlatform("windows")]
 internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
 {
     private readonly Lazy<Task<SystemInfo?>> _systemInfoCache;
