@@ -235,12 +235,11 @@ public class TestOrchestrator : ITestOrchestrator
             timeout: TimeSpan.FromSeconds(30),
             cancellationToken);
 
-        if (serviceDiscoveryResult is not Result<int, string>.Success(var serviceProcessId))
-        {
-            throw new TimeoutException(
+        var serviceProcessId = serviceDiscoveryResult.Match(
+            success: s => s.Value,
+            failure: f => throw new TimeoutException(
                 $"Service not found on port {config.ServicePort} within 30 seconds. " +
-                "Ensure the service is running and listening on the specified port.");
-        }
+                "Ensure the service is running and listening on the specified port."));
 
         _logger.LogInformation(
             "Service discovered: PID {ProcessId}",
@@ -272,20 +271,16 @@ public class TestOrchestrator : ITestOrchestrator
 
         // Step 4: Clear database
         _logger.LogInformation("Clearing database {Database}...", config.DatabaseName);
-        var clearDbResult = await _database.ClearDatabaseAsync(config.DatabaseName, cancellationToken);
-        if (clearDbResult is Result<Unit, ClearDatabaseError>.Failure(var clearDbError))
-        {
-            throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}': {clearDbError}");
-        }
+        (await _database.ClearDatabaseAsync(config.DatabaseName, cancellationToken)).Match(
+            success: _ => { },
+            failure: f => throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}': {f.Error}"));
         _logger.LogInformation("Database cleared");
 
         // Step 5: Clear RabbitMQ queues
         _logger.LogInformation("Clearing RabbitMQ queues...");
-        var clearQueuesResult = await _rabbitMq.ClearAllQueuesAsync(cancellationToken);
-        if (clearQueuesResult is Result<Unit, string>.Failure(var clearQueuesError))
-        {
-            throw new InvalidOperationException($"Failed to clear RabbitMQ queues: {clearQueuesError}");
-        }
+        (await _rabbitMq.ClearAllQueuesAsync(cancellationToken)).Match(
+            success: _ => { },
+            failure: f => throw new InvalidOperationException($"Failed to clear RabbitMQ queues: {f.Error}"));
         _logger.LogInformation("RabbitMQ queues cleared");
 
         // Allow time for RabbitMQ consumers to recover after queue purge
@@ -356,16 +351,12 @@ public class TestOrchestrator : ITestOrchestrator
 
             // Clear database and queues again
             _logger.LogInformation("Warmup: Clearing database and queues before measured test");
-            var warmupClearResult = await _database.ClearDatabaseAsync(config.DatabaseName, cancellationToken);
-            if (warmupClearResult is Result<Unit, ClearDatabaseError>.Failure(var warmupClearError))
-            {
-                throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}' during warmup: {warmupClearError}");
-            }
-            var warmupClearQueuesResult = await _rabbitMq.ClearAllQueuesAsync(cancellationToken);
-            if (warmupClearQueuesResult is Result<Unit, string>.Failure(var warmupClearQueuesError))
-            {
-                throw new InvalidOperationException($"Failed to clear RabbitMQ queues during warmup: {warmupClearQueuesError}");
-            }
+            (await _database.ClearDatabaseAsync(config.DatabaseName, cancellationToken)).Match(
+                success: _ => { },
+                failure: f => throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}' during warmup: {f.Error}"));
+            (await _rabbitMq.ClearAllQueuesAsync(cancellationToken)).Match(
+                success: _ => { },
+                failure: f => throw new InvalidOperationException($"Failed to clear RabbitMQ queues during warmup: {f.Error}"));
 
             _logger.LogInformation("Warmup phase complete - starting measured test");
         }

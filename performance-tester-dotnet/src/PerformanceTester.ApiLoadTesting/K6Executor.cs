@@ -81,36 +81,37 @@ internal sealed partial class K6Executor
         // Read and parse stdout (metrics)
         await foreach (var line in process.StandardOutput.ReadLinesAsync(cancellationToken))
         {
-            if (_metricsParser.ParseLine(line) is not Result<K6Metric, ParseLineError>.Success(var metric))
-            {
-                continue;
-            }
+            _metricsParser.ParseLine(line).Match(
+                success: s =>
+                {
+                    var metric = s.Value;
+                    metrics.Add(metric);
 
-            metrics.Add(metric);
+                    // Update counts from metric
+                    if (metric.Metric == "http_req_duration")
+                    {
+                        requestCount++;
+                    }
+                    else if (metric.Metric == "http_req_failed" && metric.Data?.Value > 0)
+                    {
+                        failedCount++;
+                    }
 
-            // Update counts from metric
-            if (metric.Metric == "http_req_duration")
-            {
-                requestCount++;
-            }
-            else if (metric.Metric == "http_req_failed" && metric.Data?.Value > 0)
-            {
-                failedCount++;
-            }
-
-            // Report progress every 500ms (avoid flooding)
-            if (progress != null && (DateTime.UtcNow - lastProgressReport).TotalMilliseconds >= 500)
-            {
-                var elapsed = (DateTime.UtcNow - testStartTime).TotalSeconds;
-                successCount = requestCount - failedCount;
-                progress.Report(new ApiLoadProgress(
-                    ElapsedSeconds: elapsed,
-                    TotalSeconds: totalDuration.TotalSeconds,
-                    RequestCount: requestCount,
-                    SuccessCount: successCount,
-                    FailedCount: failedCount));
-                lastProgressReport = DateTime.UtcNow;
-            }
+                    // Report progress every 500ms (avoid flooding)
+                    if (progress != null && (DateTime.UtcNow - lastProgressReport).TotalMilliseconds >= 500)
+                    {
+                        var elapsed = (DateTime.UtcNow - testStartTime).TotalSeconds;
+                        successCount = requestCount - failedCount;
+                        progress.Report(new ApiLoadProgress(
+                            ElapsedSeconds: elapsed,
+                            TotalSeconds: totalDuration.TotalSeconds,
+                            RequestCount: requestCount,
+                            SuccessCount: successCount,
+                            FailedCount: failedCount));
+                        lastProgressReport = DateTime.UtcNow;
+                    }
+                },
+                failure: _ => { });
         }
 
         // Wait for process to exit and stderr reading to complete

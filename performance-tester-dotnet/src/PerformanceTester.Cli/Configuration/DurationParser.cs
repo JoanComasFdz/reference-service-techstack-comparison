@@ -46,14 +46,13 @@ public static partial class DurationParser
     /// <returns>True if parsing succeeded</returns>
     public static bool TryParse(string duration, out TimeSpan result)
     {
-        if (Parse(duration) is Result<TimeSpan, DurationParseError>.Success(var value))
-        {
-            result = value;
-            return true;
-        }
-
-        result = TimeSpan.Zero;
-        return false;
+        var parsed = Parse(duration);
+        result = parsed.Match(
+            success: s => s.Value,
+            failure: _ => TimeSpan.Zero);
+        return parsed.Match(
+            success: _ => true,
+            failure: _ => false);
     }
 
     /// <summary>
@@ -62,5 +61,7 @@ public static partial class DurationParser
     /// <param name="duration">Duration string to validate</param>
     /// <returns>True if valid format</returns>
     public static bool IsValid(string duration) =>
-        Parse(duration) is Result<TimeSpan, DurationParseError>.Success;
+        Parse(duration).Match(
+            success: _ => true,
+            failure: _ => false);
 }
