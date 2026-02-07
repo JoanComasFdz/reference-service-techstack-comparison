@@ -23,48 +23,31 @@ namespace JoanComasFdz.Result;
 /// }
 ///
 /// // Return Result instead of throwing:
+/// using static Result<double, DivisionError>;
 /// public static Result&lt;double, DivisionError&gt; Divide(double numerator, double denominator)
 /// {
 ///     if (denominator == 0)
-///         return new Result&lt;double, DivisionError&gt;.Failure(new DivisionError.DivideByZero());
+///         return new Failure(new DivisionError.DivideByZero());
 ///
 ///     var result = numerator / denominator;
 ///     if (double.IsInfinity(result))
-///         return new Result&lt;double, DivisionError&gt;.Failure(new DivisionError.Overflow());
-///
-///     return new Result&lt;double, DivisionError&gt;.Success(result);
+///         ? return new Failure(new DivisionError.Overflow());
+///         : return new Success(result);
 /// }
 /// </code>
 /// </para>
 /// <para>
-/// <b>Example — consuming a Result with pattern matching (recommended):</b>
-/// <code>
-/// var result = Divide(10, 3);
-///
-/// // Option A: Early return on failure (ideal for pipelines)
-/// if (result is not Result&lt;double, DivisionError&gt;.Success(var value))
-/// {
-///     Console.WriteLine("Division failed");
-///     return;
-/// }
-/// Console.WriteLine($"Result: {value}");
-///
-/// // Option B: Handle each case explicitly
-/// if (result is Result&lt;double, DivisionError&gt;.Success(var quotient))
-///     Console.WriteLine($"Result: {quotient}");
-/// else if (result is Result&lt;double, DivisionError&gt;.Failure(var error))
-///     Console.WriteLine($"Error: {error}");
-/// </code>
-/// </para>
-/// <para>
-/// <b>Example — consuming a Result with the Match method:</b>
+/// <b>Example — consuming a Result with Dunet's Match() method:</b>
 /// <code>
 /// var result = Divide(10, 0);
 ///
-/// // The compiler ensures you handle both cases:
-/// var message = result.Match(
-///     success: s =&gt; $"Result: {s.Value}",
-///     failure: f =&gt; $"Error: {f.Error}"
+/// // The compiler ensures you handle all cases:
+/// result.Match(
+///     success: s => Console.WriteLine($"Got {s.Value}"),
+///     failure: f => f.Error.Match(
+///         divideByZero: _ => Console.WriteLine("Cannot divide by zero"),
+///         overflow: _ => Console.WriteLine("Overflow")
+///      )
 /// );
 /// </code>
 /// </para>
