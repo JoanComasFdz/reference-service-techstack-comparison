@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(ChartGeneration\\): add configuration records for chart styling\n\nExtract magic numbers \\(font sizes, line widths, dimensions, padding\\)\ninto immutable record types with sensible defaults.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(dotnet test:*)",
+      "Bash(wc:*)",
+      "Bash(lsof:*)",
+      "Bash(ps:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}
