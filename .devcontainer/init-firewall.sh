@@ -101,6 +101,9 @@ for domain in $cdn_domains; do
         fi
         echo "Adding $ip for $domain"
         ipset add allowed-domains "$ip" -exist
+        # Also add /24 subnet — CDN providers rotate IPs within nearby ranges
+        subnet=$(echo "$ip" | sed 's/\.[0-9]*$/.0\/24/')
+        ipset add allowed-domains "$subnet" -exist
     done < <(echo "$unique_ips")
 done
 
@@ -161,6 +164,25 @@ if [ -n "$fastly_json" ] && echo "$fastly_json" | jq -e '.addresses' >/dev/null 
     done < <(echo "$fastly_json" | jq -r '.addresses[]')
 else
     echo "WARNING: Failed to fetch Fastly IP ranges, Debian repositories may not work"
+fi
+
+# Add Akamai IP ranges (used by NuGet CDN since Jan 2025)
+# NuGet does NOT publish fixed IP ranges: https://github.com/NuGet/NuGetGallery/issues/10085
+# This community list covers Akamai-owned ranges (not ISP-colocated edge servers,
+# which are covered by the /24 subnet expansion on DNS-resolved CDN IPs above).
+echo "Adding Akamai IP ranges for NuGet CDN..."
+akamai_ranges=$(curl -s --connect-timeout 10 https://raw.githubusercontent.com/platformbuilds/Akamai-ASN-and-IPs-List/master/akamai_ip_cidr_blocks.lst || true)
+if [ -n "$akamai_ranges" ]; then
+    akamai_count=0
+    while read -r cidr; do
+        if [[ "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
+            ipset add allowed-domains "$cidr" -exist
+            akamai_count=$((akamai_count + 1))
+        fi
+    done < <(echo "$akamai_ranges")
+    echo "Added $akamai_count Akamai CIDR ranges"
+else
+    echo "WARNING: Failed to fetch Akamai IP ranges, NuGet CDN may not work"
 fi
 
 # Get host IP and actual CIDR subnet (not /24 assumption)
