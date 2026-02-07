@@ -241,6 +241,116 @@ public static Plot Build(ResourceMetricsReport? data, ChartConfig config)
 
 ---
 
+## Error Handling with Result Types
+
+This codebase uses the `JoanComasFdz.Result` library (backed by [dunet](https://github.com/domn1995/dunet) discriminated unions) for typed error handling. These guidelines govern how Results are produced and consumed.
+
+### 12. Use Result Types Instead of Exceptions for Expected Failures
+
+Reserve exceptions for bugs and truly unexpected situations (out of memory, network down). For failures that are **part of the normal domain** (invalid input, resource not found, validation errors), return a `Result<TSuccess, TFailure>`.
+
+```csharp
+// ✅ Good - expected failure expressed in the return type
+public static Result<TimeSpan, DurationParseError> Parse(string duration)
+{
+    if (string.IsNullOrWhiteSpace(duration))
+        return new Failure(new DurationParseError.Empty());
+
+    // ...
+    return new Success(TimeSpan.FromSeconds(value));
+}
+
+// ❌ Avoid - exception for expected input validation
+public static TimeSpan Parse(string duration)
+{
+    if (string.IsNullOrWhiteSpace(duration))
+        throw new ArgumentException("Duration cannot be empty");
+
+    // ...
+    return TimeSpan.FromSeconds(value);
+}
+```
+
+**Choosing `TFailure`:** Use a typed discriminated union (e.g., `DurationParseError`) when the caller needs to distinguish between different failure reasons. Use `string` when a human-readable message is sufficient.
+
+### 13. Use `using static` to Shorten Result Construction
+
+Producer methods that return `Result<TSuccess, TFailure>` should add a `using static` directive to avoid repeating the full generic type on every `new Success(...)` / `new Failure(...)`.
+
+```csharp
+// ✅ Good - using static at the top of the file
+using static JoanComasFdz.Result.Result<System.TimeSpan, DurationParseError>;
+
+// Then in the method body:
+return new Success(TimeSpan.FromSeconds(value));
+return new Failure(new DurationParseError.Empty());
+
+// ❌ Avoid - full type on every construction
+return new Result<TimeSpan, DurationParseError>.Success(TimeSpan.FromSeconds(value));
+return new Result<TimeSpan, DurationParseError>.Failure(new DurationParseError.Empty());
+```
+
+When `TSuccess` or `TFailure` uses types from other namespaces, use fully qualified names in the `using static` directive:
+
+```csharp
+using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, string>;
+```
+
+### 14. Use dunet `Match` for Exhaustive Result Consumption
+
+When consuming a Result, always use dunet's generated `Match` method instead of native C# pattern matching (`is`, `is not`, `switch`). `Match` guarantees exhaustiveness at compile time — if a variant is added, all call sites fail to compile until updated.
+
+**Extracting a value (or throwing on failure):**
+```csharp
+// ✅ Good - Match with exhaustive handling
+var processId = serviceDiscoveryResult.Match(
+    success: s => s.Value,
+    failure: f => throw new TimeoutException($"Service not found: {f.Error}"));
+
+// ❌ Avoid - native pattern matching (no compile-time exhaustiveness)
+if (serviceDiscoveryResult is Result<int, string>.Success success)
+    processId = success.Value;
+else if (serviceDiscoveryResult is Result<int, string>.Failure failure)
+    throw new TimeoutException($"Service not found: {failure.Error}");
+```
+
+**Side-effect on failure, no-op on success:**
+```csharp
+// ✅ Good - concise Match
+(await _database.ClearDatabaseAsync(dbName, ct)).Match(
+    success: _ => { },
+    failure: f => throw new InvalidOperationException($"Failed to clear database: {f.Error}"));
+```
+
+**Boolean check:**
+```csharp
+// ✅ Good - Match to bool
+public static bool IsValid(string duration) =>
+    Parse(duration).Match(
+        success: _ => true,
+        failure: _ => false);
+
+// ❌ Avoid - native pattern matching to bool
+public static bool IsValid(string duration) =>
+    Parse(duration) is Result<TimeSpan, DurationParseError>.Success;
+```
+
+**Processing with silent skip on failure:**
+```csharp
+// ✅ Good - Match with side-effects in success, empty failure
+_metricsParser.ParseLine(line).Match(
+    success: s =>
+    {
+        metrics.Add(s.Value);
+        // ... process metric
+    },
+    failure: _ => { });
+```
+
+> **Exception for tests:** In unit tests, `Assert.IsType<Result<T, E>.Success>(result)` is acceptable because xUnit's type assertion provides sufficient exhaustiveness for test scenarios.
+
+---
+
 ## Summary
 
 **One-liner:** *Make dependencies explicit, keep functions small and pure, let each file tell its own complete story.*
@@ -258,3 +368,6 @@ public static Plot Build(ResourceMetricsReport? data, ChartConfig config)
 | No useless wrappers | Does this wrapper add value? |
 | Composition over interfaces | Do I actually need this abstraction? |
 | Return early | Can I use a guard clause to avoid nesting? |
+| Result over exceptions | Is this failure expected? Use Result, not exceptions |
+| `using static` for Results | Am I producing Results? Shorten with `using static` |
+| dunet Match | Am I consuming a Result? Use `Match`, not `is`/`switch` |
