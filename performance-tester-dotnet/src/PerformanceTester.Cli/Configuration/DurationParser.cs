@@ -39,23 +39,6 @@ public static partial class DurationParser
     }
 
     /// <summary>
-    /// Tries to parse a duration string to TimeSpan.
-    /// </summary>
-    /// <param name="duration">Duration string</param>
-    /// <param name="result">Parsed TimeSpan if successful</param>
-    /// <returns>True if parsing succeeded</returns>
-    public static bool TryParse(string duration, out TimeSpan result)
-    {
-        var parsed = Parse(duration);
-        result = parsed.Match(
-            success: s => s.Value,
-            failure: _ => TimeSpan.Zero);
-        return parsed.Match(
-            success: _ => true,
-            failure: _ => false);
-    }
-
-    /// <summary>
     /// Validates a duration string format.
     /// </summary>
     /// <param name="duration">Duration string to validate</param>
