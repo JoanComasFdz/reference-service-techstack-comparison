@@ -1,6 +1,7 @@
 using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, PerformanceTester.Infrastructure.Database.ClearDatabaseError>;
 
 namespace PerformanceTester.Infrastructure.Database;
 
@@ -20,7 +21,7 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
     {
         if (string.IsNullOrWhiteSpace(databaseName))
         {
-            return new Result<Unit, ClearDatabaseError>.Failure(new ClearDatabaseError.EmptyName());
+            return new Failure(new ClearDatabaseError.EmptyName());
         }
 
         _logger.LogInformation("=== Clearing database: {DatabaseName} ===", databaseName);
@@ -29,7 +30,7 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
         cancellationToken.ThrowIfCancellationRequested();
         if (!await DatabaseExistsAsync(databaseName, cancellationToken))
         {
-            return new Result<Unit, ClearDatabaseError>.Failure(new ClearDatabaseError.DatabaseNotFound(databaseName));
+            return new Failure(new ClearDatabaseError.DatabaseNotFound(databaseName));
         }
 
         Exception? lastException = null;
@@ -51,7 +52,7 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
 
                 _logger.LogInformation("✓ Database {DatabaseName} cleared successfully", databaseName);
 
-                return new Result<Unit, ClearDatabaseError>.Success(Unit.Value);
+                return new Success(Unit.Value);
             }
             catch (Exception ex) when (attempt < MaxRetries && ex is not OperationCanceledException)
             {
@@ -62,7 +63,7 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
             }
         }
 
-        return new Result<Unit, ClearDatabaseError>.Failure(
+        return new Failure(
             new ClearDatabaseError.RetriesExhausted(MaxRetries, lastException!));
     }
 

@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text;
 using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
+using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, string>;
 
 namespace PerformanceTester.Infrastructure.RabbitMQ;
 
@@ -95,7 +96,7 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
             if (queues.Count == 0)
             {
                 _logger.LogInformation("No queues found or unable to list queues");
-                return new Result<Unit, string>.Success(Unit.Value);
+                return new Success(Unit.Value);
             }
 
             _logger.LogInformation("Found {QueueCount} queues: {QueueNames}",
@@ -130,15 +131,15 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
 
             if (failureCount > 0)
             {
-                return new Result<Unit, string>.Failure($"Failed to purge {failureCount} out of {queues.Count} queues");
+                return new Failure($"Failed to purge {failureCount} out of {queues.Count} queues");
             }
 
-            return new Result<Unit, string>.Success(Unit.Value);
+            return new Success(Unit.Value);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to clear RabbitMQ queues");
-            return new Result<Unit, string>.Failure($"Failed to clear RabbitMQ queues: {ex.Message}");
+            return new Failure($"Failed to clear RabbitMQ queues: {ex.Message}");
         }
     }
 

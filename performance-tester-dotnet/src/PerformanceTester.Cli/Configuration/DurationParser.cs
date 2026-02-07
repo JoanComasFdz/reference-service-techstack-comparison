@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using JoanComasFdz.Result;
+using static JoanComasFdz.Result.Result<System.TimeSpan, PerformanceTester.Cli.Configuration.DurationParseError>;
 
 namespace PerformanceTester.Cli.Configuration;
 
@@ -19,21 +20,21 @@ public static partial class DurationParser
     public static Result<TimeSpan, DurationParseError> Parse(string duration)
     {
         if (string.IsNullOrWhiteSpace(duration))
-            return new Result<TimeSpan, DurationParseError>.Failure(new DurationParseError.Empty());
+            return new Failure(new DurationParseError.Empty());
 
         var match = DurationPattern().Match(duration.Trim().ToLowerInvariant());
         if (!match.Success)
-            return new Result<TimeSpan, DurationParseError>.Failure(new DurationParseError.InvalidFormat(duration));
+            return new Failure(new DurationParseError.InvalidFormat(duration));
 
         var value = int.Parse(match.Groups[1].Value);
         var unit = match.Groups[2].Value;
 
         return unit switch
         {
-            "s" => new Result<TimeSpan, DurationParseError>.Success(TimeSpan.FromSeconds(value)),
-            "m" => new Result<TimeSpan, DurationParseError>.Success(TimeSpan.FromMinutes(value)),
-            "h" => new Result<TimeSpan, DurationParseError>.Success(TimeSpan.FromHours(value)),
-            _ => new Result<TimeSpan, DurationParseError>.Failure(new DurationParseError.UnknownUnit(unit[0]))
+            "s" => new Success(TimeSpan.FromSeconds(value)),
+            "m" => new Success(TimeSpan.FromMinutes(value)),
+            "h" => new Success(TimeSpan.FromHours(value)),
+            _ => new Failure(new DurationParseError.UnknownUnit(unit[0]))
         };
     }
 

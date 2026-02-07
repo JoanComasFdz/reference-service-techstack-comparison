@@ -1,5 +1,6 @@
 using System.Text.Json;
 using JoanComasFdz.Result;
+using static JoanComasFdz.Result.Result<PerformanceTester.ApiLoadTesting.K6Metric, PerformanceTester.ApiLoadTesting.ParseLineError>;
 
 namespace PerformanceTester.ApiLoadTesting;
 
@@ -28,7 +29,7 @@ internal sealed class K6MetricsParser
     {
         if (string.IsNullOrWhiteSpace(jsonLine))
         {
-            return new Result<K6Metric, ParseLineError>.Failure(new ParseLineError.EmptyInput());
+            return new Failure(new ParseLineError.EmptyInput());
         }
 
         try
@@ -37,21 +38,21 @@ internal sealed class K6MetricsParser
 
             if (metric?.Type != "Point")
             {
-                return new Result<K6Metric, ParseLineError>.Failure(
+                return new Failure(
                     new ParseLineError.NonPointMetric(metric?.Type ?? "null"));
             }
 
             if (metric.Metric == null || !IsRelevantMetric(metric.Metric))
             {
-                return new Result<K6Metric, ParseLineError>.Failure(
+                return new Failure(
                     new ParseLineError.IrrelevantMetric(metric.Metric ?? "null"));
             }
 
-            return new Result<K6Metric, ParseLineError>.Success(metric);
+            return new Success(metric);
         }
         catch (JsonException)
         {
-            return new Result<K6Metric, ParseLineError>.Failure(
+            return new Failure(
                 new ParseLineError.InvalidJson(jsonLine));
         }
     }
