@@ -1,3 +1,6 @@
+using JoanComasFdz.Result;
+using PerformanceTester.Orchestration.ValueObjects;
+
 namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 
 /// <summary>
@@ -102,9 +105,9 @@ public class TestConfigurationBuilder
     public TestConfiguration Build()
     {
         return new TestConfiguration(
-            EventCount: _eventCount,
+            EventCount: Unwrap(EventCount.Create(_eventCount)),
             ApiDuration: _apiDuration,
-            ApiWorkers: _apiWorkers,
+            ApiWorkers: Unwrap(WorkerCount.Create(_apiWorkers)),
             InactivityTimeout: _inactivityTimeout,
             WarmupEventCount: _warmupEventCount,
             WarmupApiCallCount: _warmupApiCallCount,
@@ -116,4 +119,9 @@ public class TestConfigurationBuilder
             PostgresContainerName: _postgresContainerName,
             MaxConsecutiveApiFailures: _maxConsecutiveApiFailures);
     }
+
+    private static T Unwrap<T, TError>(Result<T, TError> result) =>
+        result.Match(
+            success: s => s.Value,
+            failure: f => throw new ArgumentException($"Invalid test value: {f.Error}"));
 }

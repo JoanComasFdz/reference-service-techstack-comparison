@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Configuration;
 using PerformanceTester.Cli.Output;
 using PerformanceTester.Orchestration;
+using PerformanceTester.Orchestration.ValueObjects;
 
 namespace PerformanceTester.Cli.Commands;
 
@@ -138,7 +139,34 @@ public static class TestCommand
 
         try
         {
-            // Validate options
+            // Parse value objects (first failure returns error)
+            var eventCountResult = EventCount.Create(options.Events);
+            if (eventCountResult is Result<EventCount, EventCountError>.Failure ecf)
+            {
+                consoleWriter.WriteError(ecf.Error.Match(
+                    outOfRange: o => $"Events must be between 1 and 1,000,000 (got: {o.Value})"));
+                return 1;
+            }
+            var eventCount = ((Result<EventCount, EventCountError>.Success)eventCountResult).Value;
+
+            var apiWorkersResult = WorkerCount.Create(options.ApiWorkers);
+            if (apiWorkersResult is Result<WorkerCount, WorkerCountError>.Failure awf)
+            {
+                consoleWriter.WriteError(awf.Error.Match(
+                    outOfRange: o => $"API workers must be between 1 and 1000 (got: {o.Value})"));
+                return 1;
+            }
+            var apiWorkers = ((Result<WorkerCount, WorkerCountError>.Success)apiWorkersResult).Value;
+
+            var apiDurationResult = DurationParser.Parse(options.ApiDuration);
+            if (apiDurationResult is Result<TimeSpan, DurationParseError>.Failure)
+            {
+                consoleWriter.WriteError($"Invalid API duration format: '{options.ApiDuration}'. Expected format: <number><unit> (e.g., 30s, 5m, 2h)");
+                return 1;
+            }
+            var apiDuration = ((Result<TimeSpan, DurationParseError>.Success)apiDurationResult).Value;
+
+            // Validate remaining options (still primitive)
             var validationResult = ValidateOptions(options);
             if (validationResult is not null)
             {
@@ -146,15 +174,14 @@ public static class TestCommand
                 return 1;
             }
 
-            // Parse durations (already validated by ValidateOptions)
-            var apiDuration = ((Result<TimeSpan, DurationParseError>.Success)DurationParser.Parse(options.ApiDuration)).Value;
+            // Parse remaining durations (already validated by ValidateOptions)
             var inactivityTimeout = ((Result<TimeSpan, DurationParseError>.Success)DurationParser.Parse(options.InactivityTimeout)).Value;
 
             // Build configuration
             var config = new TestConfiguration(
-                EventCount: options.Events,
+                EventCount: eventCount,
                 ApiDuration: apiDuration,
-                ApiWorkers: options.ApiWorkers,
+                ApiWorkers: apiWorkers,
                 InactivityTimeout: inactivityTimeout,
                 WarmupEventCount: options.WarmupEvents,
                 WarmupApiCallCount: (uint)options.WarmupApiCalls,
@@ -181,8 +208,8 @@ public static class TestCommand
             // Create progress adapter - all parameters explicit at call site
             var progressAdapter = new OrchestratorProgressAdapter(
                 progressReporter: progressReporter,
-                totalEventCount: config.EventCount,
-                apiDuration: config.ApiDurationOrDefault);
+                totalEventCount: config.EventCount.Value,
+                apiDuration: config.ApiDuration);
 
             var report = await orchestrator.RunTestAsync(
                 configuration: config,
@@ -241,12 +268,6 @@ public static class TestCommand
     /// </summary>
     internal static string? ValidateOptions(TestCommandOptions options)
     {
-        if (options.Events < 1 || options.Events > 1_000_000)
-            return $"Events must be between 1 and 1,000,000 (got: {options.Events})";
-
-        if (options.ApiWorkers < 1 || options.ApiWorkers > 1000)
-            return $"API workers must be between 1 and 1000 (got: {options.ApiWorkers})";
-
         if (options.Port < 1 || options.Port > 65535)
             return $"Port must be between 1 and 65535 (got: {options.Port})";
 
@@ -258,9 +279,6 @@ public static class TestCommand
 
         if (string.IsNullOrWhiteSpace(options.Database))
             return "Database name cannot be empty";
-
-        if (!DurationParser.IsValid(options.ApiDuration))
-            return $"Invalid API duration format: '{options.ApiDuration}'. Expected format: <number><unit> (e.g., 30s, 5m, 2h)";
 
         if (!DurationParser.IsValid(options.InactivityTimeout))
             return $"Invalid inactivity timeout format: '{options.InactivityTimeout}'. Expected format: <number><unit> (e.g., 120s, 2m)";

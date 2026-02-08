@@ -1,11 +1,13 @@
+using PerformanceTester.Orchestration.ValueObjects;
+
 namespace PerformanceTester.Orchestration;
 
 /// <summary>
 /// Configuration for a complete performance test run.
 /// </summary>
-/// <param name="EventCount">Number of events to publish and consume (default: 10000)</param>
-/// <param name="ApiDuration">Duration of API load test (default: 30 seconds)</param>
-/// <param name="ApiWorkers">Number of concurrent API workers (default: 1)</param>
+/// <param name="EventCount">Number of events to publish and consume</param>
+/// <param name="ApiDuration">Duration of API load test</param>
+/// <param name="ApiWorkers">Number of concurrent API workers</param>
 /// <param name="InactivityTimeout">Timeout for consumer inactivity (default: 120 seconds)</param>
 /// <param name="WarmupEventCount">Number of events for warmup phase (default: 200)</param>
 /// <param name="WarmupApiCallCount">Number of HTTP calls to make during API warmup (default: 10)</param>
@@ -17,9 +19,9 @@ namespace PerformanceTester.Orchestration;
 /// <param name="PostgresContainerName">Name of PostgreSQL Docker container (default: performancetest-postgres)</param>
 /// <param name="MaxConsecutiveApiFailures">Maximum consecutive API failures before aborting load test (default: 3)</param>
 public record TestConfiguration(
-    int EventCount = 10000,
-    TimeSpan? ApiDuration = null,
-    int ApiWorkers = 1,
+    EventCount EventCount,
+    TimeSpan ApiDuration,
+    WorkerCount ApiWorkers,
     TimeSpan? InactivityTimeout = null,
     int WarmupEventCount = 200,
     uint WarmupApiCallCount = 10,
@@ -31,11 +33,6 @@ public record TestConfiguration(
     string PostgresContainerName = "performancetest-postgres",
     int MaxConsecutiveApiFailures = 3)
 {
-    /// <summary>
-    /// Gets the API duration with default value if not specified.
-    /// </summary>
-    public TimeSpan ApiDurationOrDefault => ApiDuration ?? TimeSpan.FromSeconds(30);
-
     /// <summary>
     /// Gets the inactivity timeout with default value if not specified.
     /// </summary>

@@ -92,118 +92,6 @@ public class TestCommandValidatorTests
 
     #endregion
 
-    #region Events Validation Tests
-
-    [Theory]
-    [InlineData(1)]
-    [InlineData(100)]
-    [InlineData(10000)]
-    [InlineData(1000000)]
-    public void ValidateOptions_WithValidEvents_ReturnsNull(int events)
-    {
-        // Arrange
-        var options = CreateValidOptions(events: events);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(-100)]
-    public void ValidateOptions_WithEventsLessThanMinimum_ReturnsError(int events)
-    {
-        // Arrange
-        var options = CreateValidOptions(events: events);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Events must be between 1 and 1,000,000");
-        result.Should().Contain($"got: {events}");
-    }
-
-    [Theory]
-    [InlineData(1000001)]
-    [InlineData(2000000)]
-    public void ValidateOptions_WithEventsGreaterThanMaximum_ReturnsError(int events)
-    {
-        // Arrange
-        var options = CreateValidOptions(events: events);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Events must be between 1 and 1,000,000");
-        result.Should().Contain($"got: {events}");
-    }
-
-    #endregion
-
-    #region ApiWorkers Validation Tests
-
-    [Theory]
-    [InlineData(1)]
-    [InlineData(10)]
-    [InlineData(100)]
-    [InlineData(1000)]
-    public void ValidateOptions_WithValidApiWorkers_ReturnsNull(int apiWorkers)
-    {
-        // Arrange
-        var options = CreateValidOptions(apiWorkers: apiWorkers);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(-100)]
-    public void ValidateOptions_WithApiWorkersLessThanMinimum_ReturnsError(int apiWorkers)
-    {
-        // Arrange
-        var options = CreateValidOptions(apiWorkers: apiWorkers);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("API workers must be between 1 and 1000");
-        result.Should().Contain($"got: {apiWorkers}");
-    }
-
-    [Theory]
-    [InlineData(1001)]
-    [InlineData(2000)]
-    public void ValidateOptions_WithApiWorkersGreaterThanMaximum_ReturnsError(int apiWorkers)
-    {
-        // Arrange
-        var options = CreateValidOptions(apiWorkers: apiWorkers);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("API workers must be between 1 and 1000");
-        result.Should().Contain($"got: {apiWorkers}");
-    }
-
-    #endregion
-
     #region Port Validation Tests
 
     [Theory]
@@ -409,51 +297,6 @@ public class TestCommandValidatorTests
 
     #endregion
 
-    #region ApiDuration Validation Tests
-
-    [Theory]
-    [InlineData("1s")]
-    [InlineData("30s")]
-    [InlineData("5m")]
-    [InlineData("2h")]
-    [InlineData("120s")]
-    [InlineData("60m")]
-    public void ValidateOptions_WithValidApiDuration_ReturnsNull(string apiDuration)
-    {
-        // Arrange
-        var options = CreateValidOptions(apiDuration: apiDuration);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("30")]
-    [InlineData("30d")]
-    [InlineData("seconds")]
-    [InlineData("s30")]
-    [InlineData("30 s")]
-    [InlineData("-30s")]
-    public void ValidateOptions_WithInvalidApiDuration_ReturnsError(string apiDuration)
-    {
-        // Arrange
-        var options = CreateValidOptions(apiDuration: apiDuration);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Invalid API duration format");
-        result.Should().Contain("Expected format: <number><unit>");
-    }
-
-    #endregion
-
     #region InactivityTimeout Validation Tests
 
     [Theory]
@@ -621,56 +464,35 @@ public class TestCommandValidatorTests
     [Fact]
     public void ValidateOptions_WithMultipleInvalidParameters_ReturnsFirstError()
     {
-        // Arrange - Events is validated first
+        // Arrange - Port is validated first (Events, ApiWorkers, ApiDuration are now value objects)
         var options = new TestCommandOptions(
-            Events: 0,              // Invalid - first check
-            ApiDuration: "",        // Invalid - checked later
-            ApiWorkers: 0,          // Invalid - checked later
-            Port: 0,                // Invalid - checked later
+            Events: 10000,
+            ApiDuration: "30s",
+            ApiWorkers: 1,
+            Port: 0,                // Invalid - first check
             Database: "",           // Invalid - checked later
-            ResultsFolder: "",      // Invalid - checked later
-            WarmupEvents: -1,       // Invalid - checked later
-            WarmupApiCalls: -1,     // Invalid - checked later
-            InactivityTimeout: "",  // Invalid - checked later
-            RabbitMqContainer: "",  // Invalid - checked later
-            PostgresContainer: ""   // Invalid - checked later
+            ResultsFolder: "",
+            WarmupEvents: -1,
+            WarmupApiCalls: -1,
+            InactivityTimeout: "",
+            RabbitMqContainer: "",
+            PostgresContainer: ""
         );
 
         // Act
         var result = TestCommand.ValidateOptions(options);
 
-        // Assert - Should return events error (validated first)
+        // Assert - Should return port error (validated first)
         result.Should().NotBeNull();
-        result.Should().Contain("Events must be between 1 and 1,000,000");
+        result.Should().Contain("Port must be between 1 and 65535");
     }
 
     [Fact]
-    public void ValidateOptions_WithInvalidApiWorkersButValidEvents_ReturnsApiWorkersError()
+    public void ValidateOptions_WithInvalidPortButOtherFieldsValid_ReturnsPortError()
     {
-        // Arrange - ApiWorkers is validated second after Events
+        // Arrange - Port is validated first
         var options = CreateValidOptions(
-            events: 1000,           // Valid
-            apiWorkers: 0,          // Invalid - second check
-            port: 0,                // Invalid - checked later
-            database: ""            // Invalid - checked later
-        );
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert - Should return API workers error
-        result.Should().NotBeNull();
-        result.Should().Contain("API workers must be between 1 and 1000");
-    }
-
-    [Fact]
-    public void ValidateOptions_WithInvalidPortButValidEventsAndApiWorkers_ReturnsPortError()
-    {
-        // Arrange - Port is validated third
-        var options = CreateValidOptions(
-            events: 1000,           // Valid
-            apiWorkers: 1,          // Valid
-            port: 0,                // Invalid - third check
+            port: 0,                // Invalid - first check
             database: ""            // Invalid - checked later
         );
 
@@ -685,12 +507,10 @@ public class TestCommandValidatorTests
     [Fact]
     public void ValidateOptions_WithInvalidWarmupEventsButPrecedingFieldsValid_ReturnsWarmupEventsError()
     {
-        // Arrange - WarmupEvents is validated fourth
+        // Arrange - WarmupEvents is validated after Port
         var options = CreateValidOptions(
-            events: 1000,           // Valid
-            apiWorkers: 1,          // Valid
             port: 8080,             // Valid
-            warmupEvents: -1,       // Invalid - fourth check
+            warmupEvents: -1,       // Invalid
             database: ""            // Invalid - checked later
         );
 
@@ -705,14 +525,12 @@ public class TestCommandValidatorTests
     [Fact]
     public void ValidateOptions_WithInvalidDatabaseButPrecedingFieldsValid_ReturnsDatabaseError()
     {
-        // Arrange - Database is validated sixth
+        // Arrange - Database is validated after WarmupApiCalls
         var options = CreateValidOptions(
-            events: 1000,           // Valid
-            apiWorkers: 1,          // Valid
             port: 8080,             // Valid
             warmupEvents: 100,      // Valid
             warmupApiCalls: 10,     // Valid
-            database: ""            // Invalid - sixth check
+            database: ""            // Invalid
         );
 
         // Act
@@ -721,28 +539,6 @@ public class TestCommandValidatorTests
         // Assert - Should return database error
         result.Should().NotBeNull();
         result.Should().Contain("Database name cannot be empty");
-    }
-
-    [Fact]
-    public void ValidateOptions_WithInvalidApiDurationButPrecedingFieldsValid_ReturnsApiDurationError()
-    {
-        // Arrange - ApiDuration is validated seventh
-        var options = CreateValidOptions(
-            events: 1000,           // Valid
-            apiWorkers: 1,          // Valid
-            port: 8080,             // Valid
-            warmupEvents: 100,      // Valid
-            warmupApiCalls: 10,     // Valid
-            database: "testdb",     // Valid
-            apiDuration: "invalid"  // Invalid - seventh check
-        );
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert - Should return API duration error
-        result.Should().NotBeNull();
-        result.Should().Contain("Invalid API duration format");
     }
 
     #endregion
@@ -774,28 +570,11 @@ public class TestCommandValidatorTests
         result.Should().BeNull();
     }
 
-    [Theory]
-    [InlineData("1S")]   // Uppercase
-    [InlineData("30M")]  // Uppercase
-    [InlineData("2H")]   // Uppercase
-    public void ValidateOptions_WithUppercaseDurationUnits_ReturnsNull(string duration)
-    {
-        // Arrange - The DurationParser.IsValid handles case-insensitivity
-        var options = CreateValidOptions(apiDuration: duration);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().BeNull();
-    }
-
     [Fact]
     public void ValidateOptions_WithLargeDurationValues_ReturnsNull()
     {
         // Arrange
         var options = CreateValidOptions(
-            apiDuration: "9999h",      // Very large but valid
             inactivityTimeout: "9999m" // Very large but valid
         );
 

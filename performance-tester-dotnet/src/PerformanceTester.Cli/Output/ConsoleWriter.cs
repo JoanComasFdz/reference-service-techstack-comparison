@@ -50,8 +50,8 @@ public sealed class ConsoleWriter
     {
         var rows = new[]
         {
-            ("Events", config.EventCount.ToString("N0")),
-            ("API Duration", config.ApiDurationOrDefault.ToString()),
+            ("Events", config.EventCount.Value.ToString("N0")),
+            ("API Duration", config.ApiDuration.ToString()),
             ("API Workers", config.ApiWorkers.ToString()),
             ("Port", config.ServicePort.ToString()),
             ("Database", config.DatabaseName),

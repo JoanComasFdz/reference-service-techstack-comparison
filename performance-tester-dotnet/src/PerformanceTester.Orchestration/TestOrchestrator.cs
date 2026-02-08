@@ -124,7 +124,7 @@ public class TestOrchestrator : ITestOrchestrator
 
             // Phase 2: API Load Test
             currentPhase = TestPhase.ApiTest;
-            progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDurationOrDefault.TotalSeconds}s"));
+            progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDuration.TotalSeconds}s"));
             var (apiResult, apiTestStartTime, apiTestEndTime) =
                 await ExecuteApiTestPhaseAsync(configuration, progress, cancellationToken);
             // Report phase completion - Failed if aborted due to consecutive errors, Completed otherwise
@@ -406,7 +406,7 @@ public class TestOrchestrator : ITestOrchestrator
         await Task.WhenAll(dockerStartTasks);
         _logger.LogInformation("Docker container monitors started (first samples collected)");
 
-        var consumerProgress = CreateConsumerProgressCallback(progress, config.EventCount);
+        var consumerProgress = CreateConsumerProgressCallback(progress, config.EventCount.Value);
 
         // Capture startTime immediately before launching concurrent publisher/consumer
         // to minimize gap between monitoring start and measurement start
@@ -415,13 +415,13 @@ public class TestOrchestrator : ITestOrchestrator
 
         // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
         var consumerTask = _eventConsumer.StartTrackingEventsAsync(
-            config.EventCount,
+            config.EventCount.Value,
             config.InactivityTimeoutOrDefault,
             progress: consumerProgress,
             cancellationToken);
 
         var publisherTask = _eventPublisher.PublishEventsAsync(
-            config.EventCount,
+            config.EventCount.Value,
             cancellationToken);
 
         // Wait for both to complete
@@ -432,7 +432,7 @@ public class TestOrchestrator : ITestOrchestrator
         var endTime = DateTime.UtcNow;
 
         var totalDuration = stopwatch.Elapsed;
-        var eventThroughput = config.EventCount / totalDuration.TotalSeconds;
+        var eventThroughput = config.EventCount.Value / totalDuration.TotalSeconds;
 
         _logger.LogInformation(
             "Event throughput test complete: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
@@ -459,7 +459,7 @@ public class TestOrchestrator : ITestOrchestrator
 
         _logger.LogInformation(
             "Starting API load test for {Duration}s with {Workers} worker(s)",
-            config.ApiDurationOrDefault.TotalSeconds,
+            config.ApiDuration.TotalSeconds,
             config.ApiWorkers);
 
         var startTime = DateTime.UtcNow;
@@ -481,8 +481,8 @@ public class TestOrchestrator : ITestOrchestrator
 
         var result = await _apiLoadTester.StartTestAsync(
             config.ApiUrl,
-            config.ApiDurationOrDefault,
-            config.ApiWorkers,
+            config.ApiDuration,
+            config.ApiWorkers.Value,
             config.MaxConsecutiveApiFailures,
             config.ResultsFolder,
             progress: apiProgress,
@@ -704,13 +704,13 @@ public class TestOrchestrator : ITestOrchestrator
             System = systemInfo ?? throw new InvalidOperationException("System info is required"),
             Configuration = new Reporting.TestConfiguration
             {
-                NumEvents = config.EventCount,
-                ApiDuration = config.ApiDurationOrDefault.TotalHours >= 1
-                    ? $"{(int)config.ApiDurationOrDefault.TotalHours}h"
-                    : config.ApiDurationOrDefault.TotalMinutes >= 1
-                        ? $"{(int)config.ApiDurationOrDefault.TotalMinutes}m"
-                        : $"{(int)config.ApiDurationOrDefault.TotalSeconds}s",
-                ApiConcurrentWorkers = config.ApiWorkers,
+                NumEvents = config.EventCount.Value,
+                ApiDuration = config.ApiDuration.TotalHours >= 1
+                    ? $"{(int)config.ApiDuration.TotalHours}h"
+                    : config.ApiDuration.TotalMinutes >= 1
+                        ? $"{(int)config.ApiDuration.TotalMinutes}m"
+                        : $"{(int)config.ApiDuration.TotalSeconds}s",
+                ApiConcurrentWorkers = config.ApiWorkers.Value,
                 RabbitmqExchange = "referenceservice.comparison",
                 ConsumerQueue = "instrument-status-changed",
                 ApiEndpoint = config.ApiUrl,
@@ -727,7 +727,7 @@ public class TestOrchestrator : ITestOrchestrator
                 Phase2Consume = new ConsumeResults
                 {
                     DurationSeconds = eventTestDuration.TotalSeconds,
-                    ThroughputEventsPerSec = config.EventCount / eventTestDuration.TotalSeconds
+                    ThroughputEventsPerSec = config.EventCount.Value / eventTestDuration.TotalSeconds
                 },
                 Phase3Api = new ApiResults
                 {
