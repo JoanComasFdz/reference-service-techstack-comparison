@@ -1,3 +1,5 @@
+using JoanComasFdz.Result;
+
 namespace PerformanceTester.Orchestration.ValueObjects;
 
 public record ContainerName
@@ -7,6 +9,9 @@ public record ContainerName
 
     public override string ToString() => Value;
 
-    protected static bool IsValid(string? value) => !string.IsNullOrWhiteSpace(value);
-    protected static string Trimmed(string value) => value.Trim();
+    protected static Result<T, string> Create<T>(string? value, string errorMessage, Func<string, T> factory)
+        where T : ContainerName =>
+        !string.IsNullOrWhiteSpace(value)
+            ? new Result<T, string>.Success(factory(value.Trim()))
+            : new Result<T, string>.Failure(errorMessage);
 }
