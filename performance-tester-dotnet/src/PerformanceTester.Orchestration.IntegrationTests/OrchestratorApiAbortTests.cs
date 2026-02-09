@@ -50,8 +50,8 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
 
         try
         {
-            await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: config.ServicePort);
-            await System.WaitForServiceHealthyAsync(port: config.ServicePort, timeout: TimeSpan.FromSeconds(10));
+            await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: config.ServicePort.Value);
+            await System.WaitForServiceHealthyAsync(port: config.ServicePort.Value, timeout: TimeSpan.FromSeconds(10));
 
             // Act
             var phaseAwaiter = new PhaseAwaiter();
@@ -106,8 +106,8 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
 
         try
         {
-            await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: config.ServicePort);
-            await System.WaitForServiceHealthyAsync(port: config.ServicePort, timeout: TimeSpan.FromSeconds(10));
+            await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: config.ServicePort.Value);
+            await System.WaitForServiceHealthyAsync(port: config.ServicePort.Value, timeout: TimeSpan.FromSeconds(10));
 
             // Act
             var phaseAwaiter = new PhaseAwaiter();
@@ -161,8 +161,8 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
         try
         {
             await System.RabbitMQ.PurgeQueueAsync(ConfigurableReferenceService.DefaultInputQueueName);
-            await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: config.ServicePort);
-            await System.WaitForServiceHealthyAsync(port: config.ServicePort, timeout: TimeSpan.FromSeconds(10));
+            await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: config.ServicePort.Value);
+            await System.WaitForServiceHealthyAsync(port: config.ServicePort.Value, timeout: TimeSpan.FromSeconds(10));
 
             // Act
             var report = await System.Orchestration.Orchestrator.RunTestAsync(config);

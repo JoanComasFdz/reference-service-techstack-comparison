@@ -143,7 +143,9 @@ public static class TestCommand
             var parseResult =
                 from ec in EventCount.Create(options.Events)
                 from aw in WorkerCount.Create(options.ApiWorkers)
-                select (EventCount: ec, ApiWorkers: aw);
+                from ad in ApiDuration.Create(options.ApiDuration)
+                from sp in Port.Create(options.Port)
+                select (EventCount: ec, ApiWorkers: aw, ApiDuration: ad, ServicePort: sp);
 
             if (parseResult.IsFailure)
             {
@@ -152,14 +154,8 @@ public static class TestCommand
             }
             var eventCount = parseResult.SuccessValue.EventCount;
             var apiWorkers = parseResult.SuccessValue.ApiWorkers;
-
-            var apiDurationResult = DurationParser.Parse(options.ApiDuration);
-            if (apiDurationResult is Result<TimeSpan, DurationParseError>.Failure)
-            {
-                consoleWriter.WriteError($"Invalid API duration format: '{options.ApiDuration}'. Expected format: <number><unit> (e.g., 30s, 5m, 2h)");
-                return 1;
-            }
-            var apiDuration = ((Result<TimeSpan, DurationParseError>.Success)apiDurationResult).Value;
+            var apiDuration = parseResult.SuccessValue.ApiDuration;
+            var servicePort = parseResult.SuccessValue.ServicePort;
 
             // Validate remaining options (still primitive)
             var validationResult = ValidateOptions(options);
@@ -177,10 +173,10 @@ public static class TestCommand
                 EventCount: eventCount,
                 ApiDuration: apiDuration,
                 ApiWorkers: apiWorkers,
+                ServicePort: servicePort,
                 InactivityTimeout: inactivityTimeout,
                 WarmupEventCount: options.WarmupEvents,
                 WarmupApiCallCount: (uint)options.WarmupApiCalls,
-                ServicePort: options.Port,
                 DatabaseName: options.Database,
                 ResultsFolder: options.ResultsFolder,
                 RabbitMqContainerName: options.RabbitMqContainer,
@@ -204,7 +200,7 @@ public static class TestCommand
             var progressAdapter = new OrchestratorProgressAdapter(
                 progressReporter: progressReporter,
                 totalEventCount: config.EventCount.Value,
-                apiDuration: config.ApiDuration);
+                apiDuration: config.ApiDuration.Value);
 
             var report = await orchestrator.RunTestAsync(
                 configuration: config,
@@ -263,9 +259,6 @@ public static class TestCommand
     /// </summary>
     internal static string? ValidateOptions(TestCommandOptions options)
     {
-        if (options.Port < 1 || options.Port > 65535)
-            return $"Port must be between 1 and 65535 (got: {options.Port})";
-
         if (options.WarmupEvents < 0 || options.WarmupEvents > 10000)
             return $"Warmup events must be between 0 and 10000 (got: {options.WarmupEvents})";
 

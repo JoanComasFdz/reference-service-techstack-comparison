@@ -106,13 +106,13 @@ public class TestConfigurationBuilder
     {
         return new TestConfiguration(
             EventCount: Unwrap(EventCount.Create(_eventCount)),
-            ApiDuration: _apiDuration,
+            ApiDuration: ApiDuration.FromTimeSpan(_apiDuration),
             ApiWorkers: Unwrap(WorkerCount.Create(_apiWorkers)),
+            ServicePort: Port.FromInt(_servicePort),
             InactivityTimeout: _inactivityTimeout,
             WarmupEventCount: _warmupEventCount,
             WarmupApiCallCount: _warmupApiCallCount,
             WarmupInactivityTimeout: _warmupInactivityTimeout,
-            ServicePort: _servicePort,
             DatabaseName: _databaseName,
             ResultsFolder: _resultsFolder,
             RabbitMqContainerName: _rabbitMqContainerName,

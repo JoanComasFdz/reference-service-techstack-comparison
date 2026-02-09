@@ -124,7 +124,7 @@ public class TestOrchestrator : ITestOrchestrator
 
             // Phase 2: API Load Test
             currentPhase = TestPhase.ApiTest;
-            progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDuration.TotalSeconds}s"));
+            progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDuration.Value.TotalSeconds}s"));
             var (apiResult, apiTestStartTime, apiTestEndTime) =
                 await ExecuteApiTestPhaseAsync(configuration, progress, cancellationToken);
             // Report phase completion - Failed if aborted due to consecutive errors, Completed otherwise
@@ -231,7 +231,7 @@ public class TestOrchestrator : ITestOrchestrator
         _logger.LogInformation("Discovering service on port {Port}...", config.ServicePort);
 
         var serviceDiscoveryResult = await _serviceDiscovery.FindServiceProcessIdAsync(
-            config.ServicePort,
+            config.ServicePort.Value,
             timeout: TimeSpan.FromSeconds(30),
             cancellationToken);
 
@@ -459,7 +459,7 @@ public class TestOrchestrator : ITestOrchestrator
 
         _logger.LogInformation(
             "Starting API load test for {Duration}s with {Workers} worker(s)",
-            config.ApiDuration.TotalSeconds,
+            config.ApiDuration.Value.TotalSeconds,
             config.ApiWorkers);
 
         var startTime = DateTime.UtcNow;
@@ -481,7 +481,7 @@ public class TestOrchestrator : ITestOrchestrator
 
         var result = await _apiLoadTester.StartTestAsync(
             config.ApiUrl,
-            config.ApiDuration,
+            config.ApiDuration.Value,
             config.ApiWorkers.Value,
             config.MaxConsecutiveApiFailures,
             config.ResultsFolder,
@@ -699,17 +699,17 @@ public class TestOrchestrator : ITestOrchestrator
             {
                 Name = serviceName,
                 Pid = testResult.ServiceProcessId,
-                Port = config.ServicePort
+                Port = config.ServicePort.Value
             },
             System = systemInfo ?? throw new InvalidOperationException("System info is required"),
             Configuration = new Reporting.TestConfiguration
             {
                 NumEvents = config.EventCount.Value,
-                ApiDuration = config.ApiDuration.TotalHours >= 1
-                    ? $"{(int)config.ApiDuration.TotalHours}h"
-                    : config.ApiDuration.TotalMinutes >= 1
-                        ? $"{(int)config.ApiDuration.TotalMinutes}m"
-                        : $"{(int)config.ApiDuration.TotalSeconds}s",
+                ApiDuration = config.ApiDuration.Value.TotalHours >= 1
+                    ? $"{(int)config.ApiDuration.Value.TotalHours}h"
+                    : config.ApiDuration.Value.TotalMinutes >= 1
+                        ? $"{(int)config.ApiDuration.Value.TotalMinutes}m"
+                        : $"{(int)config.ApiDuration.Value.TotalSeconds}s",
                 ApiConcurrentWorkers = config.ApiWorkers.Value,
                 RabbitmqExchange = "referenceservice.comparison",
                 ConsumerQueue = "instrument-status-changed",

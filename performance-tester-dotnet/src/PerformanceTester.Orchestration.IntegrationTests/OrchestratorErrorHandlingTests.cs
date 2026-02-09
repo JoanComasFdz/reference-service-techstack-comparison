@@ -73,11 +73,11 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
             await System.RabbitMQ.PurgeQueueAsync(ConfigurableReferenceService.DefaultInputQueueName);
 
             // Make ConfigurableReferenceService discoverable on the test port (recreates its queue)
-            await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: config.ServicePort);
+            await System.ConfigurableReferenceService.ConnectAndSubscribeAsync(listenPort: config.ServicePort.Value);
 
             // Wait for service to be fully ready (RabbitMQ subscription established)
             // Health check polls /health endpoint until service reports ready status
-            await System.WaitForServiceHealthyAsync(port: config.ServicePort, timeout: TimeSpan.FromSeconds(10));
+            await System.WaitForServiceHealthyAsync(port: config.ServicePort.Value, timeout: TimeSpan.FromSeconds(10));
 
             // Act & Assert: Should timeout with progress info
             var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>

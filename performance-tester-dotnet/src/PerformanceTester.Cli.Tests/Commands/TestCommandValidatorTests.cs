@@ -92,62 +92,6 @@ public class TestCommandValidatorTests
 
     #endregion
 
-    #region Port Validation Tests
-
-    [Theory]
-    [InlineData(1)]
-    [InlineData(80)]
-    [InlineData(8080)]
-    [InlineData(65535)]
-    public void ValidateOptions_WithValidPort_ReturnsNull(int port)
-    {
-        // Arrange
-        var options = CreateValidOptions(port: port);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(-80)]
-    public void ValidateOptions_WithPortLessThanMinimum_ReturnsError(int port)
-    {
-        // Arrange
-        var options = CreateValidOptions(port: port);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Port must be between 1 and 65535");
-        result.Should().Contain($"got: {port}");
-    }
-
-    [Theory]
-    [InlineData(65536)]
-    [InlineData(70000)]
-    public void ValidateOptions_WithPortGreaterThanMaximum_ReturnsError(int port)
-    {
-        // Arrange
-        var options = CreateValidOptions(port: port);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Port must be between 1 and 65535");
-        result.Should().Contain($"got: {port}");
-    }
-
-    #endregion
-
     #region WarmupEvents Validation Tests
 
     [Theory]
@@ -464,15 +408,15 @@ public class TestCommandValidatorTests
     [Fact]
     public void ValidateOptions_WithMultipleInvalidParameters_ReturnsFirstError()
     {
-        // Arrange - Port is validated first (Events, ApiWorkers, ApiDuration are now value objects)
+        // Arrange - WarmupEvents is validated first (Events, ApiWorkers, ApiDuration, Port are now value objects)
         var options = new TestCommandOptions(
             Events: 10000,
             ApiDuration: "30s",
             ApiWorkers: 1,
-            Port: 0,                // Invalid - first check
+            Port: 8080,
             Database: "",           // Invalid - checked later
             ResultsFolder: "",
-            WarmupEvents: -1,
+            WarmupEvents: -1,       // Invalid - first check in ValidateOptions
             WarmupApiCalls: -1,
             InactivityTimeout: "",
             RabbitMqContainer: "",
@@ -482,32 +426,15 @@ public class TestCommandValidatorTests
         // Act
         var result = TestCommand.ValidateOptions(options);
 
-        // Assert - Should return port error (validated first)
+        // Assert - Should return warmup events error (validated first)
         result.Should().NotBeNull();
-        result.Should().Contain("Port must be between 1 and 65535");
-    }
-
-    [Fact]
-    public void ValidateOptions_WithInvalidPortButOtherFieldsValid_ReturnsPortError()
-    {
-        // Arrange - Port is validated first
-        var options = CreateValidOptions(
-            port: 0,                // Invalid - first check
-            database: ""            // Invalid - checked later
-        );
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert - Should return port error
-        result.Should().NotBeNull();
-        result.Should().Contain("Port must be between 1 and 65535");
+        result.Should().Contain("Warmup events must be between 0 and 10000");
     }
 
     [Fact]
     public void ValidateOptions_WithInvalidWarmupEventsButPrecedingFieldsValid_ReturnsWarmupEventsError()
     {
-        // Arrange - WarmupEvents is validated after Port
+        // Arrange - WarmupEvents is validated first in ValidateOptions
         var options = CreateValidOptions(
             port: 8080,             // Valid
             warmupEvents: -1,       // Invalid
