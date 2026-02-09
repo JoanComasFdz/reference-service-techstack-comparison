@@ -147,8 +147,8 @@ public static class TestCommand
                 from InactivityTimeout in InactivityTimeout.Create(options.InactivityTimeout)
                 from WarmupInactivityTimeout in InactivityTimeout.Create(options.WarmupInactivityTimeout)
                 from ResultsFolder in ResultsFolder.Create(options.ResultsFolder)
-                from RabbitMqContainer in ContainerName.Create(options.RabbitMqContainer, "RabbitMQ")
-                from PostgresContainer in ContainerName.Create(options.PostgresContainer, "PostgreSQL")
+                from RabbitMqContainer in RabbitMqContainerName.Create(options.RabbitMqContainer)
+                from PostgresContainer in PostgresContainerName.Create(options.PostgresContainer)
                 select (new TestConfiguration(
                     EventCount,
                     ApiDuration,

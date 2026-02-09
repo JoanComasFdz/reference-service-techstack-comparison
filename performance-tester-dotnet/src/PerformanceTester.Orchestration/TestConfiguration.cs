@@ -27,8 +27,8 @@ public record TestConfiguration(
     WarmupApiCallsCount WarmupApiCallCount,
     DatabaseName DatabaseName,
     ResultsFolder ResultsFolder,
-    ContainerName RabbitMqContainerName,
-    ContainerName PostgresContainerName,
+    RabbitMqContainerName RabbitMqContainerName,
+    PostgresContainerName PostgresContainerName,
     InactivityTimeout InactivityTimeout,
     InactivityTimeout WarmupInactivityTimeout,
     int MaxConsecutiveApiFailures = 3)

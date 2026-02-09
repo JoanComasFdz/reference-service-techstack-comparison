@@ -115,8 +115,8 @@ public class TestConfigurationBuilder
             WarmupApiCallCount: WarmupApiCallsCount.FromUint(_warmupApiCallCount),
             WarmupInactivityTimeout: InactivityTimeout.FromTimeSpan(_warmupInactivityTimeout),
             ResultsFolder: ResultsFolder.FromString(_resultsFolder),
-            RabbitMqContainerName: ContainerName.FromString(_rabbitMqContainerName),
-            PostgresContainerName: ContainerName.FromString(_postgresContainerName),
+            RabbitMqContainerName: RabbitMqContainerName.FromString(_rabbitMqContainerName),
+            PostgresContainerName: PostgresContainerName.FromString(_postgresContainerName),
             MaxConsecutiveApiFailures: _maxConsecutiveApiFailures);
     }
 
