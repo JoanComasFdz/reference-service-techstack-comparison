@@ -96,38 +96,28 @@ public static class TestCommand
 
         command.SetHandler(async (InvocationContext context) =>
         {
-            var events = context.ParseResult.GetValueForOption(eventsOption);
-            var apiDuration = context.ParseResult.GetValueForOption(apiDurationOption)!;
-            var apiWorkers = context.ParseResult.GetValueForOption(apiWorkersOption);
-            var port = context.ParseResult.GetValueForOption(portOption);
-            var database = context.ParseResult.GetValueForOption(databaseOption)!;
-            var resultsFolder = context.ParseResult.GetValueForOption(resultsFolderOption)!;
-            var warmupEvents = context.ParseResult.GetValueForOption(warmupEventsOption);
-            var warmupApiCalls = context.ParseResult.GetValueForOption(warmupApiCallsOption);
-            var inactivityTimeout = context.ParseResult.GetValueForOption(inactivityTimeoutOption)!;
-            var warmupInactivityTimeout = context.ParseResult.GetValueForOption(warmupInactivityTimeoutOption)!;
-            var rabbitMqContainer = context.ParseResult.GetValueForOption(rabbitMqContainerOption)!;
-            var postgresContainer = context.ParseResult.GetValueForOption(postgresContainerOption)!;
-
+            TestCommandOptions options = new(
+                    context.ParseResult.GetValueForOption(eventsOption),
+                    context.ParseResult.GetValueForOption(apiDurationOption)!,
+                    context.ParseResult.GetValueForOption(apiWorkersOption),
+                    context.ParseResult.GetValueForOption(portOption),
+                    context.ParseResult.GetValueForOption(databaseOption)!,
+                    context.ParseResult.GetValueForOption(resultsFolderOption)!,
+                    context.ParseResult.GetValueForOption(warmupEventsOption),
+                    context.ParseResult.GetValueForOption(warmupApiCallsOption),
+                    context.ParseResult.GetValueForOption(inactivityTimeoutOption)!,
+                    context.ParseResult.GetValueForOption(warmupInactivityTimeoutOption)!,
+                    context.ParseResult.GetValueForOption(rabbitMqContainerOption)!,
+                    context.ParseResult.GetValueForOption(postgresContainerOption)!);
             var host = context.GetHost();
             var cancellationToken = context.GetCancellationToken();
 
             var exitCode = await ExecuteAsync(
-                new TestCommandOptions(
-                    events,
-                    apiDuration,
-                    apiWorkers,
-                    port,
-                    database,
-                    resultsFolder,
-                    warmupEvents,
-                    warmupApiCalls,
-                    inactivityTimeout,
-                    warmupInactivityTimeout,
-                    rabbitMqContainer,
-                    postgresContainer),
-                host,
-                cancellationToken);
+                options,
+                host.Services.GetRequiredService<ILogger<Program>>(),
+                host.Services.GetRequiredService<ConsoleWriter>(),
+                host.Services.GetRequiredService<ProgressReporter>(),
+                host.Services.GetRequiredService<ITestOrchestrator>(), cancellationToken);
 
             context.ExitCode = exitCode;
         });
@@ -137,33 +127,41 @@ public static class TestCommand
 
     private static async Task<int> ExecuteAsync(
         TestCommandOptions options,
-        IHost host,
+        ILogger<Program> logger,
+        ConsoleWriter consoleWriter,
+        ProgressReporter progressReporter,
+        ITestOrchestrator orchestrator,
         CancellationToken cancellationToken)
     {
-        var logger = host.Services.GetRequiredService<ILogger<Program>>();
-        var consoleWriter = host.Services.GetRequiredService<ConsoleWriter>();
-        var progressReporter = host.Services.GetRequiredService<ProgressReporter>();
-
         try
         {
             // Parse value objects (first failure short-circuits)
             var parseResult =
-                from ec in EventCount.Create(options.Events)
-                from aw in WorkerCount.Create(options.ApiWorkers)
-                from ad in ApiDuration.Create(options.ApiDuration)
-                from sp in Port.Create(options.Port)
-                from we in WarmupEventsCount.Create(options.WarmupEvents)
-                from wa in WarmupApiCallsCount.Create(options.WarmupApiCalls)
-                from db in DatabaseName.Create(options.Database)
-                from it in InactivityTimeout.Create(options.InactivityTimeout)
-                from wt in InactivityTimeout.Create(options.WarmupInactivityTimeout)
-                from rf in ResultsFolder.Create(options.ResultsFolder)
-                from rc in ContainerName.Create(options.RabbitMqContainer, "RabbitMQ")
-                from pc in ContainerName.Create(options.PostgresContainer, "PostgreSQL")
-                select (EventCount: ec, ApiWorkers: aw, ApiDuration: ad, ServicePort: sp,
-                        WarmupEvents: we, WarmupApiCalls: wa, DatabaseName: db,
-                        InactivityTimeout: it, WarmupInactivityTimeout: wt, ResultsFolder: rf,
-                        RabbitMqContainer: rc, PostgresContainer: pc);
+                from EventCount in EventCount.Create(options.Events)
+                from ApiWorkers in WorkerCount.Create(options.ApiWorkers)
+                from ApiDuration in ApiDuration.Create(options.ApiDuration)
+                from ServicePort in Port.Create(options.Port)
+                from WarmupEvents in WarmupEventsCount.Create(options.WarmupEvents)
+                from WarmupApiCalls in WarmupApiCallsCount.Create(options.WarmupApiCalls)
+                from DatabaseName in DatabaseName.Create(options.Database)
+                from InactivityTimeout in InactivityTimeout.Create(options.InactivityTimeout)
+                from WarmupInactivityTimeout in InactivityTimeout.Create(options.WarmupInactivityTimeout)
+                from ResultsFolder in ResultsFolder.Create(options.ResultsFolder)
+                from RabbitMqContainer in ContainerName.Create(options.RabbitMqContainer, "RabbitMQ")
+                from PostgresContainer in ContainerName.Create(options.PostgresContainer, "PostgreSQL")
+                select (new TestConfiguration(
+                    EventCount,
+                    ApiDuration,
+                    ApiWorkers,
+                    ServicePort,
+                    WarmupEvents,
+                    WarmupApiCalls,
+                    DatabaseName,
+                    ResultsFolder,
+                    RabbitMqContainer,
+                    PostgresContainer,
+                    InactivityTimeout,
+                    WarmupInactivityTimeout));
 
             if (parseResult.IsFailure)
             {
@@ -171,45 +169,26 @@ public static class TestCommand
                 return 1;
             }
 
-            // Build configuration
-            var config = new TestConfiguration(
-                parseResult.SuccessValue.EventCount,
-                parseResult.SuccessValue.ApiDuration,
-                parseResult.SuccessValue.ApiWorkers,
-                parseResult.SuccessValue.ServicePort,
-                parseResult.SuccessValue.WarmupEvents,
-                parseResult.SuccessValue.WarmupApiCalls,
-                parseResult.SuccessValue.DatabaseName,
-                parseResult.SuccessValue.ResultsFolder,
-                parseResult.SuccessValue.RabbitMqContainer,
-                parseResult.SuccessValue.PostgresContainer,
-                parseResult.SuccessValue.InactivityTimeout,
-                parseResult.SuccessValue.WarmupInactivityTimeout);
+            var config = parseResult.SuccessValue;
 
             // Display configuration
             consoleWriter.WriteHeader("Performance Test Configuration");
             consoleWriter.WriteConfigTable(config);
             consoleWriter.WriteLine();
 
-            // Ensure results folder exists
             Directory.CreateDirectory(config.ResultsFolder.Value);
-
-            // Get orchestrator and run test
-            var orchestrator = host.Services.GetRequiredService<ITestOrchestrator>();
-
             consoleWriter.WriteHeader("Running Performance Test");
             progressReporter.Initialize();
 
-            // Create progress adapter - all parameters explicit at call site
             var progressAdapter = new OrchestratorProgressAdapter(
-                progressReporter: progressReporter,
-                totalEventCount: config.EventCount.Value,
-                apiDuration: config.ApiDuration.Value);
+                progressReporter,
+                config.EventCount.Value,
+                config.ApiDuration.Value);
 
             var report = await orchestrator.RunTestAsync(
-                configuration: config,
-                progress: progressAdapter,
-                cancellationToken: cancellationToken);
+                config,
+                progressAdapter,
+                cancellationToken);
 
             progressReporter.Complete();
 
