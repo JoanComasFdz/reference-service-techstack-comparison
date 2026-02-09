@@ -148,9 +148,13 @@ public static class TestCommand
                 from wa in WarmupApiCallsCount.Create(options.WarmupApiCalls)
                 from db in DatabaseName.Create(options.Database)
                 from it in InactivityTimeout.Create(options.InactivityTimeout)
+                from rf in ResultsFolder.Create(options.ResultsFolder)
+                from rc in ContainerName.Create(options.RabbitMqContainer, "RabbitMQ")
+                from pc in ContainerName.Create(options.PostgresContainer, "PostgreSQL")
                 select (EventCount: ec, ApiWorkers: aw, ApiDuration: ad, ServicePort: sp,
                         WarmupEvents: we, WarmupApiCalls: wa, DatabaseName: db,
-                        InactivityTimeout: it);
+                        InactivityTimeout: it, ResultsFolder: rf,
+                        RabbitMqContainer: rc, PostgresContainer: pc);
 
             if (parseResult.IsFailure)
             {
@@ -165,14 +169,9 @@ public static class TestCommand
             var warmupApiCalls = parseResult.SuccessValue.WarmupApiCalls;
             var databaseName = parseResult.SuccessValue.DatabaseName;
             var inactivityTimeout = parseResult.SuccessValue.InactivityTimeout;
-
-            // Validate remaining options (still primitive)
-            var validationResult = ValidateOptions(options);
-            if (validationResult is not null)
-            {
-                consoleWriter.WriteError(validationResult);
-                return 1;
-            }
+            var resultsFolder = parseResult.SuccessValue.ResultsFolder;
+            var rabbitMqContainer = parseResult.SuccessValue.RabbitMqContainer;
+            var postgresContainer = parseResult.SuccessValue.PostgresContainer;
 
             // Build configuration
             var config = new TestConfiguration(
@@ -183,10 +182,10 @@ public static class TestCommand
                 WarmupEventCount: warmupEvents,
                 WarmupApiCallCount: warmupApiCalls,
                 DatabaseName: databaseName,
-                InactivityTimeout: inactivityTimeout,
-                ResultsFolder: options.ResultsFolder,
-                RabbitMqContainerName: options.RabbitMqContainer,
-                PostgresContainerName: options.PostgresContainer);
+                ResultsFolder: resultsFolder,
+                RabbitMqContainerName: rabbitMqContainer,
+                PostgresContainerName: postgresContainer,
+                InactivityTimeout: inactivityTimeout);
 
             // Display configuration
             consoleWriter.WriteHeader("Performance Test Configuration");
@@ -194,7 +193,7 @@ public static class TestCommand
             consoleWriter.WriteLine();
 
             // Ensure results folder exists
-            Directory.CreateDirectory(config.ResultsFolder);
+            Directory.CreateDirectory(config.ResultsFolder.Value);
 
             // Get orchestrator and run test
             var orchestrator = host.Services.GetRequiredService<ITestOrchestrator>();
@@ -260,22 +259,6 @@ public static class TestCommand
         }
     }
 
-    /// <summary>
-    /// Validates command options. Returns error message if invalid, null if valid.
-    /// </summary>
-    internal static string? ValidateOptions(TestCommandOptions options)
-    {
-        if (string.IsNullOrWhiteSpace(options.ResultsFolder))
-            return "Results folder cannot be empty";
-
-        if (string.IsNullOrWhiteSpace(options.RabbitMqContainer))
-            return "RabbitMQ container name cannot be empty";
-
-        if (string.IsNullOrWhiteSpace(options.PostgresContainer))
-            return "PostgreSQL container name cannot be empty";
-
-        return null;
-    }
 }
 
 /// <summary>

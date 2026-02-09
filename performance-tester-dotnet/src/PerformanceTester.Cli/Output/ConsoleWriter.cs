@@ -55,7 +55,7 @@ public sealed class ConsoleWriter
             ("API Workers", config.ApiWorkers.ToString()),
             ("Port", config.ServicePort.ToString()),
             ("Database", config.DatabaseName.ToString()),
-            ("Results Folder", config.ResultsFolder),
+            ("Results Folder", config.ResultsFolder.ToString()),
             ("Warmup Events", config.WarmupEventCount.Value.ToString("N0")),
             ("Warmup API Calls", config.WarmupApiCallCount.ToString()),
             ("Inactivity Timeout", config.InactivityTimeoutOrDefault.ToString())

@@ -14,9 +14,9 @@ namespace PerformanceTester.Orchestration;
 /// <param name="WarmupInactivityTimeout">Timeout for consumer inactivity during warmup, parsed from duration string (default: 30 seconds)</param>
 /// <param name="ServicePort">Port where service is running (1-65535)</param>
 /// <param name="DatabaseName">PostgreSQL database name for the service (non-empty)</param>
-/// <param name="ResultsFolder">Directory to save test results (default: ./test-results)</param>
-/// <param name="RabbitMqContainerName">Name of RabbitMQ Docker container (default: performancetest-rabbitmq)</param>
-/// <param name="PostgresContainerName">Name of PostgreSQL Docker container (default: performancetest-postgres)</param>
+/// <param name="ResultsFolder">Directory to save test results (non-empty)</param>
+/// <param name="RabbitMqContainerName">Name of RabbitMQ Docker container (non-empty)</param>
+/// <param name="PostgresContainerName">Name of PostgreSQL Docker container (non-empty)</param>
 /// <param name="MaxConsecutiveApiFailures">Maximum consecutive API failures before aborting load test (default: 3)</param>
 public record TestConfiguration(
     EventCount EventCount,
@@ -26,11 +26,11 @@ public record TestConfiguration(
     WarmupEventsCount WarmupEventCount,
     WarmupApiCallsCount WarmupApiCallCount,
     DatabaseName DatabaseName,
+    ResultsFolder ResultsFolder,
+    ContainerName RabbitMqContainerName,
+    ContainerName PostgresContainerName,
     InactivityTimeout? InactivityTimeout = null,
     InactivityTimeout? WarmupInactivityTimeout = null,
-    string ResultsFolder = "./test-results",
-    string RabbitMqContainerName = "performancetest-rabbitmq",
-    string PostgresContainerName = "performancetest-postgres",
     int MaxConsecutiveApiFailures = 3)
 {
     /// <summary>

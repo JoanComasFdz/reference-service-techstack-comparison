@@ -484,7 +484,7 @@ public class TestOrchestrator : ITestOrchestrator
             config.ApiDuration.Value,
             config.ApiWorkers.Value,
             config.MaxConsecutiveApiFailures,
-            config.ResultsFolder,
+            config.ResultsFolder.Value,
             progress: apiProgress,
             cancellationToken);
 
@@ -533,8 +533,8 @@ public class TestOrchestrator : ITestOrchestrator
         var systemMetrics = _systemMonitor.GetCollectedMetrics();
 
         // Get Docker monitors by container name
-        var rabbitMqMonitor = _dockerMonitors.Single(m => m.ContainerName == config.RabbitMqContainerName);
-        var postgresMonitor = _dockerMonitors.Single(m => m.ContainerName == config.PostgresContainerName);
+        var rabbitMqMonitor = _dockerMonitors.Single(m => m.ContainerName == config.RabbitMqContainerName.Value);
+        var postgresMonitor = _dockerMonitors.Single(m => m.ContainerName == config.PostgresContainerName.Value);
 
         var rabbitMqMetrics = rabbitMqMonitor?.GetCollectedMetrics() ?? [];
         var postgresMetrics = postgresMonitor?.GetCollectedMetrics() ?? [];
@@ -568,10 +568,10 @@ public class TestOrchestrator : ITestOrchestrator
         // Step 6: Generate JSON reports
         _logger.LogInformation("Generating JSON reports to {Folder}", config.ResultsFolder);
 
-        Directory.CreateDirectory(config.ResultsFolder);
+        Directory.CreateDirectory(config.ResultsFolder.Value);
 
         await _reportGenerator.GenerateReportAsync(
-            config.ResultsFolder,
+            config.ResultsFolder.Value,
             testReport,
             cancellationToken);
 
@@ -580,7 +580,7 @@ public class TestOrchestrator : ITestOrchestrator
         // Step 7: Generate chart
         var serviceName = processMetrics.FirstOrDefault()?.ProcessName ?? "unknown";
         var chartPath = Path.Combine(
-            config.ResultsFolder,
+            config.ResultsFolder.Value,
             $"test-report-{testReport.TestDate:yyyyMMdd_HHmmss}-{serviceName.ToLowerInvariant()}.chart.png");
 
         _logger.LogInformation("Generating chart to {Path}", chartPath);
