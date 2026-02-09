@@ -8,7 +8,7 @@ public sealed record ResultsFolder
     public string Value { get; }
     private ResultsFolder(string value) => Value = value;
 
-    public static Result<ResultsFolder, string> Create(string? value) =>
+    public static Result<ResultsFolder, string> Create(string value) =>
         !string.IsNullOrWhiteSpace(value)
             ? new Success(new ResultsFolder(value.Trim()))
             : new Failure("Results folder cannot be empty");
