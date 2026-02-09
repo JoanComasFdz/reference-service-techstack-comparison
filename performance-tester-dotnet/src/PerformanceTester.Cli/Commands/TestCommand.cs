@@ -5,7 +5,6 @@ using JoanComasFdz.Result;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.Cli.Configuration;
 using PerformanceTester.Cli.Output;
 using PerformanceTester.Orchestration;
 using PerformanceTester.Orchestration.ValueObjects;
@@ -147,8 +146,11 @@ public static class TestCommand
                 from sp in Port.Create(options.Port)
                 from we in WarmupEventsCount.Create(options.WarmupEvents)
                 from wa in WarmupApiCallsCount.Create(options.WarmupApiCalls)
+                from db in DatabaseName.Create(options.Database)
+                from it in InactivityTimeout.Create(options.InactivityTimeout)
                 select (EventCount: ec, ApiWorkers: aw, ApiDuration: ad, ServicePort: sp,
-                        WarmupEvents: we, WarmupApiCalls: wa);
+                        WarmupEvents: we, WarmupApiCalls: wa, DatabaseName: db,
+                        InactivityTimeout: it);
 
             if (parseResult.IsFailure)
             {
@@ -161,6 +163,8 @@ public static class TestCommand
             var servicePort = parseResult.SuccessValue.ServicePort;
             var warmupEvents = parseResult.SuccessValue.WarmupEvents;
             var warmupApiCalls = parseResult.SuccessValue.WarmupApiCalls;
+            var databaseName = parseResult.SuccessValue.DatabaseName;
+            var inactivityTimeout = parseResult.SuccessValue.InactivityTimeout;
 
             // Validate remaining options (still primitive)
             var validationResult = ValidateOptions(options);
@@ -170,19 +174,16 @@ public static class TestCommand
                 return 1;
             }
 
-            // Parse remaining durations (already validated by ValidateOptions)
-            var inactivityTimeout = ((Result<TimeSpan, DurationParseError>.Success)DurationParser.Parse(options.InactivityTimeout)).Value;
-
             // Build configuration
             var config = new TestConfiguration(
                 EventCount: eventCount,
                 ApiDuration: apiDuration,
                 ApiWorkers: apiWorkers,
                 ServicePort: servicePort,
-                InactivityTimeout: inactivityTimeout,
                 WarmupEventCount: warmupEvents,
                 WarmupApiCallCount: warmupApiCalls,
-                DatabaseName: options.Database,
+                DatabaseName: databaseName,
+                InactivityTimeout: inactivityTimeout,
                 ResultsFolder: options.ResultsFolder,
                 RabbitMqContainerName: options.RabbitMqContainer,
                 PostgresContainerName: options.PostgresContainer);
@@ -264,12 +265,6 @@ public static class TestCommand
     /// </summary>
     internal static string? ValidateOptions(TestCommandOptions options)
     {
-        if (string.IsNullOrWhiteSpace(options.Database))
-            return "Database name cannot be empty";
-
-        if (!DurationParser.IsValid(options.InactivityTimeout))
-            return $"Invalid inactivity timeout format: '{options.InactivityTimeout}'. Expected format: <number><unit> (e.g., 120s, 2m)";
-
         if (string.IsNullOrWhiteSpace(options.ResultsFolder))
             return "Results folder cannot be empty";
 

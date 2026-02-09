@@ -8,12 +8,12 @@ namespace PerformanceTester.Orchestration;
 /// <param name="EventCount">Number of events to publish and consume</param>
 /// <param name="ApiDuration">Duration of API load test (parsed from CLI string like "30s")</param>
 /// <param name="ApiWorkers">Number of concurrent API workers</param>
-/// <param name="InactivityTimeout">Timeout for consumer inactivity (default: 120 seconds)</param>
+/// <param name="InactivityTimeout">Timeout for consumer inactivity, parsed from duration string (default: 120 seconds)</param>
 /// <param name="WarmupEventCount">Number of events for warmup phase (0-10,000)</param>
 /// <param name="WarmupApiCallCount">Number of HTTP calls to make during API warmup (0-1,000)</param>
-/// <param name="WarmupInactivityTimeout">Timeout for consumer inactivity during warmup (default: 30 seconds)</param>
+/// <param name="WarmupInactivityTimeout">Timeout for consumer inactivity during warmup, parsed from duration string (default: 30 seconds)</param>
 /// <param name="ServicePort">Port where service is running (1-65535)</param>
-/// <param name="DatabaseName">PostgreSQL database name for the service</param>
+/// <param name="DatabaseName">PostgreSQL database name for the service (non-empty)</param>
 /// <param name="ResultsFolder">Directory to save test results (default: ./test-results)</param>
 /// <param name="RabbitMqContainerName">Name of RabbitMQ Docker container (default: performancetest-rabbitmq)</param>
 /// <param name="PostgresContainerName">Name of PostgreSQL Docker container (default: performancetest-postgres)</param>
@@ -25,9 +25,9 @@ public record TestConfiguration(
     Port ServicePort,
     WarmupEventsCount WarmupEventCount,
     WarmupApiCallsCount WarmupApiCallCount,
-    TimeSpan? InactivityTimeout = null,
-    TimeSpan? WarmupInactivityTimeout = null,
-    string DatabaseName = "defaultdb",
+    DatabaseName DatabaseName,
+    InactivityTimeout? InactivityTimeout = null,
+    InactivityTimeout? WarmupInactivityTimeout = null,
     string ResultsFolder = "./test-results",
     string RabbitMqContainerName = "performancetest-rabbitmq",
     string PostgresContainerName = "performancetest-postgres",
@@ -36,12 +36,12 @@ public record TestConfiguration(
     /// <summary>
     /// Gets the inactivity timeout with default value if not specified.
     /// </summary>
-    public TimeSpan InactivityTimeoutOrDefault => InactivityTimeout ?? TimeSpan.FromSeconds(120);
+    public TimeSpan InactivityTimeoutOrDefault => InactivityTimeout?.Value ?? TimeSpan.FromSeconds(120);
 
     /// <summary>
     /// Gets the warmup inactivity timeout with default value if not specified.
     /// </summary>
-    public TimeSpan WarmupInactivityTimeoutOrDefault => WarmupInactivityTimeout ?? TimeSpan.FromSeconds(30);
+    public TimeSpan WarmupInactivityTimeoutOrDefault => WarmupInactivityTimeout?.Value ?? TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Gets the API URL based on the service port.

@@ -92,89 +92,6 @@ public class TestCommandValidatorTests
 
     #endregion
 
-    #region Database Validation Tests
-
-    [Theory]
-    [InlineData("go_db")]
-    [InlineData("test-db")]
-    [InlineData("my_database_123")]
-    [InlineData("a")]
-    public void ValidateOptions_WithValidDatabase_ReturnsNull(string database)
-    {
-        // Arrange
-        var options = CreateValidOptions(database: database);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("\t")]
-    [InlineData("\n")]
-    public void ValidateOptions_WithInvalidDatabase_ReturnsError(string database)
-    {
-        // Arrange
-        var options = CreateValidOptions(database: database);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Database name cannot be empty");
-    }
-
-    #endregion
-
-    #region InactivityTimeout Validation Tests
-
-    [Theory]
-    [InlineData("1s")]
-    [InlineData("120s")]
-    [InlineData("2m")]
-    [InlineData("1h")]
-    [InlineData("30s")]
-    public void ValidateOptions_WithValidInactivityTimeout_ReturnsNull(string inactivityTimeout)
-    {
-        // Arrange
-        var options = CreateValidOptions(inactivityTimeout: inactivityTimeout);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("120")]
-    [InlineData("2d")]
-    [InlineData("timeout")]
-    [InlineData("s120")]
-    [InlineData("120 s")]
-    [InlineData("-120s")]
-    public void ValidateOptions_WithInvalidInactivityTimeout_ReturnsError(string inactivityTimeout)
-    {
-        // Arrange
-        var options = CreateValidOptions(inactivityTimeout: inactivityTimeout);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Invalid inactivity timeout format");
-        result.Should().Contain("Expected format: <number><unit>");
-    }
-
-    #endregion
-
     #region ResultsFolder Validation Tests
 
     [Theory]
@@ -298,17 +215,17 @@ public class TestCommandValidatorTests
     [Fact]
     public void ValidateOptions_WithMultipleInvalidParameters_ReturnsFirstError()
     {
-        // Arrange - Database is validated first (Events, ApiWorkers, ApiDuration, Port, WarmupEvents, WarmupApiCalls are now value objects)
+        // Arrange - ResultsFolder is validated first (Events, ApiWorkers, ApiDuration, Port, WarmupEvents, WarmupApiCalls, Database, InactivityTimeout are now value objects)
         var options = new TestCommandOptions(
             Events: 10000,
             ApiDuration: "30s",
             ApiWorkers: 1,
             Port: 8080,
-            Database: "",           // Invalid - first check in ValidateOptions
-            ResultsFolder: "",
+            Database: "testdb",
+            ResultsFolder: "",      // Invalid - first check in ValidateOptions
             WarmupEvents: 200,
             WarmupApiCalls: 10,
-            InactivityTimeout: "",
+            InactivityTimeout: "120s",
             RabbitMqContainer: "",
             PostgresContainer: ""
         );
@@ -316,28 +233,9 @@ public class TestCommandValidatorTests
         // Act
         var result = TestCommand.ValidateOptions(options);
 
-        // Assert - Should return database error (validated first)
+        // Assert - Should return results folder error (validated first)
         result.Should().NotBeNull();
-        result.Should().Contain("Database name cannot be empty");
-    }
-
-    [Fact]
-    public void ValidateOptions_WithInvalidDatabaseButPrecedingFieldsValid_ReturnsDatabaseError()
-    {
-        // Arrange - Database is validated first in ValidateOptions
-        var options = CreateValidOptions(
-            port: 8080,             // Valid
-            warmupEvents: 100,      // Valid
-            warmupApiCalls: 10,     // Valid
-            database: ""            // Invalid
-        );
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert - Should return database error
-        result.Should().NotBeNull();
-        result.Should().Contain("Database name cannot be empty");
+        result.Should().Contain("Results folder cannot be empty");
     }
 
     #endregion

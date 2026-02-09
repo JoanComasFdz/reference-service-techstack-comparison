@@ -271,7 +271,7 @@ public class TestOrchestrator : ITestOrchestrator
 
         // Step 4: Clear database
         _logger.LogInformation("Clearing database {Database}...", config.DatabaseName);
-        (await _database.ClearDatabaseAsync(config.DatabaseName, cancellationToken)).Match(
+        (await _database.ClearDatabaseAsync(config.DatabaseName.Value, cancellationToken)).Match(
             success: _ => { },
             failure: f => throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}': {f.Error}"));
         _logger.LogInformation("Database cleared");
@@ -351,7 +351,7 @@ public class TestOrchestrator : ITestOrchestrator
 
             // Clear database and queues again
             _logger.LogInformation("Warmup: Clearing database and queues before measured test");
-            (await _database.ClearDatabaseAsync(config.DatabaseName, cancellationToken)).Match(
+            (await _database.ClearDatabaseAsync(config.DatabaseName.Value, cancellationToken)).Match(
                 success: _ => { },
                 failure: f => throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}' during warmup: {f.Error}"));
             (await _rabbitMq.ClearAllQueuesAsync(cancellationToken)).Match(
