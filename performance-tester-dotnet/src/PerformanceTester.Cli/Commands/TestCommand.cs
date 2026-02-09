@@ -139,22 +139,19 @@ public static class TestCommand
 
         try
         {
-            // Parse value objects (first failure returns error)
-            var eventCountResult = EventCount.Create(options.Events);
-            if (eventCountResult is Result<EventCount, string>.Failure ecf)
-            {
-                consoleWriter.WriteError(ecf.Error);
-                return 1;
-            }
-            var eventCount = ((Result<EventCount, string>.Success)eventCountResult).Value;
+            // Parse value objects (first failure short-circuits)
+            var parseResult =
+                from ec in EventCount.Create(options.Events)
+                from aw in WorkerCount.Create(options.ApiWorkers)
+                select (EventCount: ec, ApiWorkers: aw);
 
-            var apiWorkersResult = WorkerCount.Create(options.ApiWorkers);
-            if (apiWorkersResult is Result<WorkerCount, string>.Failure awf)
+            if (parseResult.IsFailure)
             {
-                consoleWriter.WriteError(awf.Error);
+                consoleWriter.WriteError(parseResult.FailureError);
                 return 1;
             }
-            var apiWorkers = ((Result<WorkerCount, string>.Success)apiWorkersResult).Value;
+            var eventCount = parseResult.SuccessValue.EventCount;
+            var apiWorkers = parseResult.SuccessValue.ApiWorkers;
 
             var apiDurationResult = DurationParser.Parse(options.ApiDuration);
             if (apiDurationResult is Result<TimeSpan, DurationParseError>.Failure)

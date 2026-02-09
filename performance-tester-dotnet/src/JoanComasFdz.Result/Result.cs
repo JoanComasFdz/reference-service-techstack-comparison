@@ -57,9 +57,21 @@ namespace JoanComasFdz.Result;
 [Union]
 public partial record Result<TSuccess, TFailure>
 {
-    /// <summary>Represents a successful outcome containing a <see cref="Value"/>.</summary>
+    /// <summary>Represents a successful outcome containing a <see cref="Success.Value"/>.</summary>
     partial record Success(TSuccess Value);
 
-    /// <summary>Represents a failed outcome containing an <see cref="Error"/>.</summary>
+    /// <summary>Represents a failed outcome containing an <see cref="Failure.Error"/>.</summary>
     partial record Failure(TFailure Error);
+
+    /// <summary>Returns true if this is a successful outcome.</summary>
+    public bool IsSuccess => this is Success;
+
+    /// <summary>Returns true if this is a failed outcome.</summary>
+    public bool IsFailure => this is Failure;
+
+    /// <summary>Gets the success value. Throws <see cref="InvalidCastException"/> if this is a Failure.</summary>
+    public TSuccess SuccessValue => ((Success)this).Value;
+
+    /// <summary>Gets the failure error. Throws <see cref="InvalidCastException"/> if this is a Success.</summary>
+    public TFailure FailureError => ((Failure)this).Error;
 }
