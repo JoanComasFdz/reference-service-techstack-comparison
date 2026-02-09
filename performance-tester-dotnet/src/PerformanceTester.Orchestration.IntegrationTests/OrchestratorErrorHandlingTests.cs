@@ -65,7 +65,7 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
 
         System.ConfigurableReferenceService.ConfigurePublication(
             eventCount: 1,              // Publish only 1 event (orchestrator expects 2)
-            warmupEventCount: config.WarmupEventCount);
+            warmupEventCount: config.WarmupEventCount.Value);
 
         try
         {

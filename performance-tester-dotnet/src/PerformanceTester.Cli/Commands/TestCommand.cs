@@ -145,7 +145,10 @@ public static class TestCommand
                 from aw in WorkerCount.Create(options.ApiWorkers)
                 from ad in ApiDuration.Create(options.ApiDuration)
                 from sp in Port.Create(options.Port)
-                select (EventCount: ec, ApiWorkers: aw, ApiDuration: ad, ServicePort: sp);
+                from we in WarmupEventsCount.Create(options.WarmupEvents)
+                from wa in WarmupApiCallsCount.Create(options.WarmupApiCalls)
+                select (EventCount: ec, ApiWorkers: aw, ApiDuration: ad, ServicePort: sp,
+                        WarmupEvents: we, WarmupApiCalls: wa);
 
             if (parseResult.IsFailure)
             {
@@ -156,6 +159,8 @@ public static class TestCommand
             var apiWorkers = parseResult.SuccessValue.ApiWorkers;
             var apiDuration = parseResult.SuccessValue.ApiDuration;
             var servicePort = parseResult.SuccessValue.ServicePort;
+            var warmupEvents = parseResult.SuccessValue.WarmupEvents;
+            var warmupApiCalls = parseResult.SuccessValue.WarmupApiCalls;
 
             // Validate remaining options (still primitive)
             var validationResult = ValidateOptions(options);
@@ -175,8 +180,8 @@ public static class TestCommand
                 ApiWorkers: apiWorkers,
                 ServicePort: servicePort,
                 InactivityTimeout: inactivityTimeout,
-                WarmupEventCount: options.WarmupEvents,
-                WarmupApiCallCount: (uint)options.WarmupApiCalls,
+                WarmupEventCount: warmupEvents,
+                WarmupApiCallCount: warmupApiCalls,
                 DatabaseName: options.Database,
                 ResultsFolder: options.ResultsFolder,
                 RabbitMqContainerName: options.RabbitMqContainer,
@@ -259,12 +264,6 @@ public static class TestCommand
     /// </summary>
     internal static string? ValidateOptions(TestCommandOptions options)
     {
-        if (options.WarmupEvents < 0 || options.WarmupEvents > 10000)
-            return $"Warmup events must be between 0 and 10000 (got: {options.WarmupEvents})";
-
-        if (options.WarmupApiCalls < 0 || options.WarmupApiCalls > 1000)
-            return $"Warmup API calls must be between 0 and 1000 (got: {options.WarmupApiCalls})";
-
         if (string.IsNullOrWhiteSpace(options.Database))
             return "Database name cannot be empty";
 

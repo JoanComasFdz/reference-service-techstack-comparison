@@ -315,14 +315,14 @@ public class TestOrchestrator : ITestOrchestrator
 
             // Start consumer tracking
             var consumerTask = _eventConsumer.StartTrackingEventsAsync(
-                config.WarmupEventCount,
+                config.WarmupEventCount.Value,
                 config.WarmupInactivityTimeoutOrDefault,
                 progress: null,
                 cancellationToken);
 
             // Publish warmup events
             var publishMetrics = await _eventPublisher.PublishEventsAsync(
-                config.WarmupEventCount,
+                config.WarmupEventCount.Value,
                 cancellationToken);
 
             _logger.LogInformation(
@@ -342,7 +342,7 @@ public class TestOrchestrator : ITestOrchestrator
                 config.WarmupApiCallCount);
 
             var (successCount, failCount) = await ExecuteWarmupApiCallsAsync(
-                config.ApiUrl, config.WarmupApiCallCount, _logger, cancellationToken);
+                config.ApiUrl, config.WarmupApiCallCount.Value, _logger, cancellationToken);
 
             _logger.LogInformation(
                 "Warmup: API calls complete - {Success} succeeded, {Failed} failed",

@@ -92,116 +92,6 @@ public class TestCommandValidatorTests
 
     #endregion
 
-    #region WarmupEvents Validation Tests
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(200)]
-    [InlineData(10000)]
-    public void ValidateOptions_WithValidWarmupEvents_ReturnsNull(int warmupEvents)
-    {
-        // Arrange
-        var options = CreateValidOptions(warmupEvents: warmupEvents);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData(-1)]
-    [InlineData(-100)]
-    public void ValidateOptions_WithWarmupEventsLessThanMinimum_ReturnsError(int warmupEvents)
-    {
-        // Arrange
-        var options = CreateValidOptions(warmupEvents: warmupEvents);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Warmup events must be between 0 and 10000");
-        result.Should().Contain($"got: {warmupEvents}");
-    }
-
-    [Theory]
-    [InlineData(10001)]
-    [InlineData(20000)]
-    public void ValidateOptions_WithWarmupEventsGreaterThanMaximum_ReturnsError(int warmupEvents)
-    {
-        // Arrange
-        var options = CreateValidOptions(warmupEvents: warmupEvents);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Warmup events must be between 0 and 10000");
-        result.Should().Contain($"got: {warmupEvents}");
-    }
-
-    #endregion
-
-    #region WarmupApiCalls Validation Tests
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(10)]
-    [InlineData(1000)]
-    public void ValidateOptions_WithValidWarmupApiCalls_ReturnsNull(int warmupApiCalls)
-    {
-        // Arrange
-        var options = CreateValidOptions(warmupApiCalls: warmupApiCalls);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData(-1)]
-    [InlineData(-100)]
-    public void ValidateOptions_WithWarmupApiCallsLessThanMinimum_ReturnsError(int warmupApiCalls)
-    {
-        // Arrange
-        var options = CreateValidOptions(warmupApiCalls: warmupApiCalls);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Warmup API calls must be between 0 and 1000");
-        result.Should().Contain($"got: {warmupApiCalls}");
-    }
-
-    [Theory]
-    [InlineData(1001)]
-    [InlineData(2000)]
-    public void ValidateOptions_WithWarmupApiCallsGreaterThanMaximum_ReturnsError(int warmupApiCalls)
-    {
-        // Arrange
-        var options = CreateValidOptions(warmupApiCalls: warmupApiCalls);
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().Contain("Warmup API calls must be between 0 and 1000");
-        result.Should().Contain($"got: {warmupApiCalls}");
-    }
-
-    #endregion
-
     #region Database Validation Tests
 
     [Theory]
@@ -408,16 +298,16 @@ public class TestCommandValidatorTests
     [Fact]
     public void ValidateOptions_WithMultipleInvalidParameters_ReturnsFirstError()
     {
-        // Arrange - WarmupEvents is validated first (Events, ApiWorkers, ApiDuration, Port are now value objects)
+        // Arrange - Database is validated first (Events, ApiWorkers, ApiDuration, Port, WarmupEvents, WarmupApiCalls are now value objects)
         var options = new TestCommandOptions(
             Events: 10000,
             ApiDuration: "30s",
             ApiWorkers: 1,
             Port: 8080,
-            Database: "",           // Invalid - checked later
+            Database: "",           // Invalid - first check in ValidateOptions
             ResultsFolder: "",
-            WarmupEvents: -1,       // Invalid - first check in ValidateOptions
-            WarmupApiCalls: -1,
+            WarmupEvents: 200,
+            WarmupApiCalls: 10,
             InactivityTimeout: "",
             RabbitMqContainer: "",
             PostgresContainer: ""
@@ -426,33 +316,15 @@ public class TestCommandValidatorTests
         // Act
         var result = TestCommand.ValidateOptions(options);
 
-        // Assert - Should return warmup events error (validated first)
+        // Assert - Should return database error (validated first)
         result.Should().NotBeNull();
-        result.Should().Contain("Warmup events must be between 0 and 10000");
-    }
-
-    [Fact]
-    public void ValidateOptions_WithInvalidWarmupEventsButPrecedingFieldsValid_ReturnsWarmupEventsError()
-    {
-        // Arrange - WarmupEvents is validated first in ValidateOptions
-        var options = CreateValidOptions(
-            port: 8080,             // Valid
-            warmupEvents: -1,       // Invalid
-            database: ""            // Invalid - checked later
-        );
-
-        // Act
-        var result = TestCommand.ValidateOptions(options);
-
-        // Assert - Should return warmup events error
-        result.Should().NotBeNull();
-        result.Should().Contain("Warmup events must be between 0 and 10000");
+        result.Should().Contain("Database name cannot be empty");
     }
 
     [Fact]
     public void ValidateOptions_WithInvalidDatabaseButPrecedingFieldsValid_ReturnsDatabaseError()
     {
-        // Arrange - Database is validated after WarmupApiCalls
+        // Arrange - Database is validated first in ValidateOptions
         var options = CreateValidOptions(
             port: 8080,             // Valid
             warmupEvents: 100,      // Valid

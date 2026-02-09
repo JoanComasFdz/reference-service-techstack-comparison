@@ -9,8 +9,8 @@ namespace PerformanceTester.Orchestration;
 /// <param name="ApiDuration">Duration of API load test (parsed from CLI string like "30s")</param>
 /// <param name="ApiWorkers">Number of concurrent API workers</param>
 /// <param name="InactivityTimeout">Timeout for consumer inactivity (default: 120 seconds)</param>
-/// <param name="WarmupEventCount">Number of events for warmup phase (default: 200)</param>
-/// <param name="WarmupApiCallCount">Number of HTTP calls to make during API warmup (default: 10)</param>
+/// <param name="WarmupEventCount">Number of events for warmup phase (0-10,000)</param>
+/// <param name="WarmupApiCallCount">Number of HTTP calls to make during API warmup (0-1,000)</param>
 /// <param name="WarmupInactivityTimeout">Timeout for consumer inactivity during warmup (default: 30 seconds)</param>
 /// <param name="ServicePort">Port where service is running (1-65535)</param>
 /// <param name="DatabaseName">PostgreSQL database name for the service</param>
@@ -23,9 +23,9 @@ public record TestConfiguration(
     ApiDuration ApiDuration,
     WorkerCount ApiWorkers,
     Port ServicePort,
+    WarmupEventsCount WarmupEventCount,
+    WarmupApiCallsCount WarmupApiCallCount,
     TimeSpan? InactivityTimeout = null,
-    int WarmupEventCount = 200,
-    uint WarmupApiCallCount = 10,
     TimeSpan? WarmupInactivityTimeout = null,
     string DatabaseName = "defaultdb",
     string ResultsFolder = "./test-results",
