@@ -140,22 +140,21 @@ public static class TestCommand
         try
         {
             // Parse value objects (first failure returns error)
-          	var eventCountResult = EventCount.Create(options.Events);
-			if (eventCountResult is Result<EventCount, EventCountError>.Failure ecf)
+            var eventCountResult = EventCount.Create(options.Events);
+            if (eventCountResult is Result<EventCount, string>.Failure ecf)
             {
-                consoleWriter.WriteError(ecf.Error.Match(outOfRange => outOfRange.ToString()));
+                consoleWriter.WriteError(ecf.Error);
                 return 1;
             }
-            var eventCount = ((Result<EventCount, EventCountError>.Success)eventCountResult).Value;
+            var eventCount = ((Result<EventCount, string>.Success)eventCountResult).Value;
 
             var apiWorkersResult = WorkerCount.Create(options.ApiWorkers);
-            if (apiWorkersResult is Result<WorkerCount, WorkerCountError>.Failure awf)
+            if (apiWorkersResult is Result<WorkerCount, string>.Failure awf)
             {
-                consoleWriter.WriteError(awf.Error.Match(
-                    outOfRange: o => $"API workers must be between 1 and 1000 (got: {o.Value})"));
+                consoleWriter.WriteError(awf.Error);
                 return 1;
             }
-            var apiWorkers = ((Result<WorkerCount, WorkerCountError>.Success)apiWorkersResult).Value;
+            var apiWorkers = ((Result<WorkerCount, string>.Success)apiWorkersResult).Value;
 
             var apiDurationResult = DurationParser.Parse(options.ApiDuration);
             if (apiDurationResult is Result<TimeSpan, DurationParseError>.Failure)
