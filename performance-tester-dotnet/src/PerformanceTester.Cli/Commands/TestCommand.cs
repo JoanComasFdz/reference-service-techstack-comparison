@@ -96,60 +96,24 @@ public static class TestCommand
 
         command.SetHandler(async (InvocationContext context) =>
         {
-            TestCommandOptions options = new(
-                    context.ParseResult.GetValueForOption(eventsOption),
-                    context.ParseResult.GetValueForOption(apiDurationOption)!,
-                    context.ParseResult.GetValueForOption(apiWorkersOption),
-                    context.ParseResult.GetValueForOption(portOption),
-                    context.ParseResult.GetValueForOption(databaseOption)!,
-                    context.ParseResult.GetValueForOption(resultsFolderOption)!,
-                    context.ParseResult.GetValueForOption(warmupEventsOption),
-                    context.ParseResult.GetValueForOption(warmupApiCallsOption),
-                    context.ParseResult.GetValueForOption(inactivityTimeoutOption)!,
-                    context.ParseResult.GetValueForOption(warmupInactivityTimeoutOption)!,
-                    context.ParseResult.GetValueForOption(rabbitMqContainerOption)!,
-                    context.ParseResult.GetValueForOption(postgresContainerOption)!);
             var host = context.GetHost();
-            var cancellationToken = context.GetCancellationToken();
+            var consoleWriter = host.Services.GetRequiredService<ConsoleWriter>();
 
-            var exitCode = await ExecuteAsync(
-                options,
-                host.Services.GetRequiredService<ILogger<Program>>(),
-                host.Services.GetRequiredService<ConsoleWriter>(),
-                host.Services.GetRequiredService<ProgressReporter>(),
-                host.Services.GetRequiredService<ITestOrchestrator>(), cancellationToken);
-
-            context.ExitCode = exitCode;
-        });
-
-        return command;
-    }
-
-    private static async Task<int> ExecuteAsync(
-        TestCommandOptions options,
-        ILogger<Program> logger,
-        ConsoleWriter consoleWriter,
-        ProgressReporter progressReporter,
-        ITestOrchestrator orchestrator,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            // Parse value objects (first failure short-circuits)
+            // Parse and validate all CLI options into value objects (first failure short-circuits)
             var parseResult =
-                from EventCount in EventCount.Create(options.Events)
-                from ApiWorkers in WorkerCount.Create(options.ApiWorkers)
-                from ApiDuration in ApiDuration.Create(options.ApiDuration)
-                from ServicePort in Port.Create(options.Port)
-                from WarmupEvents in WarmupEventsCount.Create(options.WarmupEvents)
-                from WarmupApiCalls in WarmupApiCallsCount.Create(options.WarmupApiCalls)
-                from DatabaseName in DatabaseName.Create(options.Database)
-                from InactivityTimeout in InactivityTimeout.Create(options.InactivityTimeout)
-                from WarmupInactivityTimeout in InactivityTimeout.Create(options.WarmupInactivityTimeout)
-                from ResultsFolder in ResultsFolder.Create(options.ResultsFolder)
-                from RabbitMqContainer in RabbitMqContainerName.Create(options.RabbitMqContainer)
-                from PostgresContainer in PostgresContainerName.Create(options.PostgresContainer)
-                select (new TestConfiguration(
+                from EventCount in EventCount.Create(context.ParseResult.GetValueForOption(eventsOption))
+                from ApiWorkers in WorkerCount.Create(context.ParseResult.GetValueForOption(apiWorkersOption))
+                from ApiDuration in ApiDuration.Create(context.ParseResult.GetValueForOption(apiDurationOption)!)
+                from ServicePort in Port.Create(context.ParseResult.GetValueForOption(portOption))
+                from WarmupEvents in WarmupEventsCount.Create(context.ParseResult.GetValueForOption(warmupEventsOption))
+                from WarmupApiCalls in WarmupApiCallsCount.Create(context.ParseResult.GetValueForOption(warmupApiCallsOption))
+                from DatabaseName in DatabaseName.Create(context.ParseResult.GetValueForOption(databaseOption)!)
+                from InactivityTimeout in InactivityTimeout.Create(context.ParseResult.GetValueForOption(inactivityTimeoutOption)!)
+                from WarmupInactivityTimeout in InactivityTimeout.Create(context.ParseResult.GetValueForOption(warmupInactivityTimeoutOption)!)
+                from ResultsFolder in ResultsFolder.Create(context.ParseResult.GetValueForOption(resultsFolderOption)!)
+                from RabbitMqContainer in RabbitMqContainerName.Create(context.ParseResult.GetValueForOption(rabbitMqContainerOption)!)
+                from PostgresContainer in PostgresContainerName.Create(context.ParseResult.GetValueForOption(postgresContainerOption)!)
+                select new TestConfiguration(
                     EventCount,
                     ApiDuration,
                     ApiWorkers,
@@ -161,16 +125,37 @@ public static class TestCommand
                     RabbitMqContainer,
                     PostgresContainer,
                     InactivityTimeout,
-                    WarmupInactivityTimeout));
+                    WarmupInactivityTimeout);
 
             if (parseResult.IsFailure)
             {
                 consoleWriter.WriteError(parseResult.FailureError);
-                return 1;
+                context.ExitCode = 1;
+                return;
             }
 
-            var config = parseResult.SuccessValue;
+            context.ExitCode = await ExecuteAsync(
+                parseResult.SuccessValue,
+                host.Services.GetRequiredService<ILogger<Program>>(),
+                consoleWriter,
+                host.Services.GetRequiredService<ProgressReporter>(),
+                host.Services.GetRequiredService<ITestOrchestrator>(),
+                context.GetCancellationToken());
+        });
 
+        return command;
+    }
+
+    private static async Task<int> ExecuteAsync(
+        TestConfiguration config,
+        ILogger<Program> logger,
+        ConsoleWriter consoleWriter,
+        ProgressReporter progressReporter,
+        ITestOrchestrator orchestrator,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
             // Display configuration
             consoleWriter.WriteHeader("Performance Test Configuration");
             consoleWriter.WriteConfigTable(config);
@@ -239,19 +224,3 @@ public static class TestCommand
 
 }
 
-/// <summary>
-/// Options for the test command (mapped from CLI arguments).
-/// </summary>
-public sealed record TestCommandOptions(
-    int Events,
-    string ApiDuration,
-    int ApiWorkers,
-    int Port,
-    string Database,
-    string ResultsFolder,
-    int WarmupEvents,
-    int WarmupApiCalls,
-    string InactivityTimeout,
-    string WarmupInactivityTimeout,
-    string RabbitMqContainer,
-    string PostgresContainer);
