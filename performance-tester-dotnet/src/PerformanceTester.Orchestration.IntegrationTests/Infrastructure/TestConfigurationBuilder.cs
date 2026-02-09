@@ -18,10 +18,10 @@ public class TestConfigurationBuilder
     private string _resultsFolder = "./test-results";
     private string _rabbitMqContainerName = "performance-tester-rabbitmq";
     private string _postgresContainerName = "performance-tester-postgres";
-    private TimeSpan? _inactivityTimeout = null;
+    private TimeSpan _inactivityTimeout = TimeSpan.FromSeconds(120);
     private int _warmupEventCount = 50;
     private uint _warmupApiCallCount = 5;
-    private TimeSpan? _warmupInactivityTimeout = null;
+    private TimeSpan _warmupInactivityTimeout = TimeSpan.FromSeconds(30);
     private int _maxConsecutiveApiFailures = 3;
 
     public TestConfigurationBuilder WithEventCount(int eventCount)
@@ -110,10 +110,10 @@ public class TestConfigurationBuilder
             ApiWorkers: Unwrap(WorkerCount.Create(_apiWorkers)),
             ServicePort: Port.FromInt(_servicePort),
             DatabaseName: DatabaseName.FromString(_databaseName),
-            InactivityTimeout: _inactivityTimeout is not null ? InactivityTimeout.FromTimeSpan(_inactivityTimeout.Value) : null,
+            InactivityTimeout: InactivityTimeout.FromTimeSpan(_inactivityTimeout),
             WarmupEventCount: WarmupEventsCount.FromInt(_warmupEventCount),
             WarmupApiCallCount: WarmupApiCallsCount.FromUint(_warmupApiCallCount),
-            WarmupInactivityTimeout: _warmupInactivityTimeout is not null ? InactivityTimeout.FromTimeSpan(_warmupInactivityTimeout.Value) : null,
+            WarmupInactivityTimeout: InactivityTimeout.FromTimeSpan(_warmupInactivityTimeout),
             ResultsFolder: ResultsFolder.FromString(_resultsFolder),
             RabbitMqContainerName: ContainerName.FromString(_rabbitMqContainerName),
             PostgresContainerName: ContainerName.FromString(_postgresContainerName),

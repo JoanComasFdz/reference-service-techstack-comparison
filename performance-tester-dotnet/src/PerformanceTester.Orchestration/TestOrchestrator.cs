@@ -311,12 +311,12 @@ public class TestOrchestrator : ITestOrchestrator
             _logger.LogInformation(
                 "Warmup: Publishing and consuming {Count} events (timeout: {Timeout}s)",
                 config.WarmupEventCount,
-                config.WarmupInactivityTimeoutOrDefault.TotalSeconds);
+                config.WarmupInactivityTimeout.Value.TotalSeconds);
 
             // Start consumer tracking
             var consumerTask = _eventConsumer.StartTrackingEventsAsync(
                 config.WarmupEventCount.Value,
-                config.WarmupInactivityTimeoutOrDefault,
+                config.WarmupInactivityTimeout.Value,
                 progress: null,
                 cancellationToken);
 
@@ -416,7 +416,7 @@ public class TestOrchestrator : ITestOrchestrator
         // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
         var consumerTask = _eventConsumer.StartTrackingEventsAsync(
             config.EventCount.Value,
-            config.InactivityTimeoutOrDefault,
+            config.InactivityTimeout.Value,
             progress: consumerProgress,
             cancellationToken);
 

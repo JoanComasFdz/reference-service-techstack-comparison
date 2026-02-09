@@ -63,6 +63,11 @@ public static class TestCommand
             getDefaultValue: () => "120s",
             description: "Consumer inactivity timeout (e.g., 120s, 2m)");
 
+        var warmupInactivityTimeoutOption = new Option<string>(
+            aliases: ["--warmup-inactivity-timeout"],
+            getDefaultValue: () => "30s",
+            description: "Warmup consumer inactivity timeout (e.g., 30s, 1m)");
+
         var rabbitMqContainerOption = new Option<string>(
             aliases: ["--rabbitmq-container"],
             getDefaultValue: () => "performancetest-rabbitmq",
@@ -84,6 +89,7 @@ public static class TestCommand
             warmupEventsOption,
             warmupApiCallsOption,
             inactivityTimeoutOption,
+            warmupInactivityTimeoutOption,
             rabbitMqContainerOption,
             postgresContainerOption
         };
@@ -99,6 +105,7 @@ public static class TestCommand
             var warmupEvents = context.ParseResult.GetValueForOption(warmupEventsOption);
             var warmupApiCalls = context.ParseResult.GetValueForOption(warmupApiCallsOption);
             var inactivityTimeout = context.ParseResult.GetValueForOption(inactivityTimeoutOption)!;
+            var warmupInactivityTimeout = context.ParseResult.GetValueForOption(warmupInactivityTimeoutOption)!;
             var rabbitMqContainer = context.ParseResult.GetValueForOption(rabbitMqContainerOption)!;
             var postgresContainer = context.ParseResult.GetValueForOption(postgresContainerOption)!;
 
@@ -116,6 +123,7 @@ public static class TestCommand
                     warmupEvents,
                     warmupApiCalls,
                     inactivityTimeout,
+                    warmupInactivityTimeout,
                     rabbitMqContainer,
                     postgresContainer),
                 host,
@@ -148,12 +156,13 @@ public static class TestCommand
                 from wa in WarmupApiCallsCount.Create(options.WarmupApiCalls)
                 from db in DatabaseName.Create(options.Database)
                 from it in InactivityTimeout.Create(options.InactivityTimeout)
+                from wt in InactivityTimeout.Create(options.WarmupInactivityTimeout)
                 from rf in ResultsFolder.Create(options.ResultsFolder)
                 from rc in ContainerName.Create(options.RabbitMqContainer, "RabbitMQ")
                 from pc in ContainerName.Create(options.PostgresContainer, "PostgreSQL")
                 select (EventCount: ec, ApiWorkers: aw, ApiDuration: ad, ServicePort: sp,
                         WarmupEvents: we, WarmupApiCalls: wa, DatabaseName: db,
-                        InactivityTimeout: it, ResultsFolder: rf,
+                        InactivityTimeout: it, WarmupInactivityTimeout: wt, ResultsFolder: rf,
                         RabbitMqContainer: rc, PostgresContainer: pc);
 
             if (parseResult.IsFailure)
@@ -161,31 +170,21 @@ public static class TestCommand
                 consoleWriter.WriteError(parseResult.FailureError);
                 return 1;
             }
-            var eventCount = parseResult.SuccessValue.EventCount;
-            var apiWorkers = parseResult.SuccessValue.ApiWorkers;
-            var apiDuration = parseResult.SuccessValue.ApiDuration;
-            var servicePort = parseResult.SuccessValue.ServicePort;
-            var warmupEvents = parseResult.SuccessValue.WarmupEvents;
-            var warmupApiCalls = parseResult.SuccessValue.WarmupApiCalls;
-            var databaseName = parseResult.SuccessValue.DatabaseName;
-            var inactivityTimeout = parseResult.SuccessValue.InactivityTimeout;
-            var resultsFolder = parseResult.SuccessValue.ResultsFolder;
-            var rabbitMqContainer = parseResult.SuccessValue.RabbitMqContainer;
-            var postgresContainer = parseResult.SuccessValue.PostgresContainer;
 
             // Build configuration
             var config = new TestConfiguration(
-                EventCount: eventCount,
-                ApiDuration: apiDuration,
-                ApiWorkers: apiWorkers,
-                ServicePort: servicePort,
-                WarmupEventCount: warmupEvents,
-                WarmupApiCallCount: warmupApiCalls,
-                DatabaseName: databaseName,
-                ResultsFolder: resultsFolder,
-                RabbitMqContainerName: rabbitMqContainer,
-                PostgresContainerName: postgresContainer,
-                InactivityTimeout: inactivityTimeout);
+                parseResult.SuccessValue.EventCount,
+                parseResult.SuccessValue.ApiDuration,
+                parseResult.SuccessValue.ApiWorkers,
+                parseResult.SuccessValue.ServicePort,
+                parseResult.SuccessValue.WarmupEvents,
+                parseResult.SuccessValue.WarmupApiCalls,
+                parseResult.SuccessValue.DatabaseName,
+                parseResult.SuccessValue.ResultsFolder,
+                parseResult.SuccessValue.RabbitMqContainer,
+                parseResult.SuccessValue.PostgresContainer,
+                parseResult.SuccessValue.InactivityTimeout,
+                parseResult.SuccessValue.WarmupInactivityTimeout);
 
             // Display configuration
             consoleWriter.WriteHeader("Performance Test Configuration");
@@ -274,5 +273,6 @@ public sealed record TestCommandOptions(
     int WarmupEvents,
     int WarmupApiCalls,
     string InactivityTimeout,
+    string WarmupInactivityTimeout,
     string RabbitMqContainer,
     string PostgresContainer);

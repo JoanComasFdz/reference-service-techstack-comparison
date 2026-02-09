@@ -58,7 +58,7 @@ public sealed class ConsoleWriter
             ("Results Folder", config.ResultsFolder.ToString()),
             ("Warmup Events", config.WarmupEventCount.Value.ToString("N0")),
             ("Warmup API Calls", config.WarmupApiCallCount.ToString()),
-            ("Inactivity Timeout", config.InactivityTimeoutOrDefault.ToString())
+            ("Inactivity Timeout", config.InactivityTimeout.Value.ToString())
         };
 
         WriteTable(rows);
