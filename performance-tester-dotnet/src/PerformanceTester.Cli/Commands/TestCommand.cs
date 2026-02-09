@@ -140,11 +140,10 @@ public static class TestCommand
         try
         {
             // Parse value objects (first failure returns error)
-            var eventCountResult = EventCount.Create(options.Events);
-            if (eventCountResult is Result<EventCount, EventCountError>.Failure ecf)
+          	var eventCountResult = EventCount.Create(options.Events);
+			if (eventCountResult is Result<EventCount, EventCountError>.Failure ecf)
             {
-                consoleWriter.WriteError(ecf.Error.Match(
-                    outOfRange: o => $"Events must be between 1 and 1,000,000 (got: {o.Value})"));
+                consoleWriter.WriteError(ecf.Error.Match(outOfRange => outOfRange.ToString()));
                 return 1;
             }
             var eventCount = ((Result<EventCount, EventCountError>.Success)eventCountResult).Value;

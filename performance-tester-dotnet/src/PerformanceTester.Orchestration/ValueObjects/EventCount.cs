@@ -20,5 +20,8 @@ public sealed record EventCount
 [Union]
 public partial record EventCountError
 {
-    public partial record OutOfRange(int Value);
+    public partial record OutOfRange(int Value)
+    {
+        public override string ToString() => $"Events must be between 1 and 1,000,000 (got: {Value})";
+    }
 }
