@@ -1,15 +1,13 @@
 using System.CommandLine;
 using System.CommandLine.Hosting;
 using System.CommandLine.Invocation;
-using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Output;
 using PerformanceTester.Orchestration.ValueObjects;
-using PerformanceTester.Reporting;
 using PerformanceTester.Reporting.ComparisonGeneration;
-using PerformanceTester.Reporting.Shared.Utilities;
+using PerformanceTester.Reporting.ReportGeneration;
 
 namespace PerformanceTester.Cli.Commands;
 
@@ -18,13 +16,6 @@ namespace PerformanceTester.Cli.Commands;
 /// </summary>
 public static class CompareCommand
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        Converters = { new Iso8601DateTimeConverter() }
-    };
-
     public static Command Create()
     {
         var folderOption = new Option<string>(
@@ -70,52 +61,17 @@ public static class CompareCommand
     {
         try
         {
-            // Find test report JSON files (main reports, not supplementary)
-            var reportFiles = Directory.GetFiles(folder.Value, "test-report-*.json")
-                .Where(f => !f.Contains("resource-metrics")
-                         && !f.Contains("events-throughput")
-                         && !f.Contains("api-throughput")
-                         && !f.Contains("postgres-metrics")
-                         && !f.Contains("rabbitmq-metrics")
-                         && !f.Contains("system-metrics"))
-                .ToList();
+            var testReports = await TestReportLoader.LoadFromFolderAsync(
+                folder.Value, cancellationToken);
 
-            if (reportFiles.Count == 0)
+            if (testReports.Count == 0)
             {
                 consoleWriter.WriteWarning($"No test report files found in: {folder}");
                 consoleWriter.WriteLine("Run 'performance-tester test' first to generate reports.");
                 return 1;
             }
 
-            consoleWriter.WriteInfo($"Found {reportFiles.Count} test report(s)");
-
-            // Load test reports with supplementary data
-            var testReports = new List<TestReport>();
-            foreach (var file in reportFiles)
-            {
-                try
-                {
-                    var json = await File.ReadAllTextAsync(file, cancellationToken);
-                    var report = JsonSerializer.Deserialize<TestReport>(json, JsonOptions);
-                    if (report is not null)
-                    {
-                        // Load supplementary files and enrich the report
-                        report = await LoadSupplementaryDataAsync(file, report, cancellationToken);
-                        testReports.Add(report);
-                        consoleWriter.WriteInfo($"  Loaded: {Path.GetFileName(file)}");
-                    }
-                }
-                catch (JsonException ex)
-                {
-                    consoleWriter.WriteWarning($"  Skipped (invalid JSON): {Path.GetFileName(file)} - {ex.Message}");
-                }
-            }
-
-            if (testReports.Count == 0)
-            {
-                consoleWriter.WriteError("No valid test reports could be loaded");
-                return 1;
-            }
+            consoleWriter.WriteInfo($"Loaded {testReports.Count} test report(s)");
 
             var latestTestDate = testReports.Max(r => r.TestDate);
             var timestamp = latestTestDate.ToString("yyyyMMdd_HHmmss");
@@ -137,140 +93,5 @@ public static class CompareCommand
             logger.LogError(ex, "Failed to generate comparison report");
             return 1;
         }
-    }
-
-    /// <summary>
-    /// Loads supplementary data files and enriches the TestReport with sample collections.
-    /// </summary>
-    private static async Task<TestReport> LoadSupplementaryDataAsync(
-        string mainReportPath,
-        TestReport report,
-        CancellationToken cancellationToken)
-    {
-        // Derive supplementary file paths from main report path
-        // Main: test-report-{timestamp}-{service}.json
-        // Supplementary: test-report-{timestamp}-{service}.{type}.json
-        var basePath = mainReportPath.Replace(".json", "");
-
-        var eventsThroughputSamples = await LoadEventsThroughputSamplesAsync(
-            $"{basePath}.events-throughput.json", cancellationToken);
-
-        var apiThroughputSamples = await LoadApiThroughputSamplesAsync(
-            $"{basePath}.api-throughput.json", cancellationToken);
-
-        var processResourceSamples = await LoadProcessResourceSamplesAsync(
-            $"{basePath}.resource-metrics.json", cancellationToken);
-
-        var systemResourceSamples = await LoadSystemResourceSamplesAsync(
-            $"{basePath}.system-metrics.json", cancellationToken);
-
-        // Return enriched report with sample data
-        return report with
-        {
-            EventsThroughputSamples = eventsThroughputSamples,
-            ApiThroughputSamples = apiThroughputSamples,
-            ProcessResourceSamples = processResourceSamples,
-            SystemResourceSamples = systemResourceSamples
-        };
-    }
-
-    /// <summary>
-    /// Loads events throughput samples via typed deserialization.
-    /// </summary>
-    private static async Task<IReadOnlyList<ThroughputMetricSample>> LoadEventsThroughputSamplesAsync(
-        string filePath,
-        CancellationToken cancellationToken)
-    {
-        if (!File.Exists(filePath))
-            return [];
-
-        try
-        {
-            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
-            var report = JsonSerializer.Deserialize<ThroughputReport>(json, JsonOptions);
-            if (report is null)
-                return [];
-
-            return report.Samples.Select(s => new ThroughputMetricSample
-            {
-                Timestamp = s.Timestamp,
-                ElapsedSeconds = s.ElapsedSeconds,
-                Rate = s.EventsPerSecond,
-                CumulativeCount = s.TotalEvents
-            }).ToArray();
-        }
-        catch { return []; }
-    }
-
-    /// <summary>
-    /// Loads API throughput samples via typed deserialization.
-    /// </summary>
-    private static async Task<IReadOnlyList<ThroughputMetricSample>> LoadApiThroughputSamplesAsync(
-        string filePath,
-        CancellationToken cancellationToken)
-    {
-        if (!File.Exists(filePath))
-            return [];
-
-        try
-        {
-            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
-            var report = JsonSerializer.Deserialize<ApiThroughputReportJson>(json, JsonOptions);
-            if (report is null)
-                return [];
-
-            return report.Samples.Select(s => new ThroughputMetricSample
-            {
-                Timestamp = s.Timestamp,
-                ElapsedSeconds = s.ElapsedSeconds,
-                Rate = s.CallsPerSecond,
-                CumulativeCount = s.TotalCalls
-            }).ToArray();
-        }
-        catch { return []; }
-    }
-
-    /// <summary>
-    /// Loads process resource samples via typed deserialization.
-    /// </summary>
-    private static async Task<IReadOnlyList<ProcessResourceSample>> LoadProcessResourceSamplesAsync(
-        string filePath,
-        CancellationToken cancellationToken)
-    {
-        if (!File.Exists(filePath))
-            return [];
-
-        try
-        {
-            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
-            var report = JsonSerializer.Deserialize<ProcessResourceMetricsReport>(json, JsonOptions);
-            if (report is null)
-                return [];
-
-            return report.Samples;
-        }
-        catch { return []; }
-    }
-
-    /// <summary>
-    /// Loads system-wide resource samples via typed deserialization.
-    /// </summary>
-    private static async Task<IReadOnlyList<SystemResourceSample>> LoadSystemResourceSamplesAsync(
-        string filePath,
-        CancellationToken cancellationToken)
-    {
-        if (!File.Exists(filePath))
-            return [];
-
-        try
-        {
-            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
-            var report = JsonSerializer.Deserialize<SystemMetricsReport>(json, JsonOptions);
-            if (report is null)
-                return [];
-
-            return report.Samples;
-        }
-        catch { return []; }
     }
 }
