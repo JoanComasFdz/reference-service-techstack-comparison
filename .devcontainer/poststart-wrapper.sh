@@ -21,10 +21,13 @@ FIREWALL_OUTPUT=$(sudo /usr/local/bin/init-firewall.sh 2>&1) && {
 } || {
     EXIT_CODE=$?
     echo "$FIREWALL_OUTPUT" >> "$LOGFILE"
-    log "✗ init-firewall.sh FAILED with exit code $EXIT_CODE"
-    log "Error output:"
-    echo "$FIREWALL_OUTPUT" | tail -30
-    exit $EXIT_CODE
+    log "⚠ init-firewall.sh FAILED with exit code $EXIT_CODE (non-fatal)"
+    log "  Firewall setup is optional - devcontainer will work without network restrictions"
+    log "  Common causes: GitHub API rate limit (shared IP/corporate network), transient network issues"
+    log "  To fix: set GITHUB_TOKEN env var, or retry 'sudo /usr/local/bin/init-firewall.sh' manually"
+    log "Error output (last 10 lines):"
+    echo "$FIREWALL_OUTPUT" | tail -10
+    # Don't exit - devcontainer should still work without firewall
 }
 
 log "Step 2: Running fix-docker-iptables.sh..."

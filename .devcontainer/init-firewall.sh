@@ -7,6 +7,60 @@ IFS=$'\n\t'       # Stricter word splitting
 
 echo "Setting up firewall rules (preserving Docker networking)..."
 
+# Retry helper: fetch_with_retry URL [MAX_RETRIES] [INITIAL_DELAY_SECS]
+# Outputs the response body on success, returns non-zero on failure.
+# Uses GITHUB_TOKEN for authenticated GitHub API requests if available.
+fetch_with_retry() {
+    local url="$1"
+    local max_retries="${2:-3}"
+    local delay="${3:-2}"
+    local attempt=0
+    local curl_args=(-s --connect-timeout 10 --max-time 30)
+
+    # Use GITHUB_TOKEN for GitHub API calls if available (avoids shared-IP rate limits)
+    if [[ "$url" == *"api.github.com"* ]] && [ -n "${GITHUB_TOKEN:-}" ]; then
+        curl_args+=(-H "Authorization: token $GITHUB_TOKEN")
+        echo "  (using GITHUB_TOKEN for authenticated request)" >&2
+    fi
+
+    while [ $attempt -le $max_retries ]; do
+        if [ $attempt -gt 0 ]; then
+            echo "  Retry $attempt/$max_retries after ${delay}s..." >&2
+            sleep "$delay"
+            delay=$((delay * 2))  # exponential backoff
+        fi
+
+        local response
+        local http_code
+        # Capture body and HTTP status code separately
+        response=$(curl "${curl_args[@]}" -w "\n%{http_code}" "$url" 2>/dev/null) || {
+            echo "  curl failed (network error)" >&2
+            attempt=$((attempt + 1))
+            continue
+        }
+
+        http_code=$(echo "$response" | tail -1)
+        response=$(echo "$response" | sed '$d')
+
+        if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+            echo "$response"
+            return 0
+        fi
+
+        # Log rate limit info for GitHub
+        if [[ "$url" == *"api.github.com"* ]] && [ "$http_code" = "403" ]; then
+            echo "  GitHub API rate limited (HTTP 403). Consider setting GITHUB_TOKEN." >&2
+        else
+            echo "  HTTP $http_code from $url" >&2
+        fi
+
+        attempt=$((attempt + 1))
+    done
+
+    echo "  All $max_retries retries exhausted for $url" >&2
+    return 1
+}
+
 # Flush only INPUT and OUTPUT chains (leave FORWARD and nat for Docker)
 iptables -F INPUT 2>/dev/null || true
 iptables -F OUTPUT 2>/dev/null || true
@@ -44,14 +98,14 @@ ipset create allowed-domains hash:net
 
 # Fetch GitHub meta information and aggregate + add their IP ranges
 echo "Fetching GitHub IP ranges..."
-gh_ranges=$(curl -s https://api.github.com/meta)
-if [ -z "$gh_ranges" ]; then
-    echo "ERROR: Failed to fetch GitHub IP ranges"
+gh_ranges=$(fetch_with_retry https://api.github.com/meta 3 2) || {
+    echo "ERROR: Failed to fetch GitHub IP ranges after retries"
     exit 1
-fi
+}
 
 if ! echo "$gh_ranges" | jq -e '.web and .api and .git' >/dev/null; then
     echo "ERROR: GitHub API response missing required fields"
+    echo "  Response: $(echo "$gh_ranges" | head -5)"
     exit 1
 fi
 
@@ -140,7 +194,7 @@ done
 
 # Add Cloudflare IP ranges (used by Docker Hub CDN)
 echo "Adding Cloudflare IP ranges for Docker Hub..."
-cloudflare_ranges=$(curl -s https://www.cloudflare.com/ips-v4)
+cloudflare_ranges=$(fetch_with_retry https://www.cloudflare.com/ips-v4 2 2) || true
 if [ -n "$cloudflare_ranges" ]; then
     while read -r cidr; do
         if [[ "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
@@ -154,7 +208,7 @@ fi
 
 # Add Fastly IP ranges (used by Debian CDN)
 echo "Adding Fastly IP ranges for Debian repositories..."
-fastly_json=$(curl -s https://api.fastly.com/public-ip-list)
+fastly_json=$(fetch_with_retry https://api.fastly.com/public-ip-list 2 2) || true
 if [ -n "$fastly_json" ] && echo "$fastly_json" | jq -e '.addresses' >/dev/null 2>&1; then
     while read -r cidr; do
         if [[ "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
@@ -171,7 +225,7 @@ fi
 # This community list covers Akamai-owned ranges (not ISP-colocated edge servers,
 # which are covered by the /24 subnet expansion on DNS-resolved CDN IPs above).
 echo "Adding Akamai IP ranges for NuGet CDN..."
-akamai_ranges=$(curl -s --connect-timeout 10 https://raw.githubusercontent.com/platformbuilds/Akamai-ASN-and-IPs-List/master/akamai_ip_cidr_blocks.lst || true)
+akamai_ranges=$(fetch_with_retry https://raw.githubusercontent.com/platformbuilds/Akamai-ASN-and-IPs-List/master/akamai_ip_cidr_blocks.lst 2 2) || true
 if [ -n "$akamai_ranges" ]; then
     akamai_count=0
     while read -r cidr; do
