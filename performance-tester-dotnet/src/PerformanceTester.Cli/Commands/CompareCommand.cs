@@ -43,7 +43,7 @@ public static class CompareCommand
             var host = context.GetHost();
             var consoleWriter = host.Services.GetRequiredService<ConsoleWriter>();
 
-            var folderResult = ResultsFolder.Create(context.ParseResult.GetValueForOption(folderOption)!);
+            var folderResult = ResultsSourceFolder.Create(context.ParseResult.GetValueForOption(folderOption)!);
             if (folderResult.IsFailure)
             {
                 consoleWriter.WriteError(folderResult.FailureError);
@@ -63,7 +63,7 @@ public static class CompareCommand
     }
 
     private static async Task<int> ExecuteAsync(
-        ResultsFolder folder,
+        ResultsSourceFolder folder,
         ILogger<Program> logger,
         ConsoleWriter consoleWriter,
         ComparisonReportGenerator comparisonGenerator,
@@ -71,13 +71,6 @@ public static class CompareCommand
     {
         try
         {
-            // Validate folder exists
-            if (!Directory.Exists(folder.Value))
-            {
-                consoleWriter.WriteError($"Results folder not found: {folder}");
-                return 1;
-            }
-
             // Find test report JSON files (main reports, not supplementary)
             var reportFiles = Directory.GetFiles(folder.Value, "test-report-*.json")
                 .Where(f => !f.Contains("resource-metrics")

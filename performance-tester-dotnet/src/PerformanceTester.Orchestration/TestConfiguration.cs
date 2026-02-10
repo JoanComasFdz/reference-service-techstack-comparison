@@ -14,7 +14,7 @@ namespace PerformanceTester.Orchestration;
 /// <param name="WarmupInactivityTimeout">Timeout for consumer inactivity during warmup, parsed from duration string (e.g., 30s, 1m)</param>
 /// <param name="ServicePort">Port where service is running (1-65535)</param>
 /// <param name="DatabaseName">PostgreSQL database name for the service (non-empty)</param>
-/// <param name="ResultsFolder">Directory to save test results (non-empty)</param>
+/// <param name="ResultsFolder">Directory to save test results (may be created if it doesn't exist)</param>
 /// <param name="RabbitMqContainerName">Name of RabbitMQ Docker container (non-empty)</param>
 /// <param name="PostgresContainerName">Name of PostgreSQL Docker container (non-empty)</param>
 /// <param name="MaxConsecutiveApiFailures">Maximum consecutive API failures before aborting load test (default: 3)</param>
@@ -26,7 +26,7 @@ public record TestConfiguration(
     WarmupEventsCount WarmupEventCount,
     WarmupApiCallsCount WarmupApiCallCount,
     DatabaseName DatabaseName,
-    ResultsFolder ResultsFolder,
+    ResultsOutputFolder ResultsFolder,
     RabbitMqContainerName RabbitMqContainerName,
     PostgresContainerName PostgresContainerName,
     InactivityTimeout InactivityTimeout,

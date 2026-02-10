@@ -110,7 +110,7 @@ public static class TestCommand
                 from DatabaseName in DatabaseName.Create(context.ParseResult.GetValueForOption(databaseOption)!)
                 from InactivityTimeout in InactivityTimeout.Create(context.ParseResult.GetValueForOption(inactivityTimeoutOption)!)
                 from WarmupInactivityTimeout in InactivityTimeout.Create(context.ParseResult.GetValueForOption(warmupInactivityTimeoutOption)!)
-                from ResultsFolder in ResultsFolder.Create(context.ParseResult.GetValueForOption(resultsFolderOption)!)
+                from ResultsFolder in ResultsOutputFolder.Create(context.ParseResult.GetValueForOption(resultsFolderOption)!)
                 from RabbitMqContainer in RabbitMqContainerName.Create(context.ParseResult.GetValueForOption(rabbitMqContainerOption)!)
                 from PostgresContainer in PostgresContainerName.Create(context.ParseResult.GetValueForOption(postgresContainerOption)!)
                 select new TestConfiguration(
