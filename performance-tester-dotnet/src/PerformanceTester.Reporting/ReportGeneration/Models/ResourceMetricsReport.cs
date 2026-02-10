@@ -9,7 +9,7 @@ public sealed record ResourceMetricsReport
     /// <summary>
     /// Test date/time.
     /// </summary>
-    public required string TestDate { get; init; }
+    public required DateTime TestDate { get; init; }
 
     /// <summary>
     /// Sampling interval in milliseconds.
@@ -40,7 +40,7 @@ public sealed record ProcessResourceMetricsReport
     /// <summary>
     /// Test date/time.
     /// </summary>
-    public required string TestDate { get; init; }
+    public required DateTime TestDate { get; init; }
 
     /// <summary>
     /// Sampling interval in milliseconds.
@@ -49,18 +49,21 @@ public sealed record ProcessResourceMetricsReport
 
     /// <summary>
     /// Individual resource samples (time-series data).
+    /// Uses ProcessResourceSample directly — no separate JSON DTO needed.
     /// </summary>
-    public required IReadOnlyList<ProcessResourceSampleJson> Samples { get; init; }
+    public required IReadOnlyList<ProcessResourceSample> Samples { get; init; }
 
     /// <summary>
     /// Statistical summary of CPU metrics.
+    /// Nullable because the JSON summary uses flat format that doesn't map to this type.
     /// </summary>
-    public required ResourceSummary CpuSummary { get; init; }
+    public ResourceSummary? CpuSummary { get; init; }
 
     /// <summary>
     /// Statistical summary of memory metrics.
+    /// Nullable because the JSON summary uses flat format that doesn't map to this type.
     /// </summary>
-    public required ResourceSummary MemorySummary { get; init; }
+    public ResourceSummary? MemorySummary { get; init; }
 }
 
 /// <summary>
@@ -69,9 +72,9 @@ public sealed record ProcessResourceMetricsReport
 public sealed record ResourceSampleJson
 {
     /// <summary>
-    /// Sample timestamp (ISO8601 format).
+    /// Sample timestamp (UTC).
     /// </summary>
-    public required string Timestamp { get; init; }
+    public required DateTime Timestamp { get; init; }
 
     /// <summary>
     /// Elapsed seconds since test start.
@@ -87,38 +90,6 @@ public sealed record ResourceSampleJson
     /// Memory usage in megabytes.
     /// </summary>
     public required double MemoryMb { get; init; }
-}
-
-/// <summary>
-/// Individual process resource sample for JSON output.
-/// Includes RSS memory and thread count (specific to process monitoring).
-/// </summary>
-public sealed record ProcessResourceSampleJson
-{
-    /// <summary>
-    /// Sample timestamp (ISO8601 format).
-    /// </summary>
-    public required string Timestamp { get; init; }
-
-    /// <summary>
-    /// Elapsed seconds since test start.
-    /// </summary>
-    public required double ElapsedSeconds { get; init; }
-
-    /// <summary>
-    /// CPU usage percentage (0-100 per core, can exceed 100).
-    /// </summary>
-    public required double CpuPercent { get; init; }
-
-    /// <summary>
-    /// RSS (Resident Set Size) memory usage in megabytes.
-    /// </summary>
-    public required double MemoryRssMb { get; init; }
-
-    /// <summary>
-    /// Number of threads.
-    /// </summary>
-    public required int Threads { get; init; }
 }
 
 /// <summary>

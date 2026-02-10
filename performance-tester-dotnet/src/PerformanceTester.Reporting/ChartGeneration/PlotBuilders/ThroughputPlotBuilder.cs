@@ -29,7 +29,7 @@ internal static class ThroughputPlotBuilder
         // ═══════════════════════════════════════════════════════════════════════
         // EVENTS THROUGHPUT (green theme)
         // ═══════════════════════════════════════════════════════════════════════
-        if (eventsData != null && eventsData.Samples.Count > 0)
+        if (eventsData != null && eventsData.Samples.Count > 0 && eventsData.Summary is not null)
         {
             var timestamps = PlotToolbox.ExtractTimestamps(eventsData.Samples);
             var rates = PlotToolbox.ExtractThroughputRates(eventsData.Samples);
@@ -53,7 +53,7 @@ internal static class ThroughputPlotBuilder
         // ═══════════════════════════════════════════════════════════════════════
         // API THROUGHPUT (orange theme)
         // ═══════════════════════════════════════════════════════════════════════
-        if (apiData != null && apiData.Samples.Count > 0)
+        if (apiData != null && apiData.Samples.Count > 0 && apiData.Summary is not null)
         {
             var timestamps = PlotToolbox.ExtractTimestamps(apiData.Samples);
             var rates = PlotToolbox.ExtractThroughputRates(apiData.Samples);

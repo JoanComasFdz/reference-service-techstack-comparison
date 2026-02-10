@@ -143,16 +143,18 @@ public sealed class ReportGenerator
             s => s.CumulativeCount);
 
         // Use anonymous type with events-specific field names
+        // Samples use ThroughputSampleJson for proper type serialization;
+        // summary stays anonymous because field names are format-specific
         var report = new
         {
             test_date = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
             sampling_interval_ms = 100,
-            samples = testReport.EventsThroughputSamples.Select(s => new
+            samples = testReport.EventsThroughputSamples.Select(s => new ThroughputSampleJson
             {
-                timestamp = s.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff"),
-                elapsed_seconds = Math.Round(s.ElapsedSeconds, 3),
-                total_events = s.CumulativeCount,
-                events_per_second = Math.Round(s.Rate, 2)
+                Timestamp = s.Timestamp,
+                ElapsedSeconds = Math.Round(s.ElapsedSeconds, 3),
+                EventsPerSecond = Math.Round(s.Rate, 2),
+                TotalEvents = s.CumulativeCount
             }).ToList(),
             summary = new
             {
@@ -238,12 +240,13 @@ public sealed class ReportGenerator
                 port = testReport.MonitoredProcess.Port
             },
             sampling_interval_ms = 500,
-            samples = testReport.ProcessResourceSamples.Select(s => new
+            samples = testReport.ProcessResourceSamples.Select(s => new ProcessResourceSample
             {
-                timestamp = s.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff"),
-                cpu_percent = Math.Round(s.CpuPercent, 2),
-                memory_rss_mb = Math.Round(s.MemoryRssMb, 2),
-                threads = s.Threads
+                Timestamp = s.Timestamp,
+                ElapsedSeconds = Math.Round(s.ElapsedSeconds, 3),
+                CpuPercent = Math.Round(s.CpuPercent, 2),
+                MemoryRssMb = Math.Round(s.MemoryRssMb, 2),
+                Threads = s.Threads
             }).ToList(),
             summary = new
             {
@@ -283,13 +286,14 @@ public sealed class ReportGenerator
             test_date = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
             cpu_count = testReport.System.Cpu.LogicalProcessors,
             sampling_interval_ms = 500,
-            samples = testReport.SystemResourceSamples.Select(s => new
+            samples = testReport.SystemResourceSamples.Select(s => new SystemResourceSample
             {
-                timestamp = s.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff"),
-                cpu_percent = Math.Round(s.CpuPercent, 2),
-                memory_used_mb = Math.Round(s.MemoryUsedMb, 2),
-                memory_total_mb = Math.Round(s.MemoryTotalMb, 2),
-                memory_percent = Math.Round(s.MemoryPercent, 2)
+                Timestamp = s.Timestamp,
+                ElapsedSeconds = Math.Round(s.ElapsedSeconds, 3),
+                CpuPercent = Math.Round(s.CpuPercent, 2),
+                MemoryUsedMb = Math.Round(s.MemoryUsedMb, 2),
+                MemoryTotalMb = Math.Round(s.MemoryTotalMb, 2),
+                MemoryPercent = Math.Round(s.MemoryPercent, 2)
             }).ToList(),
             summary = new
             {

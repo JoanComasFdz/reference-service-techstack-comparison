@@ -132,7 +132,7 @@ public class ResourceMetricsReportBuilder
 
             jsonSamples.Add(new ResourceSampleJson
             {
-                Timestamp = timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff+00:00"),
+                Timestamp = timestamp,
                 ElapsedSeconds = Math.Round(elapsed, 3),
                 CpuPercent = Math.Round(cpu, 2),
                 MemoryMb = Math.Round(ram, 2)
@@ -156,7 +156,7 @@ public class ResourceMetricsReportBuilder
 
             jsonSamples.Add(new ResourceSampleJson
             {
-                Timestamp = timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff+00:00"),
+                Timestamp = timestamp,
                 ElapsedSeconds = Math.Round(elapsed, 3),
                 CpuPercent = Math.Round(_startCpu!.Value + (i * _cpuIncrement!.Value), 2),
                 MemoryMb = Math.Round(_startMemory!.Value + (i * _memoryIncrement!.Value), 2)
@@ -192,7 +192,7 @@ public class ResourceMetricsReportBuilder
 
         return new ResourceMetricsReport
         {
-            TestDate = _baseTime.ToString("yyyy-MM-dd HH:mm:ss"),
+            TestDate = _baseTime,
             SamplingIntervalMs = samplingIntervalMs,
             Samples = jsonSamples,
             CpuSummary = cpuSummary,

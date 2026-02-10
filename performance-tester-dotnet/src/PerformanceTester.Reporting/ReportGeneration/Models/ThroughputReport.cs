@@ -11,7 +11,7 @@ public sealed record ThroughputReport
     /// <summary>
     /// Test date/time.
     /// </summary>
-    public required string TestDate { get; init; }
+    public required DateTime TestDate { get; init; }
 
     /// <summary>
     /// Sampling interval in milliseconds.
@@ -25,8 +25,10 @@ public sealed record ThroughputReport
 
     /// <summary>
     /// Statistical summary of throughput data.
+    /// Nullable because the JSON summary field names don't match C# property names;
+    /// CompareCommand doesn't need summaries (it computes its own from samples).
     /// </summary>
-    public required ThroughputSummary Summary { get; init; }
+    public ThroughputSummary? Summary { get; init; }
 }
 
 /// <summary>
@@ -36,9 +38,9 @@ public sealed record ThroughputReport
 public sealed record ThroughputSampleJson
 {
     /// <summary>
-    /// Sample timestamp (ISO8601 format).
+    /// Sample timestamp (UTC).
     /// </summary>
-    public required string Timestamp { get; init; }
+    public required DateTime Timestamp { get; init; }
 
     /// <summary>
     /// Elapsed seconds since test start.
@@ -46,14 +48,15 @@ public sealed record ThroughputSampleJson
     public required double ElapsedSeconds { get; init; }
 
     /// <summary>
+    /// Cumulative count (total events or calls) - normalized from source data.
+    /// Property order matches Python JSON format (total_events before events_per_second).
+    /// </summary>
+    public int TotalEvents { get; init; }
+
+    /// <summary>
     /// Throughput rate (events/s or calls/s) - normalized from source data.
     /// </summary>
     public double EventsPerSecond { get; init; }
-
-    /// <summary>
-    /// Cumulative count (total events or calls) - normalized from source data.
-    /// </summary>
-    public int TotalEvents { get; init; }
 
     /// <summary>
     /// Gets the throughput rate for chart generation.

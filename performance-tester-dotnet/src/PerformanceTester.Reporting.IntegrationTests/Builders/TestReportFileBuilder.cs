@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PerformanceTester.Reporting;
+using PerformanceTester.Reporting.Shared.Utilities;
 
 namespace PerformanceTester.Reporting.IntegrationTests.Builders;
 
@@ -118,7 +119,8 @@ public class TestReportFileBuilder
         var jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-            WriteIndented = true
+            WriteIndented = true,
+            Converters = { new Iso8601DateTimeConverter() }
         };
 
         // Write throughput reports

@@ -28,7 +28,7 @@ internal static class ChartDataLoader
 
             return new ThroughputReport
             {
-                TestDate = root.GetProperty("test_date").GetString() ?? "",
+                TestDate = DateTime.Parse(root.GetProperty("test_date").GetString()!),
                 SamplingIntervalMs = root.GetProperty("sampling_interval_ms").GetInt32(),
                 Samples = samples,
                 Summary = summary
@@ -61,7 +61,7 @@ internal static class ChartDataLoader
 
             return new ResourceMetricsReport
             {
-                TestDate = root.TryGetProperty("test_date", out var td) ? td.GetString() ?? "" : "",
+                TestDate = root.TryGetProperty("test_date", out var td) ? DateTime.Parse(td.GetString()!) : DateTime.MinValue,
                 SamplingIntervalMs = root.TryGetProperty("sampling_interval_ms", out var si) ? si.GetInt32() : 500,
                 Samples = samples,
                 CpuSummary = cpuSummary,
@@ -95,7 +95,7 @@ internal static class ChartDataLoader
 
             return new ResourceMetricsReport
             {
-                TestDate = root.TryGetProperty("test_date", out var td) ? td.GetString() ?? "" : "",
+                TestDate = root.TryGetProperty("test_date", out var td) ? DateTime.Parse(td.GetString()!) : DateTime.MinValue,
                 SamplingIntervalMs = root.TryGetProperty("sampling_interval_ms", out var si) ? si.GetInt32() : 500,
                 Samples = samples,
                 CpuSummary = cpuSummary,
@@ -119,7 +119,7 @@ internal static class ChartDataLoader
 
         foreach (var sample in samplesArray.EnumerateArray())
         {
-            var timestamp = sample.GetProperty("timestamp").GetString() ?? "";
+            var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
             var elapsedSeconds = sample.GetProperty("elapsed_seconds").GetDouble();
 
             // Get rate from either events_per_second or calls_per_second
@@ -177,7 +177,7 @@ internal static class ChartDataLoader
 
         foreach (var sample in samplesArray.EnumerateArray())
         {
-            var timestamp = sample.GetProperty("timestamp").GetString() ?? "";
+            var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
             var cpuPercent = sample.TryGetProperty("cpu_percent", out var cpu) ? cpu.GetDouble() : 0;
 
             // Get memory from memory_mb, memory_rss_mb, or memory_used_mb
@@ -272,7 +272,7 @@ internal static class ChartDataLoader
 
         foreach (var sample in samplesArray.EnumerateArray())
         {
-            var timestamp = sample.GetProperty("timestamp").GetString() ?? "";
+            var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
             var cpuPercent = sample.TryGetProperty("cpu_percent", out var cpu) ? cpu.GetDouble() : 0;
 
             double memoryMb = 0;

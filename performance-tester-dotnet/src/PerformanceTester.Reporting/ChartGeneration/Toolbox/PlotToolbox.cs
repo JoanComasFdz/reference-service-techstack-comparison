@@ -17,13 +17,13 @@ internal static class PlotToolbox
     /// Extracts OADate timestamps from resource samples.
     /// </summary>
     public static double[] ExtractTimestamps(IReadOnlyList<ResourceSampleJson> samples)
-        => samples.Select(s => DateTime.Parse(s.Timestamp).ToOADate()).ToArray();
+        => samples.Select(s => s.Timestamp.ToOADate()).ToArray();
 
     /// <summary>
     /// Extracts OADate timestamps from throughput samples.
     /// </summary>
     public static double[] ExtractTimestamps(IReadOnlyList<ThroughputSampleJson> samples)
-        => samples.Select(s => DateTime.Parse(s.Timestamp).ToOADate()).ToArray();
+        => samples.Select(s => s.Timestamp.ToOADate()).ToArray();
 
     /// <summary>
     /// Extracts CPU% values from resource samples.

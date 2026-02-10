@@ -153,8 +153,8 @@ public static class CompareCommand
         // Supplementary: test-report-{timestamp}-{service}.{type}.json
         var basePath = mainReportPath.Replace(".json", "");
 
-        var eventsThroughputSamples = await LoadThroughputSamplesAsync(
-            $"{basePath}.events-throughput.json", "events_per_second", "total_events", cancellationToken);
+        var eventsThroughputSamples = await LoadEventsThroughputSamplesAsync(
+            $"{basePath}.events-throughput.json", cancellationToken);
 
         var apiThroughputSamples = await LoadThroughputSamplesAsync(
             $"{basePath}.api-throughput.json", "calls_per_second", "total_calls", cancellationToken);
@@ -176,7 +176,35 @@ public static class CompareCommand
     }
 
     /// <summary>
-    /// Loads throughput samples from events-throughput or api-throughput JSON files.
+    /// Loads events throughput samples via typed deserialization.
+    /// </summary>
+    private static async Task<IReadOnlyList<ThroughputMetricSample>> LoadEventsThroughputSamplesAsync(
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(filePath))
+            return [];
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
+            var report = JsonSerializer.Deserialize<ThroughputReport>(json, JsonOptions);
+            if (report is null)
+                return [];
+
+            return report.Samples.Select(s => new ThroughputMetricSample
+            {
+                Timestamp = s.Timestamp,
+                ElapsedSeconds = s.ElapsedSeconds,
+                Rate = s.EventsPerSecond,
+                CumulativeCount = s.TotalEvents
+            }).ToArray();
+        }
+        catch { return []; }
+    }
+
+    /// <summary>
+    /// Loads throughput samples from api-throughput JSON files using dynamic field names.
     /// </summary>
     private static Task<IReadOnlyList<ThroughputMetricSample>> LoadThroughputSamplesAsync(
         string filePath,
@@ -195,65 +223,46 @@ public static class CompareCommand
     }
 
     /// <summary>
-    /// Loads process resource samples from resource-metrics JSON file.
+    /// Loads process resource samples via typed deserialization.
     /// </summary>
-    private static Task<IReadOnlyList<ProcessResourceSample>> LoadProcessResourceSamplesAsync(
+    private static async Task<IReadOnlyList<ProcessResourceSample>> LoadProcessResourceSamplesAsync(
         string filePath,
         CancellationToken cancellationToken)
     {
-        return JsonFileToolbox.LoadSamplesAsync<ProcessResourceSample>(filePath, (sample, root) =>
+        if (!File.Exists(filePath))
+            return [];
+
+        try
         {
-            var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
+            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
+            var report = JsonSerializer.Deserialize<ProcessResourceMetricsReport>(json, JsonOptions);
+            if (report is null)
+                return [];
 
-            // Get test_date to calculate elapsed seconds
-            DateTime? testDate = root.TryGetProperty("test_date", out var testDateElement)
-                ? DateTime.Parse(testDateElement.GetString()!)
-                : null;
-
-            var elapsedSeconds = testDate.HasValue
-                ? (timestamp - testDate.Value).TotalSeconds
-                : 0.0;
-
-            return new ProcessResourceSample
-            {
-                Timestamp = timestamp,
-                ElapsedSeconds = elapsedSeconds,
-                CpuPercent = sample.GetProperty("cpu_percent").GetDouble(),
-                MemoryRssMb = sample.GetProperty("memory_rss_mb").GetDouble(),
-                Threads = sample.GetProperty("threads").GetInt32()
-            };
-        }, cancellationToken);
+            return report.Samples;
+        }
+        catch { return []; }
     }
 
     /// <summary>
-    /// Loads system-wide resource samples from system-metrics JSON file.
+    /// Loads system-wide resource samples via typed deserialization.
     /// </summary>
-    private static Task<IReadOnlyList<SystemResourceSample>> LoadSystemResourceSamplesAsync(
+    private static async Task<IReadOnlyList<SystemResourceSample>> LoadSystemResourceSamplesAsync(
         string filePath,
         CancellationToken cancellationToken)
     {
-        return JsonFileToolbox.LoadSamplesAsync<SystemResourceSample>(filePath, (sample, root) =>
+        if (!File.Exists(filePath))
+            return [];
+
+        try
         {
-            var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
+            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
+            var report = JsonSerializer.Deserialize<SystemMetricsReport>(json, JsonOptions);
+            if (report is null)
+                return [];
 
-            // Get test_date to calculate elapsed seconds
-            DateTime? testDate = root.TryGetProperty("test_date", out var testDateElement)
-                ? DateTime.Parse(testDateElement.GetString()!)
-                : null;
-
-            var elapsedSeconds = testDate.HasValue
-                ? (timestamp - testDate.Value).TotalSeconds
-                : 0.0;
-
-            return new SystemResourceSample
-            {
-                Timestamp = timestamp,
-                ElapsedSeconds = elapsedSeconds,
-                CpuPercent = sample.GetProperty("cpu_percent").GetDouble(),
-                MemoryUsedMb = sample.GetProperty("memory_used_mb").GetDouble(),
-                MemoryTotalMb = sample.GetProperty("memory_total_mb").GetDouble(),
-                MemoryPercent = sample.GetProperty("memory_percent").GetDouble()
-            };
-        }, cancellationToken);
+            return report.Samples;
+        }
+        catch { return []; }
     }
 }

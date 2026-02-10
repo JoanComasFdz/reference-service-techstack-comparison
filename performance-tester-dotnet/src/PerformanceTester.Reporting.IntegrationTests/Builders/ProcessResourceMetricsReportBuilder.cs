@@ -131,7 +131,7 @@ public class ProcessResourceMetricsReportBuilder
         var samplingIntervalMs = 500;
         var samplingIntervalSec = samplingIntervalMs / 1000.0;
 
-        var jsonSamples = new List<ProcessResourceSampleJson>();
+        var samples = new List<ProcessResourceSample>();
         var random = new Random(42);
 
         for (int i = 0; i < _sampleCount; i++)
@@ -150,9 +150,9 @@ public class ProcessResourceMetricsReportBuilder
             var threads = _targetAvgThreads ?? 25;
             threads += random.Next(-2, 3);
 
-            jsonSamples.Add(new ProcessResourceSampleJson
+            samples.Add(new ProcessResourceSample
             {
-                Timestamp = timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff+00:00"),
+                Timestamp = timestamp,
                 ElapsedSeconds = Math.Round(elapsed, 3),
                 CpuPercent = Math.Round(cpu, 2),
                 MemoryRssMb = Math.Round(ram, 2),
@@ -160,7 +160,7 @@ public class ProcessResourceMetricsReportBuilder
             });
         }
 
-        return CreateReportWithSummaries(jsonSamples, samplingIntervalMs);
+        return CreateReportWithSummaries(samples, samplingIntervalMs);
     }
 
     private ProcessResourceMetricsReport BuildLinear()
@@ -168,16 +168,16 @@ public class ProcessResourceMetricsReportBuilder
         // Process resource metrics use 500ms sampling interval
         var samplingIntervalMs = 500;
         var samplingIntervalSec = samplingIntervalMs / 1000.0;
-        var jsonSamples = new List<ProcessResourceSampleJson>();
+        var samples = new List<ProcessResourceSample>();
 
         for (int i = 0; i < _sampleCount; i++)
         {
             var elapsed = i * samplingIntervalSec;
             var timestamp = _baseTime.AddSeconds(elapsed);
 
-            jsonSamples.Add(new ProcessResourceSampleJson
+            samples.Add(new ProcessResourceSample
             {
-                Timestamp = timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff+00:00"),
+                Timestamp = timestamp,
                 ElapsedSeconds = Math.Round(elapsed, 3),
                 CpuPercent = Math.Round(_startCpu!.Value + (i * _cpuIncrement!.Value), 2),
                 MemoryRssMb = Math.Round(_startMemory!.Value + (i * _memoryIncrement!.Value), 2),
@@ -185,15 +185,15 @@ public class ProcessResourceMetricsReportBuilder
             });
         }
 
-        return CreateReportWithSummaries(jsonSamples, samplingIntervalMs);
+        return CreateReportWithSummaries(samples, samplingIntervalMs);
     }
 
     private ProcessResourceMetricsReport CreateReportWithSummaries(
-        List<ProcessResourceSampleJson> jsonSamples,
+        List<ProcessResourceSample> samples,
         int samplingIntervalMs)
     {
         // Calculate CPU summary statistics
-        var cpuValues = jsonSamples.Select(s => s.CpuPercent).ToList();
+        var cpuValues = samples.Select(s => s.CpuPercent).ToList();
         var cpuSummary = new ResourceSummary
         {
             Avg = Math.Round(cpuValues.Average(), 2),
@@ -204,7 +204,7 @@ public class ProcessResourceMetricsReportBuilder
         };
 
         // Calculate memory summary statistics
-        var ramValues = jsonSamples.Select(s => s.MemoryRssMb).ToList();
+        var ramValues = samples.Select(s => s.MemoryRssMb).ToList();
         var memorySummary = new ResourceSummary
         {
             Avg = Math.Round(ramValues.Average(), 2),
@@ -216,9 +216,9 @@ public class ProcessResourceMetricsReportBuilder
 
         return new ProcessResourceMetricsReport
         {
-            TestDate = _baseTime.ToString("yyyy-MM-dd HH:mm:ss"),
+            TestDate = _baseTime,
             SamplingIntervalMs = samplingIntervalMs,
-            Samples = jsonSamples,
+            Samples = samples,
             CpuSummary = cpuSummary,
             MemorySummary = memorySummary
         };

@@ -114,7 +114,7 @@ public class ThroughputReportBuilder
 
             jsonSamples.Add(new ThroughputSampleJson
             {
-                Timestamp = timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff+00:00"),
+                Timestamp = timestamp,
                 ElapsedSeconds = Math.Round(elapsed, 3),
                 EventsPerSecond = Math.Round(rate, 2),
                 TotalEvents = (int)(rate * (i + 1))
@@ -136,7 +136,7 @@ public class ThroughputReportBuilder
 
             jsonSamples.Add(new ThroughputSampleJson
             {
-                Timestamp = timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff+00:00"),
+                Timestamp = timestamp,
                 ElapsedSeconds = Math.Round(elapsed, 3),
                 EventsPerSecond = Math.Round(rate, 2),
                 TotalEvents = (i + 1) * 10
@@ -164,7 +164,7 @@ public class ThroughputReportBuilder
 
         return new ThroughputReport
         {
-            TestDate = _baseTime.ToString("yyyy-MM-dd HH:mm:ss"),
+            TestDate = _baseTime,
             SamplingIntervalMs = _samplingIntervalMs,
             Samples = jsonSamples,
             Summary = summary
