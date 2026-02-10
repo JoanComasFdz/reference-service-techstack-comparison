@@ -9,7 +9,6 @@ using PerformanceTester.Cli.Output;
 using PerformanceTester.Orchestration.ValueObjects;
 using PerformanceTester.Reporting;
 using PerformanceTester.Reporting.ComparisonGeneration;
-using PerformanceTester.Cli.Toolbox;
 using PerformanceTester.Reporting.Shared.Utilities;
 
 namespace PerformanceTester.Cli.Commands;
@@ -156,8 +155,8 @@ public static class CompareCommand
         var eventsThroughputSamples = await LoadEventsThroughputSamplesAsync(
             $"{basePath}.events-throughput.json", cancellationToken);
 
-        var apiThroughputSamples = await LoadThroughputSamplesAsync(
-            $"{basePath}.api-throughput.json", "calls_per_second", "total_calls", cancellationToken);
+        var apiThroughputSamples = await LoadApiThroughputSamplesAsync(
+            $"{basePath}.api-throughput.json", cancellationToken);
 
         var processResourceSamples = await LoadProcessResourceSamplesAsync(
             $"{basePath}.resource-metrics.json", cancellationToken);
@@ -204,22 +203,31 @@ public static class CompareCommand
     }
 
     /// <summary>
-    /// Loads throughput samples from api-throughput JSON files using dynamic field names.
+    /// Loads API throughput samples via typed deserialization.
     /// </summary>
-    private static Task<IReadOnlyList<ThroughputMetricSample>> LoadThroughputSamplesAsync(
+    private static async Task<IReadOnlyList<ThroughputMetricSample>> LoadApiThroughputSamplesAsync(
         string filePath,
-        string rateFieldName,
-        string countFieldName,
         CancellationToken cancellationToken)
     {
-        return JsonFileToolbox.LoadSamplesAsync<ThroughputMetricSample>(filePath, (sample, root) =>
-            new ThroughputMetricSample
+        if (!File.Exists(filePath))
+            return [];
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(filePath, cancellationToken);
+            var report = JsonSerializer.Deserialize<ApiThroughputReportJson>(json, JsonOptions);
+            if (report is null)
+                return [];
+
+            return report.Samples.Select(s => new ThroughputMetricSample
             {
-                Timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!),
-                ElapsedSeconds = sample.GetProperty("elapsed_seconds").GetDouble(),
-                Rate = sample.GetProperty(rateFieldName).GetDouble(),
-                CumulativeCount = sample.GetProperty(countFieldName).GetInt32()
-            }, cancellationToken);
+                Timestamp = s.Timestamp,
+                ElapsedSeconds = s.ElapsedSeconds,
+                Rate = s.CallsPerSecond,
+                CumulativeCount = s.TotalCalls
+            }).ToArray();
+        }
+        catch { return []; }
     }
 
     /// <summary>
