@@ -68,58 +68,43 @@ public sealed class ReportGenerator
         var filePath = Path.Combine(outputDirectory, $"{baseFilename}.json");
 
         // Main report timestamp format: "yyyy-MM-dd HH:mm:ss" (no timezone, space separator)
-        var mainReport = new
+        var mainReport = new MainReportJson
         {
-            test_date = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
-            total_runtime_seconds = Math.Round(testReport.TotalRuntimeSeconds, 3),
-            system = testReport.System,
-            phase_timestamps = new
+            TestDateFormatted = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
+            TotalRuntimeSeconds = Math.Round(testReport.TotalRuntimeSeconds, 3),
+            System = testReport.System,
+            PhaseTimestamps = new PhaseTimestamps
             {
-                phase1_start = Math.Round(testReport.PhaseTimestamps.Phase1Start, 3),
-                phase1_end = Math.Round(testReport.PhaseTimestamps.Phase1End, 3),
-                phase2_start = Math.Round(testReport.PhaseTimestamps.Phase2Start, 3),
-                phase2_end = Math.Round(testReport.PhaseTimestamps.Phase2End, 3),
-                phase3_start = Math.Round(testReport.PhaseTimestamps.Phase3Start, 3),
-                phase3_end = Math.Round(testReport.PhaseTimestamps.Phase3End, 3)
+                Phase1Start = Math.Round(testReport.PhaseTimestamps.Phase1Start, 3),
+                Phase1End = Math.Round(testReport.PhaseTimestamps.Phase1End, 3),
+                Phase2Start = Math.Round(testReport.PhaseTimestamps.Phase2Start, 3),
+                Phase2End = Math.Round(testReport.PhaseTimestamps.Phase2End, 3),
+                Phase3Start = Math.Round(testReport.PhaseTimestamps.Phase3Start, 3),
+                Phase3End = Math.Round(testReport.PhaseTimestamps.Phase3End, 3)
             },
-            monitored_process = new
+            MonitoredProcess = testReport.MonitoredProcess,
+            Configuration = testReport.Configuration,
+            Results = new TestResults
             {
-                name = testReport.MonitoredProcess.Name,
-                pid = testReport.MonitoredProcess.Pid,
-                port = testReport.MonitoredProcess.Port
-            },
-            configuration = new
-            {
-                num_events = testReport.Configuration.NumEvents,
-                api_duration = testReport.Configuration.ApiDuration,
-                api_concurrent_workers = testReport.Configuration.ApiConcurrentWorkers,
-                rabbitmq_exchange = testReport.Configuration.RabbitmqExchange,
-                consumer_queue = testReport.Configuration.ConsumerQueue,
-                api_endpoint = testReport.Configuration.ApiEndpoint,
-                publish_event_type = testReport.Configuration.PublishEventType,
-                consume_event_type = testReport.Configuration.ConsumeEventType
-            },
-            results = new
-            {
-                phase1_publish = new
+                Phase1Publish = new PublishResults
                 {
-                    duration_seconds = Math.Round(testReport.Results.Phase1Publish.DurationSeconds, 3),
-                    throughput_events_per_sec = Math.Round(testReport.Results.Phase1Publish.ThroughputEventsPerSec, 2)
+                    DurationSeconds = Math.Round(testReport.Results.Phase1Publish.DurationSeconds, 3),
+                    ThroughputEventsPerSec = Math.Round(testReport.Results.Phase1Publish.ThroughputEventsPerSec, 2)
                 },
-                phase2_consume = new
+                Phase2Consume = new ConsumeResults
                 {
-                    duration_seconds = Math.Round(testReport.Results.Phase2Consume.DurationSeconds, 3),
-                    throughput_events_per_sec = Math.Round(testReport.Results.Phase2Consume.ThroughputEventsPerSec, 2)
+                    DurationSeconds = Math.Round(testReport.Results.Phase2Consume.DurationSeconds, 3),
+                    ThroughputEventsPerSec = Math.Round(testReport.Results.Phase2Consume.ThroughputEventsPerSec, 2)
                 },
-                phase3_api = new
+                Phase3Api = new ApiResults
                 {
-                    duration_seconds = Math.Round(testReport.Results.Phase3Api.DurationSeconds, 3),
-                    total_requests = testReport.Results.Phase3Api.TotalRequests,
-                    throughput_calls_per_sec = Math.Round(testReport.Results.Phase3Api.ThroughputCallsPerSec, 2),
-                    success_count = testReport.Results.Phase3Api.SuccessCount,
-                    success_percentage = Math.Round(testReport.Results.Phase3Api.SuccessPercentage, 1),
-                    error_count = testReport.Results.Phase3Api.ErrorCount,
-                    error_percentage = Math.Round(testReport.Results.Phase3Api.ErrorPercentage, 1)
+                    DurationSeconds = Math.Round(testReport.Results.Phase3Api.DurationSeconds, 3),
+                    TotalRequests = testReport.Results.Phase3Api.TotalRequests,
+                    ThroughputCallsPerSec = Math.Round(testReport.Results.Phase3Api.ThroughputCallsPerSec, 2),
+                    SuccessCount = testReport.Results.Phase3Api.SuccessCount,
+                    SuccessPercentage = Math.Round(testReport.Results.Phase3Api.SuccessPercentage, 1),
+                    ErrorCount = testReport.Results.Phase3Api.ErrorCount,
+                    ErrorPercentage = Math.Round(testReport.Results.Phase3Api.ErrorPercentage, 1)
                 }
             }
         };
@@ -142,30 +127,27 @@ public sealed class ReportGenerator
             s => s.Rate,
             s => s.CumulativeCount);
 
-        // Use anonymous type with events-specific field names
-        // Samples use ThroughputSampleJson for proper type serialization;
-        // summary stays anonymous because field names are format-specific
-        var report = new
+        var report = new EventsThroughputReportJson
         {
-            test_date = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
-            sampling_interval_ms = 100,
-            samples = testReport.EventsThroughputSamples.Select(s => new ThroughputSampleJson
+            TestDateFormatted = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
+            SamplingIntervalMs = 100,
+            Samples = testReport.EventsThroughputSamples.Select(s => new ThroughputSampleJson
             {
                 Timestamp = s.Timestamp,
                 ElapsedSeconds = Math.Round(s.ElapsedSeconds, 3),
                 EventsPerSecond = Math.Round(s.Rate, 2),
                 TotalEvents = s.CumulativeCount
             }).ToList(),
-            summary = new
+            Summary = new EventsThroughputSummaryJson
             {
-                avg_events_per_second = summary.AvgRate,
-                peak_events_per_second = summary.PeakRate,
-                min_events_per_second = summary.MinRate,
-                std_dev_events_per_second = summary.StdDevRate,
-                cv_events_per_second = summary.CvRate,
-                avg_response_time_ms = summary.AvgResponseTimeMs,
-                total_samples = summary.TotalSamples,
-                total_events = summary.TotalCount
+                AvgEventsPerSecond = summary.AvgRate,
+                PeakEventsPerSecond = summary.PeakRate,
+                MinEventsPerSecond = summary.MinRate,
+                StdDevEventsPerSecond = summary.StdDevRate,
+                CvEventsPerSecond = summary.CvRate,
+                AvgResponseTimeMs = summary.AvgResponseTimeMs,
+                TotalSamples = summary.TotalSamples,
+                TotalEvents = summary.TotalCount
             }
         };
 
@@ -187,28 +169,27 @@ public sealed class ReportGenerator
             s => s.Rate,
             s => s.CumulativeCount);
 
-        // Use anonymous type with API-specific field names (calls instead of events)
-        var report = new
+        var report = new ApiThroughputReportJson
         {
-            test_date = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
-            sampling_interval_ms = 100,
-            samples = testReport.ApiThroughputSamples.Select(s => new
+            TestDateFormatted = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
+            SamplingIntervalMs = 100,
+            Samples = testReport.ApiThroughputSamples.Select(s => new ApiThroughputSampleJson
             {
-                timestamp = s.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff"),
-                elapsed_seconds = Math.Round(s.ElapsedSeconds, 3),
-                total_calls = s.CumulativeCount,
-                calls_per_second = Math.Round(s.Rate, 2)
+                Timestamp = s.Timestamp,
+                ElapsedSeconds = Math.Round(s.ElapsedSeconds, 3),
+                TotalCalls = s.CumulativeCount,
+                CallsPerSecond = Math.Round(s.Rate, 2)
             }).ToList(),
-            summary = new
+            Summary = new ApiThroughputSummaryJson
             {
-                avg_calls_per_second = summary.AvgRate,
-                peak_calls_per_second = summary.PeakRate,
-                min_calls_per_second = summary.MinRate,
-                std_dev_calls_per_second = summary.StdDevRate,
-                cv_calls_per_second = summary.CvRate,
-                avg_response_time_ms = summary.AvgResponseTimeMs,
-                total_samples = summary.TotalSamples,
-                total_calls = summary.TotalCount
+                AvgCallsPerSecond = summary.AvgRate,
+                PeakCallsPerSecond = summary.PeakRate,
+                MinCallsPerSecond = summary.MinRate,
+                StdDevCallsPerSecond = summary.StdDevRate,
+                CvCallsPerSecond = summary.CvRate,
+                AvgResponseTimeMs = summary.AvgResponseTimeMs,
+                TotalSamples = summary.TotalSamples,
+                TotalCalls = summary.TotalCount
             }
         };
 
@@ -230,17 +211,17 @@ public sealed class ReportGenerator
         var cpuSummary = StatisticsCalculator.CalculateResourceSummary(cpuValues, "%");
         var memorySummary = StatisticsCalculator.CalculateResourceSummary(memoryValues, "MB");
 
-        var report = new
+        var report = new ProcessResourceReportJson
         {
-            test_date = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
-            process_info = new
+            TestDateFormatted = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
+            ProcessInfo = new ProcessInfoJson
             {
-                pid = testReport.MonitoredProcess.Pid,
-                name = testReport.MonitoredProcess.Name,
-                port = testReport.MonitoredProcess.Port
+                Pid = testReport.MonitoredProcess.Pid,
+                Name = testReport.MonitoredProcess.Name,
+                Port = testReport.MonitoredProcess.Port
             },
-            sampling_interval_ms = 500,
-            samples = testReport.ProcessResourceSamples.Select(s => new ProcessResourceSample
+            SamplingIntervalMs = 500,
+            Samples = testReport.ProcessResourceSamples.Select(s => new ProcessResourceSample
             {
                 Timestamp = s.Timestamp,
                 ElapsedSeconds = Math.Round(s.ElapsedSeconds, 3),
@@ -248,13 +229,13 @@ public sealed class ReportGenerator
                 MemoryRssMb = Math.Round(s.MemoryRssMb, 2),
                 Threads = s.Threads
             }).ToList(),
-            summary = new
+            Summary = new ProcessResourceSummaryJson
             {
-                avg_cpu_percent = cpuSummary.Avg,
-                peak_cpu_percent = cpuSummary.Max,
-                avg_memory_rss_mb = memorySummary.Avg,
-                peak_memory_rss_mb = memorySummary.Max,
-                total_samples = testReport.ProcessResourceSamples.Count
+                AvgCpuPercent = cpuSummary.Avg,
+                PeakCpuPercent = cpuSummary.Max,
+                AvgMemoryRssMb = memorySummary.Avg,
+                PeakMemoryRssMb = memorySummary.Max,
+                TotalSamples = testReport.ProcessResourceSamples.Count
             }
         };
 
@@ -281,12 +262,12 @@ public sealed class ReportGenerator
         // Determine if running in WSL2 based on system info
         var isWsl2 = testReport.System.WslVersion == "WSL2";
 
-        var report = new
+        var report = new SystemMetricsReportJson
         {
-            test_date = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
-            cpu_count = testReport.System.Cpu.LogicalProcessors,
-            sampling_interval_ms = 500,
-            samples = testReport.SystemResourceSamples.Select(s => new SystemResourceSample
+            TestDateFormatted = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
+            CpuCount = testReport.System.Cpu.LogicalProcessors,
+            SamplingIntervalMs = 500,
+            Samples = testReport.SystemResourceSamples.Select(s => new SystemResourceSample
             {
                 Timestamp = s.Timestamp,
                 ElapsedSeconds = Math.Round(s.ElapsedSeconds, 3),
@@ -295,18 +276,18 @@ public sealed class ReportGenerator
                 MemoryTotalMb = Math.Round(s.MemoryTotalMb, 2),
                 MemoryPercent = Math.Round(s.MemoryPercent, 2)
             }).ToList(),
-            summary = new
+            Summary = new SystemMetricsSummaryJson
             {
-                avg_cpu_percent = cpuSummary.Avg,
-                peak_cpu_percent = cpuSummary.Max,
-                min_cpu_percent = cpuSummary.Min,
-                avg_memory_used_mb = memoryUsedSummary.Avg,
-                peak_memory_used_mb = memoryUsedSummary.Max,
-                avg_memory_percent = memoryPercentSummary.Avg,
-                peak_memory_percent = memoryPercentSummary.Max,
-                total_samples = testReport.SystemResourceSamples.Count
+                AvgCpuPercent = cpuSummary.Avg,
+                PeakCpuPercent = cpuSummary.Max,
+                MinCpuPercent = cpuSummary.Min,
+                AvgMemoryUsedMb = memoryUsedSummary.Avg,
+                PeakMemoryUsedMb = memoryUsedSummary.Max,
+                AvgMemoryPercent = memoryPercentSummary.Avg,
+                PeakMemoryPercent = memoryPercentSummary.Max,
+                TotalSamples = testReport.SystemResourceSamples.Count
             },
-            is_wsl2 = isWsl2
+            IsWsl2 = isWsl2
         };
 
         var json = JsonSerializer.Serialize(report, JsonOptions);
@@ -334,27 +315,24 @@ public sealed class ReportGenerator
             Id = "unknown"
         };
 
-        var report = new
+        var report = new ContainerMetricsReportJson
         {
-            test_date = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
-            container_info = new
+            TestDateFormatted = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
+            ContainerInfo = containerInfo,
+            Samples = testReport.RabbitMqResourceSamples.Select(s => new ContainerResourceSample
             {
-                name = containerInfo.Name,
-                id = containerInfo.Id
-            },
-            samples = testReport.RabbitMqResourceSamples.Select(s => new
-            {
-                timestamp = s.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff"),
-                cpu_percent = Math.Round(s.CpuPercent, 2),
-                memory_mb = Math.Round(s.MemoryMb, 2)
+                Timestamp = s.Timestamp,
+                ElapsedSeconds = Math.Round(s.ElapsedSeconds, 3),
+                CpuPercent = Math.Round(s.CpuPercent, 2),
+                MemoryMb = Math.Round(s.MemoryMb, 2)
             }).ToList(),
-            summary = new
+            Summary = new ContainerResourceSummaryJson
             {
-                avg_cpu_percent = cpuSummary.Avg,
-                peak_cpu_percent = cpuSummary.Max,
-                avg_memory_mb = memorySummary.Avg,
-                peak_memory_mb = memorySummary.Max,
-                total_samples = testReport.RabbitMqResourceSamples.Count
+                AvgCpuPercent = cpuSummary.Avg,
+                PeakCpuPercent = cpuSummary.Max,
+                AvgMemoryMb = memorySummary.Avg,
+                PeakMemoryMb = memorySummary.Max,
+                TotalSamples = testReport.RabbitMqResourceSamples.Count
             }
         };
 
@@ -383,27 +361,24 @@ public sealed class ReportGenerator
             Id = "unknown"
         };
 
-        var report = new
+        var report = new ContainerMetricsReportJson
         {
-            test_date = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
-            container_info = new
+            TestDateFormatted = testReport.TestDate.ToString("yyyy-MM-dd HH:mm:ss"),
+            ContainerInfo = containerInfo,
+            Samples = testReport.PostgresResourceSamples.Select(s => new ContainerResourceSample
             {
-                name = containerInfo.Name,
-                id = containerInfo.Id
-            },
-            samples = testReport.PostgresResourceSamples.Select(s => new
-            {
-                timestamp = s.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.ffffff"),
-                cpu_percent = Math.Round(s.CpuPercent, 2),
-                memory_mb = Math.Round(s.MemoryMb, 2)
+                Timestamp = s.Timestamp,
+                ElapsedSeconds = Math.Round(s.ElapsedSeconds, 3),
+                CpuPercent = Math.Round(s.CpuPercent, 2),
+                MemoryMb = Math.Round(s.MemoryMb, 2)
             }).ToList(),
-            summary = new
+            Summary = new ContainerResourceSummaryJson
             {
-                avg_cpu_percent = cpuSummary.Avg,
-                peak_cpu_percent = cpuSummary.Max,
-                avg_memory_mb = memorySummary.Avg,
-                peak_memory_mb = memorySummary.Max,
-                total_samples = testReport.PostgresResourceSamples.Count
+                AvgCpuPercent = cpuSummary.Avg,
+                PeakCpuPercent = cpuSummary.Max,
+                AvgMemoryMb = memorySummary.Avg,
+                PeakMemoryMb = memorySummary.Max,
+                TotalSamples = testReport.PostgresResourceSamples.Count
             }
         };
 

@@ -1,18 +1,27 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Reporting.Shared.Utilities;
 
 namespace PerformanceTester.Reporting.ChartGeneration.DataLoading;
 
 /// <summary>
-/// Loads chart data from JSON files.
+/// Loads chart data from JSON report files using typed deserialization.
 /// </summary>
 internal static class ChartDataLoader
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new Iso8601DateTimeConverter() }
+    };
+
     /// <summary>
-    /// Loads throughput report from JSON file.
-    /// Handles both events and API throughput formats.
+    /// Loads events throughput report from JSON file.
     /// </summary>
-    public static ThroughputReport? LoadThroughputReport(string filePath, ILogger? logger = null)
+    public static ThroughputReport? LoadEventsThroughputReport(string filePath, ILogger? logger = null)
     {
         if (!File.Exists(filePath))
             return null;
@@ -20,32 +29,39 @@ internal static class ChartDataLoader
         try
         {
             var json = File.ReadAllText(filePath);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            var samples = ParseThroughputSamples(root);
-            var summary = ParseThroughputSummary(root);
+            var report = JsonSerializer.Deserialize<EventsThroughputReportJson>(json, JsonOptions);
+            if (report == null)
+                return null;
 
             return new ThroughputReport
             {
-                TestDate = DateTime.Parse(root.GetProperty("test_date").GetString()!),
-                SamplingIntervalMs = root.GetProperty("sampling_interval_ms").GetInt32(),
-                Samples = samples,
-                Summary = summary
+                TestDate = DateTime.Parse(report.TestDateFormatted),
+                SamplingIntervalMs = report.SamplingIntervalMs,
+                Samples = report.Samples,
+                Summary = new ThroughputSummary
+                {
+                    AvgRate = report.Summary.AvgEventsPerSecond,
+                    PeakRate = report.Summary.PeakEventsPerSecond,
+                    MinRate = report.Summary.MinEventsPerSecond,
+                    StdDevRate = report.Summary.StdDevEventsPerSecond,
+                    CvRate = report.Summary.CvEventsPerSecond,
+                    AvgResponseTimeMs = report.Summary.AvgResponseTimeMs,
+                    TotalSamples = report.Summary.TotalSamples,
+                    TotalCount = report.Summary.TotalEvents
+                }
             };
         }
         catch (Exception ex)
         {
-            logger?.LogWarning(ex, "Failed to load throughput report from {FilePath}", filePath);
+            logger?.LogWarning(ex, "Failed to load events throughput report from {FilePath}", filePath);
             return null;
         }
     }
 
     /// <summary>
-    /// Loads resource metrics report from JSON file.
-    /// Used for RabbitMQ, PostgreSQL, and system metrics.
+    /// Loads API throughput report from JSON file.
     /// </summary>
-    public static ResourceMetricsReport? LoadResourceReport(string filePath, ILogger? logger = null)
+    public static ThroughputReport? LoadApiThroughputReport(string filePath, ILogger? logger = null)
     {
         if (!File.Exists(filePath))
             return null;
@@ -53,24 +69,146 @@ internal static class ChartDataLoader
         try
         {
             var json = File.ReadAllText(filePath);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
+            var report = JsonSerializer.Deserialize<ApiThroughputReportJson>(json, JsonOptions);
+            if (report == null)
+                return null;
 
-            var samples = ParseResourceSamples(root);
-            var (cpuSummary, memorySummary) = ParseResourceSummary(root, samples);
-
-            return new ResourceMetricsReport
+            return new ThroughputReport
             {
-                TestDate = root.TryGetProperty("test_date", out var td) ? DateTime.Parse(td.GetString()!) : DateTime.MinValue,
-                SamplingIntervalMs = root.TryGetProperty("sampling_interval_ms", out var si) ? si.GetInt32() : 500,
-                Samples = samples,
-                CpuSummary = cpuSummary,
-                MemorySummary = memorySummary
+                TestDate = DateTime.Parse(report.TestDateFormatted),
+                SamplingIntervalMs = report.SamplingIntervalMs,
+                Samples = report.Samples.Select(s => new ThroughputSampleJson
+                {
+                    Timestamp = s.Timestamp,
+                    ElapsedSeconds = s.ElapsedSeconds,
+                    TotalEvents = s.TotalCalls,
+                    EventsPerSecond = s.CallsPerSecond
+                }).ToList(),
+                Summary = new ThroughputSummary
+                {
+                    AvgRate = report.Summary.AvgCallsPerSecond,
+                    PeakRate = report.Summary.PeakCallsPerSecond,
+                    MinRate = report.Summary.MinCallsPerSecond,
+                    StdDevRate = report.Summary.StdDevCallsPerSecond,
+                    CvRate = report.Summary.CvCallsPerSecond,
+                    AvgResponseTimeMs = report.Summary.AvgResponseTimeMs,
+                    TotalSamples = report.Summary.TotalSamples,
+                    TotalCount = report.Summary.TotalCalls
+                }
             };
         }
         catch (Exception ex)
         {
-            logger?.LogWarning(ex, "Failed to load resource report from {FilePath}", filePath);
+            logger?.LogWarning(ex, "Failed to load API throughput report from {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Loads container resource metrics report from JSON file.
+    /// Used for RabbitMQ, PostgreSQL, and system metrics.
+    /// </summary>
+    public static ResourceMetricsReport? LoadContainerResourceReport(string filePath, ILogger? logger = null)
+    {
+        if (!File.Exists(filePath))
+            return null;
+
+        try
+        {
+            var json = File.ReadAllText(filePath);
+            var report = JsonSerializer.Deserialize<ContainerMetricsReportJson>(json, JsonOptions);
+            if (report == null)
+                return null;
+
+            var cpuValues = report.Samples.Select(s => s.CpuPercent).ToList();
+            var memoryValues = report.Samples.Select(s => s.MemoryMb).ToList();
+
+            return new ResourceMetricsReport
+            {
+                TestDate = DateTime.Parse(report.TestDateFormatted),
+                SamplingIntervalMs = 500,
+                Samples = report.Samples.Select(s => new ResourceSampleJson
+                {
+                    Timestamp = s.Timestamp,
+                    ElapsedSeconds = s.ElapsedSeconds,
+                    CpuPercent = s.CpuPercent,
+                    MemoryMb = s.MemoryMb
+                }).ToList(),
+                CpuSummary = new ResourceSummary
+                {
+                    Avg = report.Summary.AvgCpuPercent,
+                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
+                    Max = report.Summary.PeakCpuPercent,
+                    Mode = CalculateMode(cpuValues),
+                    Unit = "%"
+                },
+                MemorySummary = new ResourceSummary
+                {
+                    Avg = report.Summary.AvgMemoryMb,
+                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
+                    Max = report.Summary.PeakMemoryMb,
+                    Mode = CalculateMode(memoryValues),
+                    Unit = "MB"
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Failed to load container resource report from {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Loads system metrics report from JSON file.
+    /// </summary>
+    public static ResourceMetricsReport? LoadSystemResourceReport(string filePath, ILogger? logger = null)
+    {
+        if (!File.Exists(filePath))
+            return null;
+
+        try
+        {
+            var json = File.ReadAllText(filePath);
+            var report = JsonSerializer.Deserialize<SystemMetricsReportJson>(json, JsonOptions);
+            if (report == null)
+                return null;
+
+            var cpuValues = report.Samples.Select(s => s.CpuPercent).ToList();
+            var memoryValues = report.Samples.Select(s => s.MemoryUsedMb).ToList();
+
+            return new ResourceMetricsReport
+            {
+                TestDate = DateTime.Parse(report.TestDateFormatted),
+                SamplingIntervalMs = report.SamplingIntervalMs,
+                Samples = report.Samples.Select(s => new ResourceSampleJson
+                {
+                    Timestamp = s.Timestamp,
+                    ElapsedSeconds = s.ElapsedSeconds,
+                    CpuPercent = s.CpuPercent,
+                    MemoryMb = s.MemoryUsedMb
+                }).ToList(),
+                CpuSummary = new ResourceSummary
+                {
+                    Avg = report.Summary.AvgCpuPercent,
+                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
+                    Max = report.Summary.PeakCpuPercent,
+                    Mode = CalculateMode(cpuValues),
+                    Unit = "%"
+                },
+                MemorySummary = new ResourceSummary
+                {
+                    Avg = report.Summary.AvgMemoryUsedMb,
+                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
+                    Max = report.Summary.PeakMemoryUsedMb,
+                    Mode = CalculateMode(memoryValues),
+                    Unit = "MB"
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Failed to load system resource report from {FilePath}", filePath);
             return null;
         }
     }
@@ -87,19 +225,40 @@ internal static class ChartDataLoader
         try
         {
             var json = File.ReadAllText(filePath);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
+            var report = JsonSerializer.Deserialize<ProcessResourceReportJson>(json, JsonOptions);
+            if (report == null)
+                return null;
 
-            var samples = ParseProcessResourceSamples(root);
-            var (cpuSummary, memorySummary) = ParseProcessResourceSummary(root, samples);
+            var cpuValues = report.Samples.Select(s => s.CpuPercent).ToList();
+            var memoryValues = report.Samples.Select(s => s.MemoryRssMb).ToList();
 
             return new ResourceMetricsReport
             {
-                TestDate = root.TryGetProperty("test_date", out var td) ? DateTime.Parse(td.GetString()!) : DateTime.MinValue,
-                SamplingIntervalMs = root.TryGetProperty("sampling_interval_ms", out var si) ? si.GetInt32() : 500,
-                Samples = samples,
-                CpuSummary = cpuSummary,
-                MemorySummary = memorySummary
+                TestDate = DateTime.Parse(report.TestDateFormatted),
+                SamplingIntervalMs = report.SamplingIntervalMs,
+                Samples = report.Samples.Select(s => new ResourceSampleJson
+                {
+                    Timestamp = s.Timestamp,
+                    ElapsedSeconds = s.ElapsedSeconds,
+                    CpuPercent = s.CpuPercent,
+                    MemoryMb = s.MemoryRssMb
+                }).ToList(),
+                CpuSummary = new ResourceSummary
+                {
+                    Avg = report.Summary.AvgCpuPercent,
+                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
+                    Max = report.Summary.PeakCpuPercent,
+                    Mode = CalculateMode(cpuValues),
+                    Unit = "%"
+                },
+                MemorySummary = new ResourceSummary
+                {
+                    Avg = report.Summary.AvgMemoryRssMb,
+                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
+                    Max = report.Summary.PeakMemoryRssMb,
+                    Mode = CalculateMode(memoryValues),
+                    Unit = "MB"
+                }
             };
         }
         catch (Exception ex)
@@ -107,284 +266,6 @@ internal static class ChartDataLoader
             logger?.LogWarning(ex, "Failed to load process resource report from {FilePath}", filePath);
             return null;
         }
-    }
-
-    #region Throughput Parsing
-
-    private static List<ThroughputSampleJson> ParseThroughputSamples(JsonElement root)
-    {
-        var samples = new List<ThroughputSampleJson>();
-        if (!root.TryGetProperty("samples", out var samplesArray))
-            return samples;
-
-        foreach (var sample in samplesArray.EnumerateArray())
-        {
-            var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
-            var elapsedSeconds = sample.GetProperty("elapsed_seconds").GetDouble();
-
-            // Get rate from either events_per_second or calls_per_second
-            double rate = 0;
-            if (sample.TryGetProperty("events_per_second", out var eventsRate))
-                rate = eventsRate.GetDouble();
-            else if (sample.TryGetProperty("calls_per_second", out var callsRate))
-                rate = callsRate.GetDouble();
-
-            // Get count from either total_events or total_calls
-            int count = 0;
-            if (sample.TryGetProperty("total_events", out var totalEvents))
-                count = totalEvents.GetInt32();
-            else if (sample.TryGetProperty("total_calls", out var totalCalls))
-                count = totalCalls.GetInt32();
-
-            samples.Add(new ThroughputSampleJson
-            {
-                Timestamp = timestamp,
-                ElapsedSeconds = elapsedSeconds,
-                EventsPerSecond = rate,
-                TotalEvents = count
-            });
-        }
-
-        return samples;
-    }
-
-    private static ThroughputSummary ParseThroughputSummary(JsonElement root)
-    {
-        var summary = root.GetProperty("summary");
-
-        return new ThroughputSummary
-        {
-            AvgRate = GetDoubleFromEither(summary, "avg_events_per_second", "avg_calls_per_second"),
-            PeakRate = GetDoubleFromEither(summary, "peak_events_per_second", "peak_calls_per_second"),
-            MinRate = GetDoubleFromEither(summary, "min_events_per_second", "min_calls_per_second"),
-            StdDevRate = GetDoubleFromEither(summary, "std_dev_events_per_second", "std_dev_calls_per_second"),
-            CvRate = GetDoubleFromEither(summary, "cv_events_per_second", "cv_calls_per_second"),
-            AvgResponseTimeMs = summary.TryGetProperty("avg_response_time_ms", out var rtMs) ? rtMs.GetDouble() : 0,
-            TotalSamples = summary.TryGetProperty("total_samples", out var ts) ? ts.GetInt32() : 0,
-            TotalCount = GetIntFromEither(summary, "total_events", "total_calls")
-        };
-    }
-
-    #endregion
-
-    #region Resource Parsing
-
-    private static List<ResourceSampleJson> ParseResourceSamples(JsonElement root)
-    {
-        var samples = new List<ResourceSampleJson>();
-        if (!root.TryGetProperty("samples", out var samplesArray))
-            return samples;
-
-        foreach (var sample in samplesArray.EnumerateArray())
-        {
-            var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
-            var cpuPercent = sample.TryGetProperty("cpu_percent", out var cpu) ? cpu.GetDouble() : 0;
-
-            // Get memory from memory_mb, memory_rss_mb, or memory_used_mb
-            double memoryMb = 0;
-            if (sample.TryGetProperty("memory_mb", out var mem))
-                memoryMb = mem.GetDouble();
-            else if (sample.TryGetProperty("memory_rss_mb", out var rss))
-                memoryMb = rss.GetDouble();
-            else if (sample.TryGetProperty("memory_used_mb", out var used))
-                memoryMb = used.GetDouble();
-
-            samples.Add(new ResourceSampleJson
-            {
-                Timestamp = timestamp,
-                ElapsedSeconds = 0,
-                CpuPercent = cpuPercent,
-                MemoryMb = memoryMb
-            });
-        }
-
-        return samples;
-    }
-
-    private static (ResourceSummary cpu, ResourceSummary memory) ParseResourceSummary(
-        JsonElement root,
-        List<ResourceSampleJson> samples)
-    {
-        var cpuValues = samples.Select(s => s.CpuPercent).ToList();
-        var memoryValues = samples.Select(s => s.MemoryMb).ToList();
-
-        if (root.TryGetProperty("summary", out var summary))
-        {
-            var cpuSummary = new ResourceSummary
-            {
-                Avg = summary.TryGetProperty("avg_cpu_percent", out var avgCpu) ? avgCpu.GetDouble() : 0,
-                Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
-                Max = summary.TryGetProperty("peak_cpu_percent", out var peakCpu) ? peakCpu.GetDouble() : 0,
-                Mode = CalculateMode(cpuValues),
-                Unit = "%"
-            };
-
-            double avgMemory = 0;
-            if (summary.TryGetProperty("avg_memory_mb", out var avgMem))
-                avgMemory = avgMem.GetDouble();
-            else if (summary.TryGetProperty("avg_memory_used_mb", out var avgUsed))
-                avgMemory = avgUsed.GetDouble();
-
-            double peakMemory = 0;
-            if (summary.TryGetProperty("peak_memory_mb", out var peakMem))
-                peakMemory = peakMem.GetDouble();
-            else if (summary.TryGetProperty("peak_memory_used_mb", out var peakUsed))
-                peakMemory = peakUsed.GetDouble();
-
-            var memorySummary = new ResourceSummary
-            {
-                Avg = avgMemory,
-                Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                Max = peakMemory,
-                Mode = CalculateMode(memoryValues),
-                Unit = "MB"
-            };
-
-            return (cpuSummary, memorySummary);
-        }
-
-        // Fallback
-        return (
-            new ResourceSummary
-            {
-                Avg = 0,
-                Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
-                Max = 0,
-                Mode = CalculateMode(cpuValues),
-                Unit = "%"
-            },
-            new ResourceSummary
-            {
-                Avg = 0,
-                Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                Max = 0,
-                Mode = CalculateMode(memoryValues),
-                Unit = "MB"
-            }
-        );
-    }
-
-    private static List<ResourceSampleJson> ParseProcessResourceSamples(JsonElement root)
-    {
-        var samples = new List<ResourceSampleJson>();
-        if (!root.TryGetProperty("samples", out var samplesArray))
-            return samples;
-
-        foreach (var sample in samplesArray.EnumerateArray())
-        {
-            var timestamp = DateTime.Parse(sample.GetProperty("timestamp").GetString()!);
-            var cpuPercent = sample.TryGetProperty("cpu_percent", out var cpu) ? cpu.GetDouble() : 0;
-
-            double memoryMb = 0;
-            if (sample.TryGetProperty("memory_rss_mb", out var rss))
-                memoryMb = rss.GetDouble();
-            else if (sample.TryGetProperty("memory_mb", out var mem))
-                memoryMb = mem.GetDouble();
-
-            samples.Add(new ResourceSampleJson
-            {
-                Timestamp = timestamp,
-                ElapsedSeconds = 0,
-                CpuPercent = cpuPercent,
-                MemoryMb = memoryMb
-            });
-        }
-
-        return samples;
-    }
-
-    private static (ResourceSummary cpu, ResourceSummary memory) ParseProcessResourceSummary(
-        JsonElement root,
-        List<ResourceSampleJson> samples)
-    {
-        var cpuValues = samples.Select(s => s.CpuPercent).ToList();
-        var memoryValues = samples.Select(s => s.MemoryMb).ToList();
-
-        if (root.TryGetProperty("cpu_summary", out var cpuSum) && root.TryGetProperty("memory_summary", out var memSum))
-        {
-            return (
-                new ResourceSummary
-                {
-                    Avg = cpuSum.TryGetProperty("avg", out var avgCpu) ? avgCpu.GetDouble() : 0,
-                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
-                    Max = cpuSum.TryGetProperty("max", out var maxCpu) ? maxCpu.GetDouble() : 0,
-                    Mode = CalculateMode(cpuValues),
-                    Unit = cpuSum.TryGetProperty("unit", out var unitCpu) ? unitCpu.GetString() ?? "%" : "%"
-                },
-                new ResourceSummary
-                {
-                    Avg = memSum.TryGetProperty("avg", out var avgMem) ? avgMem.GetDouble() : 0,
-                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                    Max = memSum.TryGetProperty("max", out var maxMem) ? maxMem.GetDouble() : 0,
-                    Mode = CalculateMode(memoryValues),
-                    Unit = memSum.TryGetProperty("unit", out var unitMem) ? unitMem.GetString() ?? "MB" : "MB"
-                }
-            );
-        }
-
-        if (root.TryGetProperty("summary", out var summary))
-        {
-            return (
-                new ResourceSummary
-                {
-                    Avg = summary.TryGetProperty("avg_cpu_percent", out var avgCpu) ? avgCpu.GetDouble() : 0,
-                    Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
-                    Max = summary.TryGetProperty("peak_cpu_percent", out var peakCpu) ? peakCpu.GetDouble() : 0,
-                    Mode = CalculateMode(cpuValues),
-                    Unit = "%"
-                },
-                new ResourceSummary
-                {
-                    Avg = summary.TryGetProperty("avg_memory_rss_mb", out var avgMem) ? avgMem.GetDouble() : 0,
-                    Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                    Max = summary.TryGetProperty("peak_memory_rss_mb", out var peakMem) ? peakMem.GetDouble() : 0,
-                    Mode = CalculateMode(memoryValues),
-                    Unit = "MB"
-                }
-            );
-        }
-
-        // Fallback
-        return (
-            new ResourceSummary
-            {
-                Avg = 0,
-                Min = cpuValues.Count > 0 ? cpuValues.Min() : 0,
-                Max = 0,
-                Mode = CalculateMode(cpuValues),
-                Unit = "%"
-            },
-            new ResourceSummary
-            {
-                Avg = 0,
-                Min = memoryValues.Count > 0 ? memoryValues.Min() : 0,
-                Max = 0,
-                Mode = CalculateMode(memoryValues),
-                Unit = "MB"
-            }
-        );
-    }
-
-    #endregion
-
-    #region Helpers
-
-    private static double GetDoubleFromEither(JsonElement element, string key1, string key2)
-    {
-        if (element.TryGetProperty(key1, out var prop1))
-            return prop1.GetDouble();
-        if (element.TryGetProperty(key2, out var prop2))
-            return prop2.GetDouble();
-        return 0;
-    }
-
-    private static int GetIntFromEither(JsonElement element, string key1, string key2)
-    {
-        if (element.TryGetProperty(key1, out var prop1))
-            return prop1.GetInt32();
-        if (element.TryGetProperty(key2, out var prop2))
-            return prop2.GetInt32();
-        return 0;
     }
 
     private static int CalculateMode(List<double> values)
@@ -400,6 +281,4 @@ internal static class ChartDataLoader
             .First()
             .Key;
     }
-
-    #endregion
 }

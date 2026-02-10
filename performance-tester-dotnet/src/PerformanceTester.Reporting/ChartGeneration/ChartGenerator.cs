@@ -66,12 +66,12 @@ public static class ChartGenerator
         }
 
         // Load data
-        var eventsData = ChartDataLoader.LoadThroughputReport(dataFiles.EventsThroughput, logger);
-        var apiData = ChartDataLoader.LoadThroughputReport(dataFiles.ApiThroughput, logger);
+        var eventsData = ChartDataLoader.LoadEventsThroughputReport(dataFiles.EventsThroughput, logger);
+        var apiData = ChartDataLoader.LoadApiThroughputReport(dataFiles.ApiThroughput, logger);
         var serviceData = ChartDataLoader.LoadProcessResourceReport(dataFiles.ResourceMetrics, logger);
-        var rabbitmqData = ChartDataLoader.LoadResourceReport(dataFiles.RabbitmqMetrics, logger);
-        var postgresData = ChartDataLoader.LoadResourceReport(dataFiles.PostgresMetrics, logger);
-        var systemData = ChartDataLoader.LoadResourceReport(dataFiles.SystemMetrics, logger);
+        var rabbitmqData = ChartDataLoader.LoadContainerResourceReport(dataFiles.RabbitmqMetrics, logger);
+        var postgresData = ChartDataLoader.LoadContainerResourceReport(dataFiles.PostgresMetrics, logger);
+        var systemData = ChartDataLoader.LoadSystemResourceReport(dataFiles.SystemMetrics, logger);
 
         // Build plots
         var plots = BuildPlots(eventsData, apiData, serviceData, rabbitmqData, postgresData, systemData, config);

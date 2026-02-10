@@ -24,9 +24,8 @@ public sealed record ThroughputReport
     public required IReadOnlyList<ThroughputSampleJson> Samples { get; init; }
 
     /// <summary>
-    /// Statistical summary of throughput data.
-    /// Nullable because the JSON summary field names don't match C# property names;
-    /// CompareCommand doesn't need summaries (it computes its own from samples).
+    /// Statistical summary of throughput data (generic/normalized names).
+    /// Nullable because CompareCommand doesn't need summaries (it computes its own from samples).
     /// </summary>
     public ThroughputSummary? Summary { get; init; }
 }
@@ -73,7 +72,7 @@ public sealed record ThroughputSampleJson
 
 /// <summary>
 /// Statistical summary of throughput metrics.
-/// Used both for calculation output and JSON serialization.
+/// Used for internal calculation output and chart data loading.
 /// </summary>
 public sealed record ThroughputSummary
 {
@@ -116,4 +115,80 @@ public sealed record ThroughputSummary
     /// Total cumulative count (sum of all events/calls).
     /// </summary>
     public required int TotalCount { get; init; }
+}
+
+/// <summary>
+/// Events throughput report for JSON serialization.
+/// </summary>
+public sealed record EventsThroughputReportJson
+{
+    [JsonPropertyName("test_date")]
+    public required string TestDateFormatted { get; init; }
+
+    public required int SamplingIntervalMs { get; init; }
+
+    public required IReadOnlyList<ThroughputSampleJson> Samples { get; init; }
+
+    public required EventsThroughputSummaryJson Summary { get; init; }
+}
+
+/// <summary>
+/// Events throughput summary for JSON serialization.
+/// Property names serialize to events-specific snake_case via SnakeCaseLower policy
+/// (e.g., AvgEventsPerSecond → avg_events_per_second).
+/// </summary>
+public sealed record EventsThroughputSummaryJson
+{
+    public required double AvgEventsPerSecond { get; init; }
+    public required double PeakEventsPerSecond { get; init; }
+    public required double MinEventsPerSecond { get; init; }
+    public required double StdDevEventsPerSecond { get; init; }
+    public required double CvEventsPerSecond { get; init; }
+    public required double AvgResponseTimeMs { get; init; }
+    public required int TotalSamples { get; init; }
+    public required int TotalEvents { get; init; }
+}
+
+/// <summary>
+/// API throughput report for JSON serialization.
+/// </summary>
+public sealed record ApiThroughputReportJson
+{
+    [JsonPropertyName("test_date")]
+    public required string TestDateFormatted { get; init; }
+
+    public required int SamplingIntervalMs { get; init; }
+
+    public required IReadOnlyList<ApiThroughputSampleJson> Samples { get; init; }
+
+    public required ApiThroughputSummaryJson Summary { get; init; }
+}
+
+/// <summary>
+/// API throughput sample for JSON serialization.
+/// Uses API-specific naming (calls instead of events).
+/// </summary>
+public sealed record ApiThroughputSampleJson
+{
+    public required DateTime Timestamp { get; init; }
+    public required double ElapsedSeconds { get; init; }
+    public required int TotalCalls { get; init; }
+    public required double CallsPerSecond { get; init; }
+}
+
+/// <summary>
+/// API throughput summary for JSON serialization.
+/// Property names serialize to API-specific snake_case via SnakeCaseLower policy
+/// (e.g., AvgCallsPerSecond → avg_calls_per_second).
+/// </summary>
+public sealed record ApiThroughputSummaryJson
+{
+    public required double AvgCallsPerSecond { get; init; }
+    public required double PeakCallsPerSecond { get; init; }
+    public required double MinCallsPerSecond { get; init; }
+    public required double StdDevCallsPerSecond { get; init; }
+    public required double CvCallsPerSecond { get; init; }
+    public required double AvgResponseTimeMs { get; init; }
+    public required int TotalSamples { get; init; }
+    public required int TotalCalls { get; init; }
 }

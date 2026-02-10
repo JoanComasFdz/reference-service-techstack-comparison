@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PerformanceTester.Reporting;
 
 /// <summary>
@@ -297,4 +299,26 @@ public sealed record ApiResults
     /// Reason for abort, if test was aborted.
     /// </summary>
     public string? AbortReason { get; init; }
+}
+
+/// <summary>
+/// Main report for JSON serialization.
+/// Wraps existing model types with a formatted test_date string.
+/// </summary>
+public sealed record MainReportJson
+{
+    [JsonPropertyName("test_date")]
+    public required string TestDateFormatted { get; init; }
+
+    public required double TotalRuntimeSeconds { get; init; }
+
+    public required SystemInfo System { get; init; }
+
+    public required PhaseTimestamps PhaseTimestamps { get; init; }
+
+    public required MonitoredProcess MonitoredProcess { get; init; }
+
+    public required TestConfiguration Configuration { get; init; }
+
+    public required TestResults Results { get; init; }
 }
