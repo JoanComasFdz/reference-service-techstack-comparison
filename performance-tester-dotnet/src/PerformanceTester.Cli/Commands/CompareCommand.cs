@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Output;
+using PerformanceTester.Orchestration.ValueObjects;
 using PerformanceTester.Reporting;
 using PerformanceTester.Reporting.ComparisonGeneration;
 using PerformanceTester.Cli.Toolbox;
@@ -32,61 +33,53 @@ public static class CompareCommand
             getDefaultValue: () => "./test-results",
             description: "Folder containing test result JSON files");
 
-        var outputOption = new Option<string?>(
-            aliases: ["--output", "-o"],
-            description: "Output file path (default: auto-generated in results folder)");
-
-        var stdoutOption = new Option<bool>(
-            aliases: ["--stdout"],
-            getDefaultValue: () => false,
-            description: "Print report to stdout instead of file");
-
         var command = new Command("compare", "Generate comparison report from test results")
         {
-            folderOption,
-            outputOption,
-            stdoutOption
+            folderOption
         };
 
         command.SetHandler(async (InvocationContext context) =>
         {
-            var folder = context.ParseResult.GetValueForOption(folderOption)!;
-            var output = context.ParseResult.GetValueForOption(outputOption);
-            var stdout = context.ParseResult.GetValueForOption(stdoutOption);
-
             var host = context.GetHost();
-            var cancellationToken = context.GetCancellationToken();
+            var consoleWriter = host.Services.GetRequiredService<ConsoleWriter>();
 
-            var exitCode = await ExecuteAsync(
-                new CompareCommandOptions(folder, output, stdout),
-                host,
-                cancellationToken);
+            var folderResult = ResultsFolder.Create(context.ParseResult.GetValueForOption(folderOption)!);
+            if (folderResult.IsFailure)
+            {
+                consoleWriter.WriteError(folderResult.FailureError);
+                context.ExitCode = 1;
+                return;
+            }
 
-            context.ExitCode = exitCode;
+            context.ExitCode = await ExecuteAsync(
+                folderResult.SuccessValue,
+                host.Services.GetRequiredService<ILogger<Program>>(),
+                consoleWriter,
+                host.Services.GetRequiredService<ComparisonReportGenerator>(),
+                context.GetCancellationToken());
         });
 
         return command;
     }
 
     private static async Task<int> ExecuteAsync(
-        CompareCommandOptions options,
-        IHost host,
+        ResultsFolder folder,
+        ILogger<Program> logger,
+        ConsoleWriter consoleWriter,
+        ComparisonReportGenerator comparisonGenerator,
         CancellationToken cancellationToken)
     {
-        var logger = host.Services.GetRequiredService<ILogger<Program>>();
-        var consoleWriter = host.Services.GetRequiredService<ConsoleWriter>();
-
         try
         {
             // Validate folder exists
-            if (!Directory.Exists(options.Folder))
+            if (!Directory.Exists(folder.Value))
             {
-                consoleWriter.WriteError($"Results folder not found: {options.Folder}");
+                consoleWriter.WriteError($"Results folder not found: {folder}");
                 return 1;
             }
 
             // Find test report JSON files (main reports, not supplementary)
-            var reportFiles = Directory.GetFiles(options.Folder, "test-report-*.json")
+            var reportFiles = Directory.GetFiles(folder.Value, "test-report-*.json")
                 .Where(f => !f.Contains("resource-metrics")
                          && !f.Contains("events-throughput")
                          && !f.Contains("api-throughput")
@@ -97,7 +90,7 @@ public static class CompareCommand
 
             if (reportFiles.Count == 0)
             {
-                consoleWriter.WriteWarning($"No test report files found in: {options.Folder}");
+                consoleWriter.WriteWarning($"No test report files found in: {folder}");
                 consoleWriter.WriteLine("Run 'performance-tester test' first to generate reports.");
                 return 1;
             }
@@ -132,39 +125,12 @@ public static class CompareCommand
                 return 1;
             }
 
-            // Generate comparison report
-            var comparisonGenerator = host.Services.GetRequiredService<ComparisonReportGenerator>();
+            var latestTestDate = testReports.Max(r => r.TestDate);
+            var timestamp = latestTestDate.ToString("yyyyMMdd_HHmmss");
+            var outputPath = Path.Combine(folder.Value, $"test-report-{timestamp}-summary.md");
 
-            // Determine output path
-            var outputPath = options.Output;
-            if (string.IsNullOrWhiteSpace(outputPath) && !options.Stdout)
-            {
-                // Use the latest test date from the reports (matches the test run timestamp)
-                var latestTestDate = testReports.Max(r => r.TestDate);
-                var timestamp = latestTestDate.ToString("yyyyMMdd_HHmmss");
-                outputPath = Path.Combine(options.Folder, $"test-report-{timestamp}-summary.md");
-            }
-
-            if (options.Stdout)
-            {
-                // Generate to temp file then output to console
-                var tempPath = Path.GetTempFileName();
-                try
-                {
-                    await comparisonGenerator.GenerateComparisonReportAsync(tempPath, testReports, cancellationToken);
-                    var content = await File.ReadAllTextAsync(tempPath, cancellationToken);
-                    Console.WriteLine(content);
-                }
-                finally
-                {
-                    File.Delete(tempPath);
-                }
-            }
-            else
-            {
-                await comparisonGenerator.GenerateComparisonReportAsync(outputPath!, testReports, cancellationToken);
-                consoleWriter.WriteSuccess($"Comparison report saved to: {outputPath}");
-            }
+            await comparisonGenerator.GenerateComparisonReportAsync(outputPath, testReports, cancellationToken);
+            consoleWriter.WriteSuccess($"Comparison report saved to: {outputPath}");
 
             return 0;
         }
@@ -298,11 +264,3 @@ public static class CompareCommand
         }, cancellationToken);
     }
 }
-
-/// <summary>
-/// Options for the compare command (mapped from CLI arguments).
-/// </summary>
-public sealed record CompareCommandOptions(
-    string Folder,
-    string? Output,
-    bool Stdout);
