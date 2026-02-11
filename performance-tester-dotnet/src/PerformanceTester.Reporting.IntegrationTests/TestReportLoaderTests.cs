@@ -31,7 +31,7 @@ public sealed class TestReportLoaderTests : IntegrationTest
             await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), original);
 
             // Act
-            var loaded = await TestReportLoader.LoadFromFolderAsync(outputDirectory);
+            var loaded = await TestReportLoader.LoadFromFolderAsync(ResultsSourceFolder.FromString(outputDirectory));
 
             // Assert
             Assert.Single(loaded);
@@ -64,7 +64,7 @@ public sealed class TestReportLoaderTests : IntegrationTest
         try
         {
             // Act
-            var loaded = await TestReportLoader.LoadFromFolderAsync(outputDirectory);
+            var loaded = await TestReportLoader.LoadFromFolderAsync(ResultsSourceFolder.FromString(outputDirectory));
 
             // Assert
             Assert.Empty(loaded);
@@ -99,7 +99,7 @@ public sealed class TestReportLoaderTests : IntegrationTest
             await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), report2);
 
             // Act
-            var loaded = await TestReportLoader.LoadFromFolderAsync(outputDirectory);
+            var loaded = await TestReportLoader.LoadFromFolderAsync(ResultsSourceFolder.FromString(outputDirectory));
 
             // Assert
             Assert.Equal(2, loaded.Count);
@@ -129,7 +129,7 @@ public sealed class TestReportLoaderTests : IntegrationTest
             await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), original);
 
             // Act
-            var loaded = await TestReportLoader.LoadFromFolderAsync(outputDirectory);
+            var loaded = await TestReportLoader.LoadFromFolderAsync(ResultsSourceFolder.FromString(outputDirectory));
 
             // Assert - Rate mapping (EventsPerSecond -> Rate)
             var report = loaded[0];

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PerformanceTester.Reporting.Shared.Utilities;
+using PerformanceTester.Reporting.ValueObjects;
 
 namespace PerformanceTester.Reporting.ReportGeneration;
 
@@ -32,13 +33,15 @@ public static class TestReportLoader
     /// <summary>
     /// Loads all test reports from the specified folder, including supplementary data.
     /// </summary>
-    /// <param name="folderPath">Folder containing test report JSON files.</param>
+    /// <param name="sourceFolder">Folder containing test report JSON files.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of enriched test reports. Empty if no report files found.</returns>
     public static async Task<IReadOnlyList<TestReport>> LoadFromFolderAsync(
-        string folderPath,
+        ResultsSourceFolder sourceFolder,
         CancellationToken cancellationToken = default)
     {
+        var folderPath = sourceFolder.Value;
+
         var reportFiles = Directory.GetFiles(folderPath, "test-report-*.json")
             .Where(f => !SupplementarySuffixes.Any(suffix => f.Contains(suffix)))
             .ToList();

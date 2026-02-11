@@ -62,7 +62,7 @@ public static class CompareCommand
         try
         {
             var testReports = await TestReportLoader.LoadFromFolderAsync(
-                folder.Value, cancellationToken);
+                folder, cancellationToken);
 
             if (testReports.Count == 0)
             {
