@@ -1,17 +1,6 @@
-using JoanComasFdz.Result;
-
 namespace PerformanceTester.Orchestration.ValueObjects;
 
-public record FolderPath
+public record FolderPath : NonEmptyString
 {
-    public string Value { get; }
-    protected FolderPath(string value) => Value = value;
-
-    public override string ToString() => Value;
-
-    protected static Result<T, string> Create<T>(string value, string displayName, Func<string, T> factory)
-        where T : FolderPath =>
-        !string.IsNullOrWhiteSpace(value)
-            ? new Result<T, string>.Success(factory(value.Trim()))
-            : new Result<T, string>.Failure($"{displayName} cannot be empty");
+    protected FolderPath(string value) : base(value) { }
 }
