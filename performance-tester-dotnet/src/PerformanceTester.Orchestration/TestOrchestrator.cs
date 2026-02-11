@@ -568,8 +568,6 @@ public class TestOrchestrator : ITestOrchestrator
         // Step 6: Generate JSON reports
         _logger.LogInformation("Generating JSON reports to {Folder}", config.ResultsFolder);
 
-        Directory.CreateDirectory(config.ResultsFolder.Value);
-
         await _reportGenerator.GenerateReportAsync(
             config.ResultsFolder,
             testReport,

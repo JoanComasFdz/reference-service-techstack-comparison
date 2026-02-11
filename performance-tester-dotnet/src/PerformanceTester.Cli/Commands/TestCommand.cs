@@ -161,8 +161,6 @@ public static class TestCommand
             consoleWriter.WriteHeader("Performance Test Configuration");
             consoleWriter.WriteConfigTable(config);
             consoleWriter.WriteLine();
-
-            Directory.CreateDirectory(config.ResultsFolder.Value);
             consoleWriter.WriteHeader("Running Performance Test");
             progressReporter.Initialize();
 
