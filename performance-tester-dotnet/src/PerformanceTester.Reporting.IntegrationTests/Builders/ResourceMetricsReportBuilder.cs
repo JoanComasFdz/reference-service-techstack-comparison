@@ -6,7 +6,7 @@ namespace PerformanceTester.Reporting.IntegrationTests.Builders;
 /// Fluent builder for creating ResourceMetricsReport instances with samples and statistical summaries.
 /// Supports both phase-based variation mode and linear progression mode for CPU and memory metrics.
 /// </summary>
-public class ResourceMetricsReportBuilder
+internal class ResourceMetricsReportBuilder
 {
     private readonly DateTime _baseTime;
     private readonly string _resourceType;

@@ -6,7 +6,7 @@ namespace PerformanceTester.Reporting.IntegrationTests.Builders;
 /// Fluent builder for creating ProcessResourceMetricsReport instances with samples and statistical summaries.
 /// Supports both phase-based variation mode and linear progression mode for CPU, RSS memory, and thread metrics.
 /// </summary>
-public class ProcessResourceMetricsReportBuilder
+internal class ProcessResourceMetricsReportBuilder
 {
     private readonly DateTime _baseTime;
     private int _sampleCount = 130;

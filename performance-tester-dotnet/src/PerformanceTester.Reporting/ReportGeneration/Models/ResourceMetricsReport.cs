@@ -6,7 +6,7 @@ namespace PerformanceTester.Reporting;
 /// Resource metrics report (CPU/RAM) with samples and statistical summary.
 /// Used for process, container, and system-wide metrics.
 /// </summary>
-public sealed record ResourceMetricsReport
+internal sealed record ResourceMetricsReport
 {
     /// <summary>
     /// Test date/time.
@@ -37,7 +37,7 @@ public sealed record ResourceMetricsReport
 /// <summary>
 /// Process-specific resource metrics report (CPU/RSS memory/threads) with samples and statistical summary.
 /// </summary>
-public sealed record ProcessResourceMetricsReport
+internal sealed record ProcessResourceMetricsReport
 {
     /// <summary>
     /// Test date/time.
@@ -69,7 +69,7 @@ public sealed record ProcessResourceMetricsReport
 /// <summary>
 /// Individual resource sample for JSON output.
 /// </summary>
-public sealed record ResourceSampleJson
+internal sealed record ResourceSampleJson
 {
     /// <summary>
     /// Sample timestamp (UTC).
@@ -95,7 +95,7 @@ public sealed record ResourceSampleJson
 /// <summary>
 /// Statistical summary of a resource metric (CPU or memory).
 /// </summary>
-public sealed record ResourceSummary
+internal sealed record ResourceSummary
 {
     /// <summary>
     /// Average value.
@@ -126,7 +126,7 @@ public sealed record ResourceSummary
 /// <summary>
 /// Process resource metrics report for JSON serialization.
 /// </summary>
-public sealed record ProcessResourceReportJson
+internal sealed record ProcessResourceReportJson
 {
     [JsonPropertyName("test_date")]
     public required string TestDateFormatted { get; init; }
@@ -144,7 +144,7 @@ public sealed record ProcessResourceReportJson
 /// Process information for resource metrics JSON serialization.
 /// Property order (pid, name, port) matches Python output format.
 /// </summary>
-public sealed record ProcessInfoJson
+internal sealed record ProcessInfoJson
 {
     public required int Pid { get; init; }
     public required string Name { get; init; }
@@ -155,7 +155,7 @@ public sealed record ProcessInfoJson
 /// Process resource summary for JSON serialization.
 /// Uses process-specific naming (memory_rss_mb).
 /// </summary>
-public sealed record ProcessResourceSummaryJson
+internal sealed record ProcessResourceSummaryJson
 {
     public required double AvgCpuPercent { get; init; }
     public required double PeakCpuPercent { get; init; }
@@ -167,7 +167,7 @@ public sealed record ProcessResourceSummaryJson
 /// <summary>
 /// Container metrics report for JSON serialization (RabbitMQ, PostgreSQL).
 /// </summary>
-public sealed record ContainerMetricsReportJson
+internal sealed record ContainerMetricsReportJson
 {
     [JsonPropertyName("test_date")]
     public required string TestDateFormatted { get; init; }
@@ -183,7 +183,7 @@ public sealed record ContainerMetricsReportJson
 /// Container resource summary for JSON serialization (RabbitMQ, PostgreSQL).
 /// Uses generic memory_mb naming.
 /// </summary>
-public sealed record ContainerResourceSummaryJson
+internal sealed record ContainerResourceSummaryJson
 {
     public required double AvgCpuPercent { get; init; }
     public required double PeakCpuPercent { get; init; }
