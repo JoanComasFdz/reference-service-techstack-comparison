@@ -1,4 +1,5 @@
 using System.Text.Json;
+using PerformanceTester.Reporting.ValueObjects;
 using System.Text.RegularExpressions;
 using PerformanceTester.Reporting.ChartGeneration;
 using PerformanceTester.Reporting.IntegrationTests.Builders;
@@ -32,7 +33,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Assert
             var files = Directory.GetFiles(outputDirectory);
@@ -116,7 +117,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Assert - Read main report
             var mainReportPath = Directory.GetFiles(outputDirectory, "*testservice.json").First();
@@ -166,7 +167,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Assert - Check that files use sanitized name
             var files = Directory.GetFiles(outputDirectory, "*.json");
@@ -194,7 +195,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Assert - Read main report
             var mainReportPath = Directory.GetFiles(outputDirectory, "*testservice.json").First();
@@ -231,7 +232,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Assert - Main report timestamp format
             var mainReportPath = Directory.GetFiles(outputDirectory, "*testservice.json").First();
@@ -277,7 +278,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Assert
             var eventsThroughputPath = Directory.GetFiles(outputDirectory, "*.events-throughput.json").First();
@@ -316,7 +317,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Assert
             var eventsThroughputPath = Directory.GetFiles(outputDirectory, "*.events-throughput.json").First();
@@ -351,7 +352,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Assert - Events throughput: 100ms
             var eventsThroughputPath = Directory.GetFiles(outputDirectory, "*.events-throughput.json").First();
@@ -391,7 +392,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Assert - Process metrics use "memory_rss_mb" and include "threads"
             var resourceMetricsPath = Directory.GetFiles(outputDirectory, "*.resource-metrics.json").First();
@@ -439,7 +440,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Assert
             var mainReportPath = Directory.GetFiles(outputDirectory, "*testservice.json").First();
@@ -477,7 +478,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
         try
         {
             // Act - Step 1: Generate all JSON reports using production ReportGenerator
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Act - Step 2: Generate chart using production ChartGenerator (reads the JSON files)
             var timestamp = testReport.TestDate.ToString("yyyyMMdd_HHmmss");

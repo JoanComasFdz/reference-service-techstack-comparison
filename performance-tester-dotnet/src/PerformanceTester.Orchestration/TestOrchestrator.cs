@@ -571,7 +571,7 @@ public class TestOrchestrator : ITestOrchestrator
         Directory.CreateDirectory(config.ResultsFolder.Value);
 
         await _reportGenerator.GenerateReportAsync(
-            config.ResultsFolder.Value,
+            config.ResultsFolder,
             testReport,
             cancellationToken);
 

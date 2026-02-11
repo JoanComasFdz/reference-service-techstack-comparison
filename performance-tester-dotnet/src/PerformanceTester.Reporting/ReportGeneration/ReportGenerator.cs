@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using PerformanceTester.Reporting.ReportGeneration.Utilities;
 using PerformanceTester.Reporting.Shared.Utilities;
+using PerformanceTester.Reporting.ValueObjects;
 
 namespace PerformanceTester.Reporting.ReportGeneration;
 
@@ -22,24 +23,18 @@ public sealed class ReportGenerator
     /// <summary>
     /// Generates all report files (JSON, resource metrics, throughput metrics).
     /// </summary>
-    /// <param name="outputDirectory">Directory to write report files.</param>
+    /// <param name="outputFolder">Directory to write report files.</param>
     /// <param name="testReport">Complete test report data.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Task representing the async operation.</returns>
     public async Task GenerateReportAsync(
-        string outputDirectory,
+        ResultsOutputFolder outputFolder,
         TestReport testReport,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(outputDirectory))
-        {
-            throw new ArgumentException("Output directory cannot be null or empty.", nameof(outputDirectory));
-        }
+        ArgumentNullException.ThrowIfNull(testReport);
 
-        if (testReport == null)
-        {
-            throw new ArgumentNullException(nameof(testReport));
-        }
+        var outputDirectory = outputFolder.Value;
 
         // Ensure output directory exists
         Directory.CreateDirectory(outputDirectory);

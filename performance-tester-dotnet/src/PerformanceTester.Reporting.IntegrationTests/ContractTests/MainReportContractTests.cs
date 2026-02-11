@@ -1,4 +1,5 @@
 using System.Text.Json;
+using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.Reporting.IntegrationTests.Builders;
 using PerformanceTester.Reporting.IntegrationTests.Infrastructure;
 using Xunit.Abstractions;
@@ -120,7 +121,7 @@ public sealed class MainReportContractTests : IntegrationTest
             // ═══════════════════════════════════════════════════════════
             // ACT: Generate the report
             // ═══════════════════════════════════════════════════════════
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             var files = Directory.GetFiles(outputDirectory, "*.json")
                 .Where(f => !f.Contains("throughput") && !f.Contains("metrics"))
@@ -250,7 +251,7 @@ public sealed class MainReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             var filePath = Directory.GetFiles(outputDirectory, "*.json")
                 .First(f => !f.Contains("throughput") && !f.Contains("metrics"));
@@ -283,7 +284,7 @@ public sealed class MainReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             var filePath = Directory.GetFiles(outputDirectory, "*.json")
                 .First(f => !f.Contains("throughput") && !f.Contains("metrics"));
@@ -342,7 +343,7 @@ public sealed class MainReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, testReport);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             var filePath = Directory.GetFiles(outputDirectory, "*.json")
                 .First(f => !f.Contains("throughput") && !f.Contains("metrics"));

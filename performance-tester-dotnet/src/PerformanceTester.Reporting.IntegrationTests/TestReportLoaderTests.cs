@@ -1,4 +1,5 @@
 using PerformanceTester.Reporting.IntegrationTests.Builders;
+using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.Reporting.IntegrationTests.Infrastructure;
 using PerformanceTester.Reporting.ReportGeneration;
 using Xunit;
@@ -27,7 +28,7 @@ public sealed class TestReportLoaderTests : IntegrationTest
 
         try
         {
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, original);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), original);
 
             // Act
             var loaded = await TestReportLoader.LoadFromFolderAsync(outputDirectory);
@@ -94,8 +95,8 @@ public sealed class TestReportLoaderTests : IntegrationTest
 
         try
         {
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, report1);
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, report2);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), report1);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), report2);
 
             // Act
             var loaded = await TestReportLoader.LoadFromFolderAsync(outputDirectory);
@@ -125,7 +126,7 @@ public sealed class TestReportLoaderTests : IntegrationTest
 
         try
         {
-            await System.Reporting.ReportGenerator.GenerateReportAsync(outputDirectory, original);
+            await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), original);
 
             // Act
             var loaded = await TestReportLoader.LoadFromFolderAsync(outputDirectory);
