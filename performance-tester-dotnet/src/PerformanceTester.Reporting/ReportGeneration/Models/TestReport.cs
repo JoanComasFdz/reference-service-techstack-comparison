@@ -305,7 +305,7 @@ public sealed record ApiResults
 /// Main report for JSON serialization.
 /// Wraps existing model types with a formatted test_date string.
 /// </summary>
-public sealed record MainReportJson
+internal sealed record MainReportJson
 {
     [JsonPropertyName("test_date")]
     public required string TestDateFormatted { get; init; }
