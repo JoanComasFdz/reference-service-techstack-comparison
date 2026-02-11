@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Output;
 using PerformanceTester.Orchestration;
 using PerformanceTester.Orchestration.ValueObjects;
+using PerformanceTester.Reporting.ValueObjects;
 
 namespace PerformanceTester.Cli.Commands;
 

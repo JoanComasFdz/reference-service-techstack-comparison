@@ -1,4 +1,5 @@
 using PerformanceTester.Orchestration.ValueObjects;
+using PerformanceTester.Reporting.ValueObjects;
 
 namespace PerformanceTester.Orchestration;
 

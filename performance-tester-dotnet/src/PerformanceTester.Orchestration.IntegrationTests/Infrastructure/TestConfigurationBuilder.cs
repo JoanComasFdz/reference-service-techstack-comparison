@@ -1,5 +1,6 @@
 using JoanComasFdz.Result;
 using PerformanceTester.Orchestration.ValueObjects;
+using PerformanceTester.Reporting.ValueObjects;
 
 namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 

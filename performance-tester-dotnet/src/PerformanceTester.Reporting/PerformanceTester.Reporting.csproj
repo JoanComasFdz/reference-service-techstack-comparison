@@ -18,6 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Result Type (for Value Object Create methods) -->
+    <ProjectReference Include="..\JoanComasFdz.Result\JoanComasFdz.Result.csproj" />
+
     <!-- Common Library (OS Detection) -->
     <ProjectReference Include="..\PerformanceTester.Common\PerformanceTester.Common.csproj" />
 

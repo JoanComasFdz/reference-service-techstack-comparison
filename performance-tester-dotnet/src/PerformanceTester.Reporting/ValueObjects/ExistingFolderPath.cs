@@ -1,6 +1,6 @@
 using JoanComasFdz.Result;
 
-namespace PerformanceTester.Orchestration.ValueObjects;
+namespace PerformanceTester.Reporting.ValueObjects;
 
 public record ExistingFolderPath
 {

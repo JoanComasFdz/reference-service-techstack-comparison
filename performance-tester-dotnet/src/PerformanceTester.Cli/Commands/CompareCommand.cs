@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Output;
-using PerformanceTester.Orchestration.ValueObjects;
+using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.Reporting.ComparisonGeneration;
 using PerformanceTester.Reporting.ReportGeneration;
 
