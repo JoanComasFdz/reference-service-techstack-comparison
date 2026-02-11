@@ -481,11 +481,8 @@ public sealed class ReportGeneratorTests : IntegrationTest
             await System.Reporting.ReportGenerator.GenerateReportAsync(ResultsOutputFolder.FromString(outputDirectory), testReport);
 
             // Act - Step 2: Generate chart using production ChartGenerator (reads the JSON files)
-            var timestamp = testReport.TestDate.ToString("yyyyMMdd_HHmmss");
-            var sanitizedName = testReport.MonitoredProcess.Name.ToLowerInvariant();
-            var chartPath = Path.Combine(outputDirectory, $"test-report-{timestamp}-{sanitizedName}.chart.png");
-            
-            await ChartGenerator.GenerateChartAsync(chartPath, testReport, System.Reporting.Logger);
+            var chartPath = await ChartGenerator.GenerateChartAsync(
+                ResultsOutputFolder.FromString(outputDirectory), testReport, System.Reporting.Logger);
 
             // Assert - Verify chart was created successfully
             Assert.True(File.Exists(chartPath), "Chart PNG file should exist after round-trip");

@@ -578,18 +578,15 @@ public class TestOrchestrator : ITestOrchestrator
         _logger.LogInformation("JSON reports generated");
 
         // Step 7: Generate chart
-        var serviceName = processMetrics.FirstOrDefault()?.ProcessName ?? "unknown";
-        var chartPath = Path.Combine(
-            config.ResultsFolder.Value,
-            $"test-report-{testReport.TestDate:yyyyMMdd_HHmmss}-{serviceName.ToLowerInvariant()}.chart.png");
+        _logger.LogInformation("Generating chart to {Folder}", config.ResultsFolder);
 
-        _logger.LogInformation("Generating chart to {Path}", chartPath);
-
-        await ChartGenerator.GenerateChartAsync(
-            chartPath,
+        var chartPath = await ChartGenerator.GenerateChartAsync(
+            config.ResultsFolder,
             testReport,
             _logger,
             cancellationToken: cancellationToken);
+
+        _logger.LogInformation("Metrics chart saved to: {Path}", chartPath);
 
         _logger.LogInformation("Chart generated");
 

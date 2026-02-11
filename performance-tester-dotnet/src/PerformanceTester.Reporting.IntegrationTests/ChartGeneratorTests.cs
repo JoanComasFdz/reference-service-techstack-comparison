@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PerformanceTester.Reporting.ChartGeneration;
+using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.Reporting.IntegrationTests.Builders;
 using PerformanceTester.Reporting.IntegrationTests.Infrastructure;
 using SkiaSharp;
@@ -100,7 +101,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
             .Build();
 
         // Act
-        await ChartGenerator.GenerateChartAsync(outputPath, testReport, System.Reporting.Logger);
+        await ChartGenerator.GenerateChartAsync(ResultsOutputFolder.FromString(testDir), testReport, System.Reporting.Logger);
 
         // Assert
         Assert.True(File.Exists(outputPath), "Chart PNG file should exist");
@@ -204,7 +205,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
             .Build();
 
         // Act
-        await ChartGenerator.GenerateChartAsync(outputPath, testReport, System.Reporting.Logger);
+        await ChartGenerator.GenerateChartAsync(ResultsOutputFolder.FromString(testDir), testReport, System.Reporting.Logger);
 
         // Assert - Verify all 6 data files exist and loaded
         var basePath = outputPath.Replace(".chart.png", "");
@@ -295,7 +296,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
             .Build();
 
         // Act
-        await ChartGenerator.GenerateChartAsync(outputPath, testReport, System.Reporting.Logger);
+        await ChartGenerator.GenerateChartAsync(ResultsOutputFolder.FromString(testDir), testReport, System.Reporting.Logger);
 
         // Assert
         Assert.True(File.Exists(outputPath), "Chart PNG file should exist");
@@ -431,7 +432,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
             .Build();
 
         // Act
-        await ChartGenerator.GenerateChartAsync(outputPath, testReport, System.Reporting.Logger);
+        await ChartGenerator.GenerateChartAsync(ResultsOutputFolder.FromString(testDir), testReport, System.Reporting.Logger);
 
         // Assert
         Assert.True(File.Exists(outputPath), "Chart PNG file should exist");
@@ -537,7 +538,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
         var expectedTitle = "Performance Metrics - dotnet9aotreferenceservice - January 13, 2025 at 14:25:30";
 
         // Act
-        await ChartGenerator.GenerateChartAsync(outputPath, testReport, System.Reporting.Logger);
+        await ChartGenerator.GenerateChartAsync(ResultsOutputFolder.FromString(testDir), testReport, System.Reporting.Logger);
 
         // Assert
         Assert.True(File.Exists(outputPath), "Chart PNG file should exist");
@@ -674,7 +675,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
             .Build();
 
         // Act
-        await ChartGenerator.GenerateChartAsync(outputPath, testReport, System.Reporting.Logger);
+        await ChartGenerator.GenerateChartAsync(ResultsOutputFolder.FromString(testDir), testReport, System.Reporting.Logger);
 
         // Assert - Verify PNG dimensions
         using var bitmap = SKBitmap.Decode(outputPath);
@@ -774,7 +775,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
             .Build();
 
         // Act
-        await ChartGenerator.GenerateChartAsync(outputPath, testReport, System.Reporting.Logger);
+        await ChartGenerator.GenerateChartAsync(ResultsOutputFolder.FromString(testDir), testReport, System.Reporting.Logger);
 
         // Assert
         using var bitmap = SKBitmap.Decode(outputPath);
@@ -851,7 +852,7 @@ public sealed class ChartGeneratorTests : IntegrationTest
         // Act & Assert
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await ChartGenerator.GenerateChartAsync(outputPath, testReport, System.Reporting.Logger);
+            await ChartGenerator.GenerateChartAsync(ResultsOutputFolder.FromString(testDir), testReport, System.Reporting.Logger);
         });
 
         Assert.Contains("No metrics data files", exception.Message);

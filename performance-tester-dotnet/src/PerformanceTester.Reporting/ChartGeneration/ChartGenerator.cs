@@ -5,6 +5,7 @@ using PerformanceTester.Reporting.ChartGeneration.ImageComposition;
 using PerformanceTester.Reporting.ChartGeneration.PlotBuilders;
 using PerformanceTester.Reporting.ChartGeneration.PlotConfiguration;
 using PerformanceTester.Reporting.ChartGeneration.Toolbox;
+using PerformanceTester.Reporting.ValueObjects;
 using ScottPlot;
 
 namespace PerformanceTester.Reporting.ChartGeneration;
@@ -22,28 +23,27 @@ public static class ChartGenerator
     /// <summary>
     /// Generates a PNG chart with 5 subplots showing all performance metrics.
     /// </summary>
-    /// <param name="outputPath">Full path to output PNG file.</param>
+    /// <param name="outputFolder">Directory to write the chart PNG file.</param>
     /// <param name="testReport">Complete test report data.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public static async Task GenerateChartAsync(
-        string outputPath,
+    /// <returns>The full path to the generated chart PNG file.</returns>
+    public static async Task<string> GenerateChartAsync(
+        ResultsOutputFolder outputFolder,
         TestReport testReport,
         ILogger logger,
         CancellationToken cancellationToken = default)
     {
         var config = ChartConfig.Default;
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath, nameof(outputPath));
         ArgumentNullException.ThrowIfNull(testReport, nameof(testReport));
 
-        var outputDirectory = Path.GetDirectoryName(outputPath);
-        if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
-        {
-            Directory.CreateDirectory(outputDirectory);
-        }
+        Directory.CreateDirectory(outputFolder.Value);
 
-        var basePath = outputPath.Replace(".chart.png", "");
+        var serviceName = testReport.MonitoredProcess?.Name?.ToLowerInvariant() ?? "unknown";
+        var timestamp = testReport.TestDate.ToString("yyyyMMdd_HHmmss");
+        var basePath = Path.Combine(outputFolder.Value, $"test-report-{timestamp}-{serviceName}");
+        var outputPath = $"{basePath}.chart.png";
         var dataFiles = new DataFilePaths(
             EventsThroughput: $"{basePath}.events-throughput.json",
             ApiThroughput: $"{basePath}.api-throughput.json",
@@ -57,10 +57,9 @@ public static class ChartGenerator
             !File.Exists(dataFiles.ApiThroughput) &&
             !File.Exists(dataFiles.ResourceMetrics))
         {
-            var dir = Path.GetDirectoryName(outputPath);
             throw new InvalidOperationException(
                 "No metrics data files found for chart generation. " +
-                $"Expected files in directory: {dir}");
+                $"Expected files in directory: {outputFolder.Value}");
         }
 
         // Load data
@@ -101,6 +100,7 @@ public static class ChartGenerator
         logger.LogInformation("Metrics chart saved to: {OutputPath}", outputPath);
 
         await Task.CompletedTask;
+        return outputPath;
     }
 
     private static List<Plot> BuildPlots(
