@@ -25,16 +25,14 @@ public static class ChartGenerator
     /// <param name="outputPath">Full path to output PNG file.</param>
     /// <param name="testReport">Complete test report data.</param>
     /// <param name="logger">Logger instance.</param>
-    /// <param name="config">Optional chart configuration. Uses ChartConfig.Default if not specified.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task GenerateChartAsync(
         string outputPath,
         TestReport testReport,
         ILogger logger,
-        ChartConfig? config = null,
         CancellationToken cancellationToken = default)
     {
-        config ??= ChartConfig.Default;
+        var config = ChartConfig.Default;
 
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath, nameof(outputPath));
         ArgumentNullException.ThrowIfNull(testReport, nameof(testReport));

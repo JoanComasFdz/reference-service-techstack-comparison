@@ -3,7 +3,7 @@ namespace PerformanceTester.Reporting.ChartGeneration.Configuration;
 /// <summary>
 /// Font configuration for chart elements.
 /// </summary>
-public sealed record FontConfig
+internal sealed record FontConfig
 {
     /// <summary>
     /// Default chart font (DejaVu Sans for cross-platform consistency).
@@ -39,7 +39,7 @@ public sealed record FontConfig
 /// <summary>
 /// Line styling configuration.
 /// </summary>
-public sealed record LineConfig
+internal sealed record LineConfig
 {
     /// <summary>
     /// Default line configuration.
@@ -75,7 +75,7 @@ public sealed record LineConfig
 /// <summary>
 /// Plot dimension configuration.
 /// </summary>
-public sealed record PlotDimensions
+internal sealed record PlotDimensions
 {
     /// <summary>
     /// Default plot dimensions.
@@ -126,7 +126,7 @@ public sealed record PlotDimensions
 /// <summary>
 /// Grid configuration.
 /// </summary>
-public sealed record GridConfig
+internal sealed record GridConfig
 {
     /// <summary>
     /// Default grid configuration.
@@ -147,7 +147,7 @@ public sealed record GridConfig
 /// <summary>
 /// Combined chart configuration.
 /// </summary>
-public sealed record ChartConfig
+internal sealed record ChartConfig
 {
     /// <summary>
     /// Default chart configuration.
