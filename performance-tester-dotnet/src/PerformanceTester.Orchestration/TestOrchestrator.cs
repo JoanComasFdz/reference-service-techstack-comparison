@@ -630,7 +630,7 @@ public class TestOrchestrator : ITestOrchestrator
         // Convert metrics to report sample formats
         var processResourceSamples = processMetrics.Select(m => new ProcessResourceSample
         {
-            Timestamp = m.Timestamp.DateTime,
+            Timestamp = m.Timestamp.UtcDateTime,
             ElapsedSeconds = (m.Timestamp - testStartTime).TotalSeconds,
             CpuPercent = m.CpuPercent,
             MemoryRssMb = m.MemoryMB,
@@ -656,7 +656,7 @@ public class TestOrchestrator : ITestOrchestrator
         // Convert system metrics to SystemResourceSample
         var systemResourceSamples = systemMetrics.Select(m => new SystemResourceSample
         {
-            Timestamp = m.Timestamp.DateTime,
+            Timestamp = m.Timestamp.UtcDateTime,
             ElapsedSeconds = (m.Timestamp - testStartTime).TotalSeconds,
             CpuPercent = m.CpuPercent,
             MemoryUsedMb = m.MemoryUsedMb,
@@ -667,7 +667,7 @@ public class TestOrchestrator : ITestOrchestrator
         // Convert event throughput samples
         var eventThroughputSamples = throughputSamples.Select(s => new Reporting.ThroughputMetricSample
         {
-            Timestamp = s.Timestamp.DateTime,
+            Timestamp = s.Timestamp.UtcDateTime,
             ElapsedSeconds = (s.Timestamp - testResult.TestStartTime).TotalSeconds,
             Rate = s.ThroughputEventsPerSecond,
             CumulativeCount = s.CumulativeEventCount
@@ -676,7 +676,7 @@ public class TestOrchestrator : ITestOrchestrator
         // Convert API throughput samples
         var apiThroughputSamples = testResult.ApiLoadTestResult.ThroughputSamples.Select(s => new Reporting.ThroughputMetricSample
         {
-            Timestamp = s.Timestamp.DateTime,
+            Timestamp = s.Timestamp.UtcDateTime,
             ElapsedSeconds = (s.Timestamp - testResult.TestStartTime).TotalSeconds,
             Rate = s.RequestsPerSecond,
             CumulativeCount = s.CumulativeRequestCount
