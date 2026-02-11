@@ -1,4 +1,5 @@
 using PerformanceTester.Orchestration;
+using PerformanceTester.Orchestration.ValueObjects;
 
 namespace PerformanceTester.Cli.Output;
 
@@ -10,8 +11,8 @@ namespace PerformanceTester.Cli.Output;
 public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
 {
     private readonly ProgressReporter _progressReporter;
-    private readonly int _totalEventCount;
-    private readonly TimeSpan _apiDuration;
+    private readonly EventCount _totalEventCount;
+    private readonly ApiDuration _apiDuration;
 
     // Mutable tracking state
     private int _currentEventCount;
@@ -21,8 +22,8 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
 
     public OrchestratorProgressAdapter(
         ProgressReporter progressReporter,
-        int totalEventCount,
-        TimeSpan apiDuration)
+        EventCount totalEventCount,
+        ApiDuration apiDuration)
     {
         _progressReporter = progressReporter ?? throw new ArgumentNullException(nameof(progressReporter));
         _totalEventCount = totalEventCount;
@@ -69,8 +70,8 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
         // Fallback to stored values
         return PhaseInfoConverter.CreateEventProgress(
             status,
-            currentEvents: status == PhaseStatus.Completed ? _totalEventCount : _currentEventCount,
-            totalEvents: _totalEventCount,
+            currentEvents: status == PhaseStatus.Completed ? _totalEventCount.Value : _currentEventCount,
+            totalEvents: _totalEventCount.Value,
             message: message);
     }
 
@@ -96,7 +97,7 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
                 return PhaseInfoConverter.CreateApiProgress(
                     status,
                     elapsedSeconds: 0,
-                    totalSeconds: _apiDuration.TotalSeconds,
+                    totalSeconds: _apiDuration.Value.TotalSeconds,
                     requestCount: 0,
                     message: message);
             }
@@ -106,9 +107,9 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
         return PhaseInfoConverter.CreateApiProgress(
             status,
             elapsedSeconds: status == PhaseStatus.Completed
-                ? _apiDuration.TotalSeconds
+                ? _apiDuration.Value.TotalSeconds
                 : (DateTime.UtcNow - _apiStartTime).TotalSeconds,
-            totalSeconds: _apiDuration.TotalSeconds,
+            totalSeconds: _apiDuration.Value.TotalSeconds,
             requestCount: _apiRequestCount,
             message: message);
     }
@@ -122,7 +123,7 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
         _progressReporter.ReportProgress(PhaseInfoConverter.CreateEventProgress(
             PhaseStatus.InProgress,
             currentEvents: count,
-            totalEvents: _totalEventCount));
+            totalEvents: _totalEventCount.Value));
     }
 
     /// <summary>
@@ -145,7 +146,7 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
         _progressReporter.ReportProgress(PhaseInfoConverter.CreateApiProgress(
             PhaseStatus.InProgress,
             elapsedSeconds: elapsed,
-            totalSeconds: _apiDuration.TotalSeconds,
+            totalSeconds: _apiDuration.Value.TotalSeconds,
             requestCount: requestCount));
     }
 }

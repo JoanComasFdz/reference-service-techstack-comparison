@@ -93,16 +93,20 @@ public partial class Program
             })
             .ConfigureServices((context, services) =>
             {
-                // Load configuration
-                var appConfig = AppConfiguration.Load(context.Configuration);
+                // Load configuration (fail fast on invalid env vars)
+                var loadResult = AppConfiguration.Load(context.Configuration);
+                if (loadResult.IsFailure)
+                    throw new InvalidOperationException($"Configuration error: {loadResult.FailureError}");
+
+                var appConfig = loadResult.SuccessValue;
                 services.AddSingleton(appConfig);
 
-                // Register orchestration services
+                // Register orchestration services (unwrap value objects at boundary)
                 services.AddOrchestration(
                     postgresConnectionString: appConfig.PostgresConnectionString,
                     rabbitMqConnectionString: appConfig.RabbitMqConnectionString,
-                    rabbitMqContainerName: appConfig.RabbitMqContainerName,
-                    postgresContainerName: appConfig.PostgresContainerName);
+                    rabbitMqContainerName: appConfig.RabbitMqContainerName.Value,
+                    postgresContainerName: appConfig.PostgresContainerName.Value);
 
                 // Register CLI-specific services
                 services.AddSingleton<ConsoleWriter>();

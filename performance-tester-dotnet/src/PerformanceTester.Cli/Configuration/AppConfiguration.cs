@@ -1,4 +1,6 @@
+using JoanComasFdz.Result;
 using Microsoft.Extensions.Configuration;
+using PerformanceTester.Orchestration.ValueObjects;
 
 namespace PerformanceTester.Cli.Configuration;
 
@@ -15,15 +17,15 @@ public sealed class AppConfiguration
     public string RabbitMqConnectionString { get; init; } = string.Empty;
 
     /// <summary>RabbitMQ Docker container name for monitoring.</summary>
-    public string RabbitMqContainerName { get; init; } = "performancetest-rabbitmq";
+    public required RabbitMqContainerName RabbitMqContainerName { get; init; }
 
     /// <summary>PostgreSQL Docker container name for monitoring.</summary>
-    public string PostgresContainerName { get; init; } = "performancetest-postgres";
+    public required PostgresContainerName PostgresContainerName { get; init; }
 
     /// <summary>
     /// Loads configuration from IConfiguration (environment variables + appsettings.json).
     /// </summary>
-    public static AppConfiguration Load(IConfiguration configuration)
+    public static Result<AppConfiguration, string> Load(IConfiguration configuration)
     {
         // PostgreSQL configuration
         var pgHost = configuration["POSTGRES_HOST"] ?? "localhost";
@@ -38,16 +40,19 @@ public sealed class AppConfiguration
         var rmqUser = configuration["RABBITMQ_USER"] ?? "admin";
         var rmqPassword = configuration["RABBITMQ_PASS"] ?? "admin";
 
-        // Container names
-        var rmqContainer = configuration["RABBITMQ_CONTAINER"] ?? "performancetest-rabbitmq";
-        var pgContainer = configuration["POSTGRES_CONTAINER"] ?? "performancetest-postgres";
+        // Container names (validated via value objects)
+        var rmqContainerRaw = configuration["RABBITMQ_CONTAINER"] ?? "performancetest-rabbitmq";
+        var pgContainerRaw = configuration["POSTGRES_CONTAINER"] ?? "performancetest-postgres";
 
-        return new AppConfiguration
-        {
-            PostgresConnectionString = $"Host={pgHost};Port={pgPort};Database={pgDatabase};Username={pgUser};Password={pgPassword}",
-            RabbitMqConnectionString = $"amqp://{rmqUser}:{rmqPassword}@{rmqHost}:{rmqPort}",
-            RabbitMqContainerName = rmqContainer,
-            PostgresContainerName = pgContainer
-        };
+        return
+            from rmqContainer in RabbitMqContainerName.Create(rmqContainerRaw)
+            from pgContainer in PostgresContainerName.Create(pgContainerRaw)
+            select new AppConfiguration
+            {
+                PostgresConnectionString = $"Host={pgHost};Port={pgPort};Database={pgDatabase};Username={pgUser};Password={pgPassword}",
+                RabbitMqConnectionString = $"amqp://{rmqUser}:{rmqPassword}@{rmqHost}:{rmqPort}",
+                RabbitMqContainerName = rmqContainer,
+                PostgresContainerName = pgContainer
+            };
     }
 }

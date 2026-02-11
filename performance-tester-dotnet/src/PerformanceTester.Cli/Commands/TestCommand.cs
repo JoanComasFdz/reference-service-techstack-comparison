@@ -167,8 +167,8 @@ public static class TestCommand
 
             var progressAdapter = new OrchestratorProgressAdapter(
                 progressReporter,
-                config.EventCount.Value,
-                config.ApiDuration.Value);
+                config.EventCount,
+                config.ApiDuration);
 
             var report = await orchestrator.RunTestAsync(
                 config,
