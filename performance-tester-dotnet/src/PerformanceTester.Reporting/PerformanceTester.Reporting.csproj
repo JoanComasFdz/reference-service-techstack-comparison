@@ -14,6 +14,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="PerformanceTester.Reporting.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Common Library (OS Detection) -->
     <ProjectReference Include="..\PerformanceTester.Common\PerformanceTester.Common.csproj" />
 
