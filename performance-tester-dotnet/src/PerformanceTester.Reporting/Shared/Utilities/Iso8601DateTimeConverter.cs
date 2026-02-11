@@ -25,15 +25,11 @@ internal sealed class Iso8601DateTimeConverter : JsonConverter<DateTime>
 
     public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
     {
-        // Ensure UTC
-        var utcValue = value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime();
-
         // Format: yyyy-MM-ddTHH:mm:ss.ffffff (no timezone)
-        // This format includes:
-        // - T separator between date and time
-        // - 6-digit fractional seconds
-        // - NO timezone offset (to match Python output)
-        var formatted = utcValue.ToString("yyyy-MM-ddTHH:mm:ss.ffffff");
+        // All timestamps in this codebase are UTC. We do NOT call .ToUniversalTime()
+        // because DateTime values with Kind=Unspecified (from DateTimeOffset.DateTime
+        // or DateTime.Parse) would be incorrectly shifted by the local timezone offset.
+        var formatted = value.ToString("yyyy-MM-ddTHH:mm:ss.ffffff");
         writer.WriteStringValue(formatted);
     }
 }
