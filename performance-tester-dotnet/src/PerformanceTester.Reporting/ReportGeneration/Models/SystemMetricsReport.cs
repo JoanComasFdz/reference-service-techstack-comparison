@@ -6,7 +6,7 @@ namespace PerformanceTester.Reporting;
 /// System-wide resource metrics report with samples.
 /// Used for both serialization (ReportGenerator) and deserialization (CompareCommand).
 /// </summary>
-public sealed record SystemMetricsReport
+internal sealed record SystemMetricsReport
 {
     /// <summary>
     /// Test date/time.
@@ -38,7 +38,7 @@ public sealed record SystemMetricsReport
 /// <summary>
 /// System metrics report for JSON serialization.
 /// </summary>
-public sealed record SystemMetricsReportJson
+internal sealed record SystemMetricsReportJson
 {
     [JsonPropertyName("test_date")]
     public required string TestDateFormatted { get; init; }
@@ -58,7 +58,7 @@ public sealed record SystemMetricsReportJson
 /// System-wide metrics summary for JSON serialization.
 /// Includes CPU, memory usage, and memory percentage metrics.
 /// </summary>
-public sealed record SystemMetricsSummaryJson
+internal sealed record SystemMetricsSummaryJson
 {
     public required double AvgCpuPercent { get; init; }
     public required double PeakCpuPercent { get; init; }
