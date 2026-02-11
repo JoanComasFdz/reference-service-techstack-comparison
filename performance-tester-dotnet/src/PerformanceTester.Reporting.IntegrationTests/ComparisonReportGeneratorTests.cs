@@ -1,4 +1,5 @@
 using PerformanceTester.Reporting.IntegrationTests.Builders;
+using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.Reporting.IntegrationTests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
@@ -19,7 +20,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
     public async Task GenerateComparisonReport_WithTwoReports_CreatesValidMarkdown()
     {
         // Arrange
-        var outputPath = System.FileSystem.CreateTempFilePath("comparison-report-test", ".md");
+        var tempDir = System.FileSystem.CreateTempDirectory("comparison-report-test");
         var reports = new[]
         {
             new TestReportBuilder()
@@ -40,7 +41,8 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputPath, reports);
+            var outputPath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(tempDir), reports);
 
             // Assert
             Assert.True(File.Exists(outputPath), "Comparison report file should be created");
@@ -74,7 +76,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         }
         finally
         {
-            System.FileSystem.CleanupTempFile(outputPath);
+            System.FileSystem.CleanupTempDirectory(tempDir);
         }
     }
 
@@ -82,7 +84,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
     public async Task GenerateComparisonReport_WithThreeReports_AwardsCorrectMedals()
     {
         // Arrange
-        var outputPath = System.FileSystem.CreateTempFilePath("comparison-report-test", ".md");
+        var tempDir = System.FileSystem.CreateTempDirectory("comparison-report-test");
         var reports = new[]
         {
             // rustReferenceService: Best runtime (lowest), worst CPU (highest)
@@ -116,7 +118,8 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputPath, reports);
+            var outputPath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(tempDir), reports);
 
             // Assert
             var markdown = await File.ReadAllTextAsync(outputPath);
@@ -168,7 +171,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         }
         finally
         {
-            System.FileSystem.CleanupTempFile(outputPath);
+            System.FileSystem.CleanupTempDirectory(tempDir);
         }
     }
 
@@ -176,7 +179,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
     public async Task GenerateComparisonReport_WithIdenticalValues_AwardsOnlyOneMedal()
     {
         // Arrange
-        var outputPath = System.FileSystem.CreateTempFilePath("comparison-report-test", ".md");
+        var tempDir = System.FileSystem.CreateTempDirectory("comparison-report-test");
 
         // All three services have identical runtime (should all get 🥇, no 🥈 or 🥉)
         var reports = new[]
@@ -203,7 +206,8 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputPath, reports);
+            var outputPath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(tempDir), reports);
 
             // Assert
             var markdown = await File.ReadAllTextAsync(outputPath);
@@ -230,7 +234,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         }
         finally
         {
-            System.FileSystem.CleanupTempFile(outputPath);
+            System.FileSystem.CleanupTempDirectory(tempDir);
         }
     }
 
@@ -238,7 +242,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
     public async Task GenerateComparisonReport_SortsByHigherIsBetter_ThroughputDescending()
     {
         // Arrange
-        var outputPath = System.FileSystem.CreateTempFilePath("comparison-report-test", ".md");
+        var tempDir = System.FileSystem.CreateTempDirectory("comparison-report-test");
         var reports = new[]
         {
             new TestReportBuilder()
@@ -263,7 +267,8 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputPath, reports);
+            var outputPath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(tempDir), reports);
 
             // Assert
             var markdown = await File.ReadAllTextAsync(outputPath);
@@ -296,7 +301,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         }
         finally
         {
-            System.FileSystem.CleanupTempFile(outputPath);
+            System.FileSystem.CleanupTempDirectory(tempDir);
         }
     }
 
@@ -304,7 +309,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
     public async Task GenerateComparisonReport_SortsByLowerIsBetter_MemoryAscending()
     {
         // Arrange
-        var outputPath = System.FileSystem.CreateTempFilePath("comparison-report-test", ".md");
+        var tempDir = System.FileSystem.CreateTempDirectory("comparison-report-test");
         var reports = new[]
         {
             new TestReportBuilder()
@@ -329,7 +334,8 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputPath, reports);
+            var outputPath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(tempDir), reports);
 
             // Assert
             var markdown = await File.ReadAllTextAsync(outputPath);
@@ -362,7 +368,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         }
         finally
         {
-            System.FileSystem.CleanupTempFile(outputPath);
+            System.FileSystem.CleanupTempDirectory(tempDir);
         }
     }
 
@@ -370,7 +376,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
     public async Task GenerateComparisonReport_IncludesPerformanceHighlights()
     {
         // Arrange
-        var outputPath = System.FileSystem.CreateTempFilePath("comparison-report-test", ".md");
+        var tempDir = System.FileSystem.CreateTempDirectory("comparison-report-test");
         var reports = new[]
         {
             // rustReferenceService: Lowest CPU, highest event CV (least stable events)
@@ -404,7 +410,8 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputPath, reports);
+            var outputPath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(tempDir), reports);
 
             // Assert
             var markdown = await File.ReadAllTextAsync(outputPath);
@@ -428,7 +435,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         }
         finally
         {
-            System.FileSystem.CleanupTempFile(outputPath);
+            System.FileSystem.CleanupTempDirectory(tempDir);
         }
     }
 
@@ -436,13 +443,14 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
     public async Task GenerateComparisonReport_WithEmptyReports_ThrowsArgumentException()
     {
         // Arrange
-        var outputPath = System.FileSystem.CreateTempFilePath("comparison-report-test", ".md");
+        var tempDir = System.FileSystem.CreateTempDirectory("comparison-report-test");
         var emptyReports = Array.Empty<TestReport>();
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
         {
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputPath, emptyReports);
+            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                    ResultsSourceFolder.FromString(tempDir), emptyReports);
         });
 
         Assert.Contains("cannot be empty", exception.Message);
@@ -454,7 +462,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
     public async Task GenerateComparisonReport_ShouldShowDotNetVersionNotPythonVersion()
     {
         // Arrange
-        var outputPath = System.FileSystem.CreateTempFilePath("comparison-report-test", ".md");
+        var tempDir = System.FileSystem.CreateTempDirectory("comparison-report-test");
         var reports = new[]
         {
             new TestReportBuilder()
@@ -465,7 +473,8 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         try
         {
             // Act
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputPath, reports);
+            var outputPath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(tempDir), reports);
 
             // Assert
             var markdown = await File.ReadAllTextAsync(outputPath);
@@ -480,7 +489,7 @@ public sealed class ComparisonReportGeneratorTests : IntegrationTest
         }
         finally
         {
-            System.FileSystem.CleanupTempFile(outputPath);
+            System.FileSystem.CleanupTempDirectory(tempDir);
         }
     }
 }

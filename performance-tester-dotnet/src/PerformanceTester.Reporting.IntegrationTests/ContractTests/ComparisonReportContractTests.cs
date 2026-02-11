@@ -1,4 +1,5 @@
 using PerformanceTester.Reporting.IntegrationTests.Builders;
+using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.Reporting.IntegrationTests.Infrastructure;
 using Xunit.Abstractions;
 
@@ -44,14 +45,14 @@ public sealed class ComparisonReportContractTests : IntegrationTest
             avgCpu: 50.0, avgMemory: 200.0);
 
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
-        var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
         try
         {
             // ═══════════════════════════════════════════════════════════
             // ACT: Generate comparison report
             // ═══════════════════════════════════════════════════════════
             var reports = new List<TestReport> { report1, report2, report3 };
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
 
@@ -101,8 +102,8 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
             var lines = markdown.Split('\n');
@@ -141,8 +142,8 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
 
@@ -182,8 +183,8 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
 
@@ -218,8 +219,8 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
 
@@ -256,8 +257,8 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
 
@@ -295,8 +296,8 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
 
@@ -330,8 +331,8 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
 
@@ -368,8 +369,8 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
 
@@ -402,8 +403,8 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
 
@@ -442,8 +443,8 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         var outputDirectory = System.FileSystem.CreateTempDirectory("contract-test");
         try
         {
-            var outputFilePath = Path.Combine(outputDirectory, "comparison-report.md");
-            await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(outputFilePath, reports);
+            var outputFilePath = await System.Reporting.ComparisonReportGenerator.GenerateComparisonReportAsync(
+                ResultsSourceFolder.FromString(outputDirectory), reports);
 
             var markdown = await File.ReadAllTextAsync(outputFilePath);
 

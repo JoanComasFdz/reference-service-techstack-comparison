@@ -73,11 +73,8 @@ public static class CompareCommand
 
             consoleWriter.WriteInfo($"Loaded {testReports.Count} test report(s)");
 
-            var latestTestDate = testReports.Max(r => r.TestDate);
-            var timestamp = latestTestDate.ToString("yyyyMMdd_HHmmss");
-            var outputPath = Path.Combine(folder.Value, $"test-report-{timestamp}-summary.md");
-
-            await comparisonGenerator.GenerateComparisonReportAsync(outputPath, testReports, cancellationToken);
+            var outputPath = await comparisonGenerator.GenerateComparisonReportAsync(
+                folder, testReports, cancellationToken);
             consoleWriter.WriteSuccess($"Comparison report saved to: {outputPath}");
 
             return 0;

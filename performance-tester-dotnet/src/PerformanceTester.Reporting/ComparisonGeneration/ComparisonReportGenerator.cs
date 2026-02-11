@@ -1,5 +1,6 @@
 using System.Text;
 using PerformanceTester.Reporting.Shared.Utilities;
+using PerformanceTester.Reporting.ValueObjects;
 
 namespace PerformanceTester.Reporting.ComparisonGeneration;
 
@@ -21,26 +22,25 @@ public sealed class ComparisonReportGenerator
     /// <summary>
     /// Generates a Markdown comparison report from multiple test reports.
     /// </summary>
-    /// <param name="outputPath">Full path to output Markdown file.</param>
+    /// <param name="sourceFolder">Folder containing test results (summary is written here too).</param>
     /// <param name="testReports">Collection of test reports to compare.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Task representing the async operation.</returns>
-    public async Task GenerateComparisonReportAsync(
-        string outputPath,
+    /// <returns>The full path to the generated summary Markdown file.</returns>
+    public async Task<string> GenerateComparisonReportAsync(
+        ResultsSourceFolder sourceFolder,
         IEnumerable<TestReport> testReports,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(outputPath))
-        {
-            throw new ArgumentException("Output path cannot be null or empty.", nameof(outputPath));
-        }
-
         var reports = testReports?.ToList() ?? throw new ArgumentNullException(nameof(testReports));
 
         if (reports.Count == 0)
         {
             throw new ArgumentException("Test reports collection cannot be empty.", nameof(testReports));
         }
+
+        var latestTestDate = reports.Max(r => r.TestDate);
+        var timestamp = latestTestDate.ToString("yyyyMMdd_HHmmss");
+        var outputPath = Path.Combine(sourceFolder.Value, $"test-report-{timestamp}-summary.md");
 
         // Build Markdown content
         var markdown = new StringBuilder();
@@ -74,6 +74,7 @@ public sealed class ComparisonReportGenerator
 
         // Write to file
         await File.WriteAllTextAsync(outputPath, markdown.ToString(), cancellationToken);
+        return outputPath;
     }
 
     private static void WriteHeader(StringBuilder markdown)
