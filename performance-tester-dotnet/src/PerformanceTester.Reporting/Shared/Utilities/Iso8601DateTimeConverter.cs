@@ -16,7 +16,7 @@ namespace PerformanceTester.Reporting.Shared.Utilities;
 /// 
 /// Note: No timezone offset to match Python output format.
 /// </remarks>
-public sealed class Iso8601DateTimeConverter : JsonConverter<DateTime>
+internal sealed class Iso8601DateTimeConverter : JsonConverter<DateTime>
 {
     public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
