@@ -1,0 +1,148 @@
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using PerformanceTester.DockerMonitoring;
+using PerformanceTester.EventConsuming;
+using PerformanceTester.EventPublishing;
+using PerformanceTester.ProcessMonitoring;
+using PerformanceTester.SystemMonitoring;
+using Serilog.Context;
+
+namespace PerformanceTester.Orchestration;
+
+/// <summary>
+/// Phase 1: Measured concurrent publish/consume event throughput test.
+/// </summary>
+internal static class EventTestPhase
+{
+    public static async Task<(PublishMetrics PublishMetrics, DateTime StartTime, DateTime EndTime)> ExecuteAsync(
+        TestConfiguration config,
+        int serviceProcessId,
+        IMetricsCollector metricsCollector,
+        IProcessMonitor processMonitor,
+        ISystemMonitor systemMonitor,
+        IEnumerable<IDockerMonitor> dockerMonitors,
+        IEventConsumer eventConsumer,
+        IEventPublisher eventPublisher,
+        IProgress<PhaseInfo>? progress,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        using var _ = LogContext.PushProperty("Phase", "EventTest");
+
+        logger.LogInformation(
+            "Starting event throughput test with {Count} events",
+            config.EventCount);
+
+        // Clear any warmup samples before starting the measured test
+        metricsCollector.ClearSamples();
+        logger.LogDebug("Cleared warmup throughput samples");
+
+        // Start monitoring just before the measured test begins
+        // This ensures chart data starts at the same time as the test phases
+        logger.LogInformation("Starting process monitoring for PID {ProcessId}...", serviceProcessId);
+        await processMonitor.StartMonitoringAsync(serviceProcessId, cancellationToken: cancellationToken);
+        logger.LogInformation("Process monitoring started");
+
+        logger.LogInformation("Starting system-wide monitoring (CPU: {CpuCount} cores, WSL2: {IsWsl2})...",
+            systemMonitor.CpuCount,
+            systemMonitor.IsWsl2);
+        await systemMonitor.StartMonitoringAsync(cancellationToken: cancellationToken);
+        logger.LogInformation("System monitoring started");
+
+        logger.LogInformation("Starting Docker container monitors...");
+        var dockerMonitorsList = dockerMonitors.ToList();
+        var dockerStartTasks = dockerMonitorsList.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
+        await Task.WhenAll(dockerStartTasks);
+        logger.LogInformation("Docker container monitors started (first samples collected)");
+
+        var consumerProgress = CreateConsumerProgressCallback(progress, config.EventCount.Value);
+
+        // Capture startTime immediately before launching concurrent publisher/consumer
+        // to minimize gap between monitoring start and measurement start
+        var startTime = DateTime.UtcNow;
+        var stopwatch = Stopwatch.StartNew();
+
+        // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
+        var consumerTask = eventConsumer.StartTrackingEventsAsync(
+            config.EventCount.Value,
+            config.InactivityTimeout.Value,
+            progress: consumerProgress,
+            cancellationToken);
+
+        var publisherTask = eventPublisher.PublishEventsAsync(
+            config.EventCount.Value,
+            cancellationToken);
+
+        // Wait for both to complete
+        await Task.WhenAll(consumerTask, publisherTask);
+        var publishMetrics = await publisherTask; // Get result from publisher task
+
+        stopwatch.Stop();
+        var endTime = DateTime.UtcNow;
+
+        var totalDuration = stopwatch.Elapsed;
+        var eventThroughput = config.EventCount.Value / totalDuration.TotalSeconds;
+
+        logger.LogInformation(
+            "Event throughput test complete: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
+            config.EventCount,
+            totalDuration.TotalSeconds,
+            eventThroughput);
+
+        logger.LogInformation(
+            "Publishing: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
+            publishMetrics.EventCount,
+            publishMetrics.Duration.TotalSeconds,
+            publishMetrics.EventsPerSecond);
+
+        return (publishMetrics, startTime, endTime);
+    }
+
+    /// <summary>
+    /// Creates a progress callback that adapts ConsumerPhaseInfo to PhaseInfo with throttling.
+    /// Returns null if the parent progress is null.
+    /// </summary>
+    private static IProgress<ConsumerPhaseInfo>? CreateConsumerProgressCallback(
+        IProgress<PhaseInfo>? progress,
+        int totalEventCount)
+    {
+        if (progress == null)
+            return null;
+
+        // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
+        // Throttle by time (200ms) to avoid excessive updates while staying responsive
+        // Use lock for thread safety (RabbitMQ events can arrive concurrently)
+        var lastProgressTime = DateTime.MinValue;
+        var progressThrottleMs = 200;
+        var progressLock = new object();
+
+        return new SynchronousProgress<ConsumerPhaseInfo>(info =>
+        {
+            // When target reached, clear the progress bar immediately (before log appears)
+            if (info.Phase == ConsumerPhase.TargetReached)
+            {
+                progress.Report(PhaseInfo.Completed(TestPhase.EventTest, "Complete"));
+                return;
+            }
+
+            // Only report on EventReceived with valid count
+            if (info.Phase == ConsumerPhase.EventReceived && info.EventCount.HasValue)
+            {
+                lock (progressLock)
+                {
+                    var now = DateTime.UtcNow;
+                    // Throttle: only report every 200ms
+                    if ((now - lastProgressTime).TotalMilliseconds >= progressThrottleMs)
+                    {
+                        lastProgressTime = now;
+                        var count = info.EventCount.Value;
+                        // Report via PhaseInfo - adapter converts to TestProgress
+                        progress.Report(PhaseInfo.Starting(
+                            TestPhase.EventTest,
+                            $"Processing: {count}/{totalEventCount} events"));
+                    }
+                }
+            }
+        });
+    }
+}
