@@ -11,7 +11,7 @@ namespace PerformanceTester.Reporting.Shared.Utilities;
 /// - Mode: Most common rounded integer value
 /// - CV%: (stdDev / mean) * 100 as percentage
 /// </remarks>
-public static class StatisticsCalculator
+internal static class StatisticsCalculator
 {
     /// <summary>
     /// Calculates average (mean) of values.

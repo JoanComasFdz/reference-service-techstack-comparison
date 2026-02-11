@@ -8,7 +8,7 @@ namespace PerformanceTester.Reporting.IntegrationTests.Builders;
 /// Fluent builder for creating test report data files matching Python output format.
 /// Serializes TestReport components to JSON files with snake_case naming convention.
 /// </summary>
-public class TestReportFileBuilder
+internal class TestReportFileBuilder
 {
     private readonly string _testDir;
     private readonly string _processName;

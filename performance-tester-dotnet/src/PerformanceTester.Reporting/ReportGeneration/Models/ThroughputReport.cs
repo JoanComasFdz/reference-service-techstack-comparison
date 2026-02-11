@@ -6,7 +6,7 @@ namespace PerformanceTester.Reporting;
 /// Throughput metrics report with samples and statistical summary.
 /// Matches Python throughput report JSON format.
 /// </summary>
-public sealed record ThroughputReport
+internal sealed record ThroughputReport
 {
     /// <summary>
     /// Test date/time.
@@ -34,7 +34,7 @@ public sealed record ThroughputReport
 /// Individual throughput sample for JSON input/output.
 /// Used for chart generation - stores normalized values.
 /// </summary>
-public sealed record ThroughputSampleJson
+internal sealed record ThroughputSampleJson
 {
     /// <summary>
     /// Sample timestamp (UTC).
@@ -74,7 +74,7 @@ public sealed record ThroughputSampleJson
 /// Statistical summary of throughput metrics.
 /// Used for internal calculation output and chart data loading.
 /// </summary>
-public sealed record ThroughputSummary
+internal sealed record ThroughputSummary
 {
     /// <summary>
     /// Average throughput rate.
@@ -120,7 +120,7 @@ public sealed record ThroughputSummary
 /// <summary>
 /// Events throughput report for JSON serialization.
 /// </summary>
-public sealed record EventsThroughputReportJson
+internal sealed record EventsThroughputReportJson
 {
     [JsonPropertyName("test_date")]
     public required string TestDateFormatted { get; init; }
@@ -137,7 +137,7 @@ public sealed record EventsThroughputReportJson
 /// Property names serialize to events-specific snake_case via SnakeCaseLower policy
 /// (e.g., AvgEventsPerSecond → avg_events_per_second).
 /// </summary>
-public sealed record EventsThroughputSummaryJson
+internal sealed record EventsThroughputSummaryJson
 {
     public required double AvgEventsPerSecond { get; init; }
     public required double PeakEventsPerSecond { get; init; }
@@ -152,7 +152,7 @@ public sealed record EventsThroughputSummaryJson
 /// <summary>
 /// API throughput report for JSON serialization.
 /// </summary>
-public sealed record ApiThroughputReportJson
+internal sealed record ApiThroughputReportJson
 {
     [JsonPropertyName("test_date")]
     public required string TestDateFormatted { get; init; }
@@ -168,7 +168,7 @@ public sealed record ApiThroughputReportJson
 /// API throughput sample for JSON serialization.
 /// Uses API-specific naming (calls instead of events).
 /// </summary>
-public sealed record ApiThroughputSampleJson
+internal sealed record ApiThroughputSampleJson
 {
     public required DateTime Timestamp { get; init; }
     public required double ElapsedSeconds { get; init; }
@@ -181,7 +181,7 @@ public sealed record ApiThroughputSampleJson
 /// Property names serialize to API-specific snake_case via SnakeCaseLower policy
 /// (e.g., AvgCallsPerSecond → avg_calls_per_second).
 /// </summary>
-public sealed record ApiThroughputSummaryJson
+internal sealed record ApiThroughputSummaryJson
 {
     public required double AvgCallsPerSecond { get; init; }
     public required double PeakCallsPerSecond { get; init; }

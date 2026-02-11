@@ -6,7 +6,7 @@ namespace PerformanceTester.Reporting.IntegrationTests.Builders;
 /// Fluent builder for creating ThroughputReport instances with samples and statistical summary.
 /// Supports both statistical variation mode and linear progression mode.
 /// </summary>
-public class ThroughputReportBuilder
+internal class ThroughputReportBuilder
 {
     private readonly DateTime _baseTime;
     private int _sampleCount = 200;
