@@ -1,3 +1,4 @@
+using JoanComasFdz.Result;
 using PerformanceTester.Reporting;
 
 namespace PerformanceTester.Orchestration;
@@ -19,10 +20,8 @@ public interface ITestOrchestrator
     /// <param name="configuration">Test configuration parameters</param>
     /// <param name="progress">Optional progress reporter for phase transitions.</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Complete test report with all metrics and analysis</returns>
-    /// <exception cref="TimeoutException">Service not found on port within timeout</exception>
-    /// <exception cref="InvalidOperationException">Test phase failed</exception>
-    Task<TestReport> RunTestAsync(
+    /// <returns>A successful TestReport, or a TestRunFailure identifying which phase failed.</returns>
+    Task<Result<TestReport, TestRunFailure>> RunTestAsync(
         TestConfiguration configuration,
         IProgress<PhaseInfo>? progress = null,
         CancellationToken cancellationToken = default);
