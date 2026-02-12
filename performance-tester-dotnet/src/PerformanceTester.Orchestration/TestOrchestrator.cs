@@ -1,3 +1,4 @@
+using JoanComasFdz.Result;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.ApiLoadTesting;
@@ -37,7 +38,7 @@ public class TestOrchestrator(
     ReportGenerator reportGenerator) : ITestOrchestrator
 {
     /// <inheritdoc />
-    public async Task<TestReport> RunTestAsync(
+    public async Task<Result<TestReport, TestRunFailure>> RunTestAsync(
         TestConfiguration configuration,
         IProgress<PhaseInfo>? progress = null,
         CancellationToken cancellationToken = default)
@@ -54,43 +55,46 @@ public class TestOrchestrator(
             testRunId,
             configuration.ServicePort);
 
-        // Track current phase for accurate failure reporting
-        var currentPhase = TestPhase.Setup;
+        // Shared delegates for multiple phases
+        PhasesToolbox.ClearDatabase clearDatabase = () => database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
+        PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
+        {
+            var result = await rabbitMq.ClearAllQueuesAsync(cancellationToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+            return result;
+        };
+        PhasesToolbox.PublishEvents publishEvents = (count) => eventPublisher.PublishEventsAsync(count, cancellationToken);
+        PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, cancellationToken);
+        Task forAllDockerMonitors(Func<IDockerMonitor, Task> action) => Task.WhenAll(dockerMonitors.Select(action));
+        IReadOnlyCollection<DockerMetrics> dockerMetricsFor(NonEmptyString containerName) => dockerMonitors.Single(m => m.ContainerName == containerName.Value).GetCollectedMetrics();
+
+        TestRunFailure Fail(TestPhase phase, string message)
+        {
+            logger.LogError("Performance test run {TestRunId} failed in {Phase}: {Message}", testRunId, phase, message);
+            progress?.Report(PhaseInfo.Failed(phase, message));
+            return new TestRunFailure(phase, message);
+        }
+
+        // Phase 0: Setup (before try — nothing to clean up yet)
+        progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
+        var setupResult = await SetupPhase.ExecuteAsync(
+            testRunId,
+            findServiceProcessId: () => serviceDiscovery.FindServiceProcessIdAsync(configuration.ServicePort.Value, TimeSpan.FromSeconds(30), cancellationToken),
+            isMonitoringStarted: () => hostLifetime.ApplicationStarted.IsCancellationRequested,
+            startMonitoring: () => host.StartAsync(cancellationToken),
+            warmupDockerApi: () => forAllDockerMonitors(m => m.WarmupAsync(cancellationToken)),
+            clearDatabase: clearDatabase,
+            clearAllQueues: clearAllQueues,
+            connectEventPublisher: () => eventPublisher.ConnectAsync(cancellationToken), logger);
+
+        if (setupResult.IsFailure)
+            return Fail(TestPhase.Setup, setupResult.FailureError);
+        var serviceProcessId = setupResult.SuccessValue;
+        progress?.Report(PhaseInfo.Completed(TestPhase.Setup, $"Setup complete, service PID: {serviceProcessId}"));
 
         try
         {
-            // Shared delegates for multiple phases
-            PhasesToolbox.ClearDatabase clearDatabase = () => database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
-            PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
-            {
-                var result = await rabbitMq.ClearAllQueuesAsync(cancellationToken);
-                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
-                return result;
-            };
-            PhasesToolbox.PublishEvents publishEvents = (count) => eventPublisher.PublishEventsAsync(count, cancellationToken);
-            PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, cancellationToken);
-            Task forAllDockerMonitors(Func<IDockerMonitor, Task> action) => Task.WhenAll(dockerMonitors.Select(action));
-            IReadOnlyCollection<DockerMetrics> dockerMetricsFor(NonEmptyString containerName) => dockerMonitors.Single(m => m.ContainerName == containerName.Value).GetCollectedMetrics();
-
-            // Phase 0: Setup
-            progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
-            var setupResult = await SetupPhase.ExecuteAsync(
-                testRunId,
-                findServiceProcessId: () => serviceDiscovery.FindServiceProcessIdAsync(configuration.ServicePort.Value, TimeSpan.FromSeconds(30), cancellationToken),
-                isMonitoringStarted: () => hostLifetime.ApplicationStarted.IsCancellationRequested,
-                startMonitoring: () => host.StartAsync(cancellationToken),
-                warmupDockerApi: () => forAllDockerMonitors(m => m.WarmupAsync(cancellationToken)),
-                clearDatabase: clearDatabase,
-                clearAllQueues: clearAllQueues,
-                connectEventPublisher: () => eventPublisher.ConnectAsync(cancellationToken), logger);
-
-            var serviceProcessId = setupResult.Match(
-                success: s => s.Value,
-                failure: f => throw new InvalidOperationException(f.Error));
-            progress?.Report(PhaseInfo.Completed(TestPhase.Setup, $"Setup complete, service PID: {serviceProcessId}"));
-
             // Phase 0.5: Warmup (failures abort the test)
-            currentPhase = TestPhase.Warmup;
             progress?.Report(PhaseInfo.Starting(TestPhase.Warmup, $"Starting warmup with {configuration.WarmupEventCount} events"));
             var warmupStartTime = DateTime.UtcNow;
             var warmupResult = await WarmupPhase.ExecuteAsync(
@@ -101,45 +105,42 @@ public class TestOrchestrator(
                 clearDatabase: clearDatabase,
                 clearAllQueues: clearAllQueues,
                 logger);
-            warmupResult.Match(
-                success: _ => { },
-                failure: f => throw new InvalidOperationException(f.Error));
+            if (warmupResult.IsFailure)
+                return Fail(TestPhase.Warmup, warmupResult.FailureError);
             var warmupEndTime = DateTime.UtcNow;
             progress?.Report(PhaseInfo.Completed(TestPhase.Warmup, "Warmup complete"));
 
             // Phase 1: Event Throughput Test (CONCURRENT publish/consume)
-            currentPhase = TestPhase.EventTest;
             progress?.Report(PhaseInfo.Starting(TestPhase.EventTest, $"Starting event test with {configuration.EventCount} events"));
-            var eventTestOutput = (await EventTestPhase.ExecuteAsync(
-                    configuration, serviceProcessId,
-                    systemCpuCount: systemMonitor.CpuCount,
-                    systemIsWsl2: systemMonitor.IsWsl2,
-                    clearSamples: metricsCollector.ClearSamples,
-                    startProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid, cancellationToken: cancellationToken),
-                    startSystemMonitoring: () => systemMonitor.StartMonitoringAsync(cancellationToken: cancellationToken),
-                    startDockerMonitoring: () => forAllDockerMonitors(m => m.StartMonitoringAsync(cancellationToken: cancellationToken)),
-                    trackEvents: trackEvents,
-                    publishEvents: publishEvents,
-                    progress, logger))
-                .Match(
-                    success: s => s.Value,
-                    failure: f => throw new InvalidOperationException(f.Error));
+            var eventTestResult = await EventTestPhase.ExecuteAsync(
+                configuration, serviceProcessId,
+                systemCpuCount: systemMonitor.CpuCount,
+                systemIsWsl2: systemMonitor.IsWsl2,
+                clearSamples: metricsCollector.ClearSamples,
+                startProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid, cancellationToken: cancellationToken),
+                startSystemMonitoring: () => systemMonitor.StartMonitoringAsync(cancellationToken: cancellationToken),
+                startDockerMonitoring: () => forAllDockerMonitors(m => m.StartMonitoringAsync(cancellationToken: cancellationToken)),
+                trackEvents: trackEvents,
+                publishEvents: publishEvents,
+                progress, logger);
+            if (eventTestResult.IsFailure)
+                return Fail(TestPhase.EventTest, eventTestResult.FailureError);
+            var eventTestOutput = eventTestResult.SuccessValue;
             var publishMetrics = eventTestOutput.PublishMetrics;
             var eventTestStartTime = eventTestOutput.StartTime;
             var eventTestEndTime = eventTestOutput.EndTime;
             progress?.Report(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));
 
             // Phase 2: API Load Test
-            currentPhase = TestPhase.ApiTest;
             progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDuration.Value.TotalSeconds}s"));
-            var apiTestOutput = (await ApiTestPhase.ExecuteAsync(
-                    configuration,
-                    (url, duration, vus, apiProgress, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, cancellationToken),
-                    progress,
-                    logger))
-                .Match(
-                    success: s => s.Value,
-                    failure: f => throw new InvalidOperationException(f.Error));
+            var apiTestResult = await ApiTestPhase.ExecuteAsync(
+                configuration,
+                (url, duration, vus, apiProgress, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, cancellationToken),
+                progress,
+                logger);
+            if (apiTestResult.IsFailure)
+                return Fail(TestPhase.ApiTest, apiTestResult.FailureError);
+            var apiTestOutput = apiTestResult.SuccessValue;
             var apiResult = apiTestOutput.ApiLoadTestResult;
             var apiTestStartTime = apiTestOutput.StartTime;
             var apiTestEndTime = apiTestOutput.EndTime;
@@ -176,7 +177,6 @@ public class TestOrchestrator(
             };
 
             // Teardown
-            currentPhase = TestPhase.Reporting;
             logger.LogInformation("Disconnecting from RabbitMQ event publisher...");
             await eventPublisher.DisconnectAsync(cancellationToken);
             logger.LogInformation("RabbitMQ event publisher disconnected");
@@ -198,9 +198,9 @@ public class TestOrchestrator(
                 generateReport: (folder, report) => reportGenerator.GenerateReportAsync(folder, report, cancellationToken),
                 generateChart: (folder, report, log) => ChartGenerator.GenerateChartAsync(folder, report, log, cancellationToken),
                 logger);
-            var testReport = reportingResult.Match(
-                success: s => s.Value,
-                failure: f => throw new InvalidOperationException(f.Error));
+            if (reportingResult.IsFailure)
+                return Fail(TestPhase.Reporting, reportingResult.FailureError);
+            var testReport = reportingResult.SuccessValue;
             progress?.Report(PhaseInfo.Completed(TestPhase.Reporting, "Report generation complete"));
 
             logger.LogInformation(
@@ -210,42 +210,14 @@ public class TestOrchestrator(
 
             return testReport;
         }
-        catch (Exception ex)
+        finally
         {
-            logger.LogError(
-                ex,
-                "Performance test run {TestRunId} failed: {Message}",
-                testRunId,
-                ex.Message);
+            // Best-effort cleanup (disconnect publisher, stop host)
+            try { await eventPublisher.DisconnectAsync(CancellationToken.None); }
+            catch (Exception ex) { logger.LogWarning(ex, "Failed to disconnect event publisher during cleanup"); }
 
-            // Report failure with the actual phase that failed
-            progress?.Report(PhaseInfo.Failed(currentPhase, ex.Message));
-
-            // Ensure monitoring services are stopped
-            try
-            {
-                // Try to disconnect event publisher first
-                try
-                {
-                    await eventPublisher.DisconnectAsync(CancellationToken.None);
-                }
-                catch (Exception disconnectEx)
-                {
-                    logger.LogWarning(
-                        disconnectEx,
-                        "Failed to disconnect event publisher during error cleanup");
-                }
-
-                await host.StopAsync(CancellationToken.None);
-            }
-            catch (Exception stopEx)
-            {
-                logger.LogWarning(
-                    stopEx,
-                    "Failed to stop monitoring services during error cleanup");
-            }
-
-            throw;
+            try { await host.StopAsync(CancellationToken.None); }
+            catch (Exception ex) { logger.LogWarning(ex, "Failed to stop monitoring services during cleanup"); }
         }
     }
 }
