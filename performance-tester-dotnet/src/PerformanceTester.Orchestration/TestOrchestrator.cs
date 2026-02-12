@@ -187,7 +187,7 @@ public class TestOrchestrator(
 
             // Phase 3: Reporting (collects metrics, generates reports)
             progress?.Report(PhaseInfo.Starting(TestPhase.Reporting, "Starting metrics collection and report generation"));
-            var testReport = await ReportingPhase.ExecuteAsync(
+            var reportingResult = await ReportingPhase.ExecuteAsync(
                 testResult, configuration,
                 getThroughputSamples: metricsCollector.GetThroughputSamples,
                 getProcessMetrics: processMonitor.GetCollectedMetrics,
@@ -198,6 +198,9 @@ public class TestOrchestrator(
                 generateReport: (folder, report) => reportGenerator.GenerateReportAsync(folder, report, cancellationToken),
                 generateChart: (folder, report, log) => ChartGenerator.GenerateChartAsync(folder, report, log, cancellationToken),
                 logger);
+            var testReport = reportingResult.Match(
+                success: s => s.Value,
+                failure: f => throw new InvalidOperationException(f.Error));
             progress?.Report(PhaseInfo.Completed(TestPhase.Reporting, "Report generation complete"));
 
             logger.LogInformation(
