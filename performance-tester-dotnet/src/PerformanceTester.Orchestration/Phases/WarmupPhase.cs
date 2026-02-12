@@ -10,11 +10,6 @@ namespace PerformanceTester.Orchestration;
 internal static class WarmupPhase
 {
     /// <summary>
-    /// Tracks consumed events until expected count is reached or inactivity timeout expires.
-    /// </summary>
-    public delegate Task TrackEvents(int expectedCount, TimeSpan inactivityTimeout);
-
-    /// <summary>
     /// Executes warmup HTTP calls to the API endpoint.
     /// Returns (successCount, failedCount).
     /// </summary>
@@ -22,7 +17,7 @@ internal static class WarmupPhase
 
     public static async Task ExecuteAsync(
         TestConfiguration config,
-        TrackEvents trackEvents,
+        PhasesToolbox.TrackEvents trackEvents,
         PhasesToolbox.PublishEvents publishEvents,
         ExecuteWarmupApiCalls executeWarmupApiCalls,
         PhasesToolbox.ClearDatabase clearDatabase,
@@ -40,10 +35,11 @@ internal static class WarmupPhase
                 config.WarmupEventCount,
                 config.WarmupInactivityTimeout.Value.TotalSeconds);
 
-            // Start consumer tracking
+            // Start consumer tracking (no progress reporting — warmup is a quick non-measured step)
             var consumerTask = trackEvents(
                 config.WarmupEventCount.Value,
-                config.WarmupInactivityTimeout.Value);
+                config.WarmupInactivityTimeout.Value,
+                progress: null);
 
             // Publish warmup events
             var publishMetrics = await publishEvents(config.WarmupEventCount.Value);

@@ -34,11 +34,6 @@ internal static class EventTestPhase
     /// </summary>
     public delegate Task StartDockerMonitoring();
 
-    /// <summary>
-    /// Tracks consumed events until expected count is reached or inactivity timeout expires.
-    /// </summary>
-    public delegate Task TrackEvents(int expectedCount, TimeSpan inactivityTimeout, IProgress<ConsumerPhaseInfo>? progress);
-
     public static async Task<(PublishMetrics PublishMetrics, DateTime StartTime, DateTime EndTime)> ExecuteAsync(
         TestConfiguration config,
         int serviceProcessId,
@@ -48,7 +43,7 @@ internal static class EventTestPhase
         StartProcessMonitoring startProcessMonitoring,
         StartSystemMonitoring startSystemMonitoring,
         StartDockerMonitoring startDockerMonitoring,
-        TrackEvents trackEvents,
+        PhasesToolbox.TrackEvents trackEvents,
         PhasesToolbox.PublishEvents publishEvents,
         IProgress<PhaseInfo>? progress,
         ILogger logger)

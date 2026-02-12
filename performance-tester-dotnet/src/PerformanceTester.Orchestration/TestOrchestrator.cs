@@ -58,8 +58,7 @@ public class TestOrchestrator(
         try
         {
             // Shared delegates for multiple phases
-            PhasesToolbox.ClearDatabase clearDatabase = () =>
-                database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
+            PhasesToolbox.ClearDatabase clearDatabase = () => database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
             PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
             {
                 var result = await rabbitMq.ClearAllQueuesAsync(cancellationToken);
@@ -67,6 +66,7 @@ public class TestOrchestrator(
                 return result;
             };
             PhasesToolbox.PublishEvents publishEvents = (count) => eventPublisher.PublishEventsAsync(count, cancellationToken);
+            PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, cancellationToken);
 
             // Phase 0: Setup
             progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
@@ -95,7 +95,7 @@ public class TestOrchestrator(
             var warmupStartTime = DateTime.UtcNow;
             await WarmupPhase.ExecuteAsync(
                 configuration,
-                trackEvents: (count, timeout) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress: null, cancellationToken), // No progress reporting during warmup — it's a quick non-measured pre-heating step
+                trackEvents: trackEvents,
                 publishEvents: publishEvents,
                 executeWarmupApiCalls: (url, count) => WarmupPhase.ExecuteWarmupApiCallsAsync(url, count, logger, cancellationToken),
                 clearDatabase: clearDatabase,
@@ -107,10 +107,9 @@ public class TestOrchestrator(
             // Phase 1: Event Throughput Test (CONCURRENT publish/consume)
             currentPhase = TestPhase.EventTest;
             progress?.Report(PhaseInfo.Starting(TestPhase.EventTest, $"Starting event test with {configuration.EventCount} events"));
-            var (publishMetrics, eventTestStartTime, eventTestEndTime) =
-                await EventTestPhase.ExecuteAsync(
+            var (publishMetrics, eventTestStartTime, eventTestEndTime) = await EventTestPhase.ExecuteAsync(
                     configuration, serviceProcessId,
-                    systemCpuCount: systemMonitor.CpuCount,
+                    systemCpuCount: systemMonitor.CpuCount, 
                     systemIsWsl2: systemMonitor.IsWsl2,
                     clearSamples: metricsCollector.ClearSamples,
                     startProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid, cancellationToken: cancellationToken),
@@ -120,7 +119,7 @@ public class TestOrchestrator(
                         var tasks = dockerMonitors.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
                         await Task.WhenAll(tasks);
                     },
-                    trackEvents: (count, timeout, consumerProgress) => eventConsumer.StartTrackingEventsAsync(count, timeout, consumerProgress, cancellationToken),
+                    trackEvents: trackEvents,
                     publishEvents: publishEvents,
                     progress, logger);
             progress?.Report(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));

@@ -1,4 +1,5 @@
 using JoanComasFdz.Result;
+using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
 
@@ -25,4 +26,9 @@ internal static class PhasesToolbox
     /// Publishes the specified number of events and returns publish metrics.
     /// </summary>
     public delegate Task<PublishMetrics> PublishEvents(int eventCount);
+
+    /// <summary>
+    /// Tracks consumed events until expected count is reached or inactivity timeout expires.
+    /// </summary>
+    public delegate Task TrackEvents(int expectedCount, TimeSpan inactivityTimeout, IProgress<ConsumerPhaseInfo>? progress);
 }
