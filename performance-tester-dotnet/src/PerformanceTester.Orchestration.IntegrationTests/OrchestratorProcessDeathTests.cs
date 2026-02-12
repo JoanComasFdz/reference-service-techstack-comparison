@@ -64,7 +64,7 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
         try
         {
             // Act & Assert: Should timeout during event consumption with partial progress
-            var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
                 await System.Orchestration.Orchestrator.RunTestAsync(config);
             });
@@ -302,7 +302,7 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
         try
         {
             // Act: Test should timeout gracefully (not crash) when service dies
-            var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
                 await System.Orchestration.Orchestrator.RunTestAsync(config);
             });

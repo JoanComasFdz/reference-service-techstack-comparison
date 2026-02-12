@@ -108,7 +108,7 @@ public sealed class OrchestratorWarmupFailureTests(ITestOutputHelper output)
         try
         {
             // Act & Assert
-            var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
                 await System.Orchestration.Orchestrator.RunTestAsync(config);
             });

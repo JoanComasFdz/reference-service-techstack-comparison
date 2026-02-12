@@ -79,7 +79,7 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
             await System.WaitForServiceHealthyAsync(port: config.ServicePort.Value, timeout: TimeSpan.FromSeconds(10));
 
             // Act & Assert: Should timeout with progress info
-            var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
                 await System.Orchestration.Orchestrator.RunTestAsync(config);
             });

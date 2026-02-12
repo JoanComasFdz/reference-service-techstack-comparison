@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using Serilog.Context;
+using static JoanComasFdz.Result.Result<PerformanceTester.Orchestration.EventTestPhase.Output, string>;
 
 namespace PerformanceTester.Orchestration;
 
@@ -34,7 +36,15 @@ internal static class EventTestPhase
     /// </summary>
     public delegate Task StartDockerMonitoring();
 
-    public static async Task<(PublishMetrics PublishMetrics, DateTime StartTime, DateTime EndTime)> ExecuteAsync(
+    /// <summary>
+    /// Success output of the event test phase.
+    /// </summary>
+    public sealed record Output(
+        PublishMetrics PublishMetrics,
+        DateTime StartTime,
+        DateTime EndTime);
+
+    public static async Task<Result<Output, string>> ExecuteAsync(
         TestConfiguration config,
         int serviceProcessId,
         int systemCpuCount,
@@ -50,68 +60,76 @@ internal static class EventTestPhase
     {
         using var _ = LogContext.PushProperty("Phase", "EventTest");
 
-        logger.LogInformation(
-            "Starting event throughput test with {Count} events",
-            config.EventCount);
+        try
+        {
+            logger.LogInformation(
+                "Starting event throughput test with {Count} events",
+                config.EventCount);
 
-        // Clear any warmup samples before starting the measured test
-        clearSamples();
-        logger.LogDebug("Cleared warmup throughput samples");
+            // Clear any warmup samples before starting the measured test
+            clearSamples();
+            logger.LogDebug("Cleared warmup throughput samples");
 
-        // Start monitoring just before the measured test begins
-        // This ensures chart data starts at the same time as the test phases
-        logger.LogInformation("Starting process monitoring for PID {ProcessId}...", serviceProcessId);
-        await startProcessMonitoring(serviceProcessId);
-        logger.LogInformation("Process monitoring started");
+            // Start monitoring just before the measured test begins
+            // This ensures chart data starts at the same time as the test phases
+            logger.LogInformation("Starting process monitoring for PID {ProcessId}...", serviceProcessId);
+            await startProcessMonitoring(serviceProcessId);
+            logger.LogInformation("Process monitoring started");
 
-        logger.LogInformation("Starting system-wide monitoring (CPU: {CpuCount} cores, WSL2: {IsWsl2})...",
-            systemCpuCount,
-            systemIsWsl2);
-        await startSystemMonitoring();
-        logger.LogInformation("System monitoring started");
+            logger.LogInformation("Starting system-wide monitoring (CPU: {CpuCount} cores, WSL2: {IsWsl2})...",
+                systemCpuCount,
+                systemIsWsl2);
+            await startSystemMonitoring();
+            logger.LogInformation("System monitoring started");
 
-        logger.LogInformation("Starting Docker container monitors...");
-        await startDockerMonitoring();
-        logger.LogInformation("Docker container monitors started (first samples collected)");
+            logger.LogInformation("Starting Docker container monitors...");
+            await startDockerMonitoring();
+            logger.LogInformation("Docker container monitors started (first samples collected)");
 
-        var consumerProgress = CreateConsumerProgressCallback(progress, config.EventCount.Value);
+            var consumerProgress = CreateConsumerProgressCallback(progress, config.EventCount.Value);
 
-        // Capture startTime immediately before launching concurrent publisher/consumer
-        // to minimize gap between monitoring start and measurement start
-        var startTime = DateTime.UtcNow;
-        var stopwatch = Stopwatch.StartNew();
+            // Capture startTime immediately before launching concurrent publisher/consumer
+            // to minimize gap between monitoring start and measurement start
+            var startTime = DateTime.UtcNow;
+            var stopwatch = Stopwatch.StartNew();
 
-        // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
-        var consumerTask = trackEvents(
-            config.EventCount.Value,
-            config.InactivityTimeout.Value,
-            consumerProgress);
+            // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
+            var consumerTask = trackEvents(
+                config.EventCount.Value,
+                config.InactivityTimeout.Value,
+                consumerProgress);
 
-        var publisherTask = publishEvents(config.EventCount.Value);
+            var publisherTask = publishEvents(config.EventCount.Value);
 
-        // Wait for both to complete
-        await Task.WhenAll(consumerTask, publisherTask);
-        var publishMetrics = await publisherTask; // Get result from publisher task
+            // Wait for both to complete
+            await Task.WhenAll(consumerTask, publisherTask);
+            var publishMetrics = await publisherTask; // Get result from publisher task
 
-        stopwatch.Stop();
-        var endTime = DateTime.UtcNow;
+            stopwatch.Stop();
+            var endTime = DateTime.UtcNow;
 
-        var totalDuration = stopwatch.Elapsed;
-        var eventThroughput = config.EventCount.Value / totalDuration.TotalSeconds;
+            var totalDuration = stopwatch.Elapsed;
+            var eventThroughput = config.EventCount.Value / totalDuration.TotalSeconds;
 
-        logger.LogInformation(
-            "Event throughput test complete: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
-            config.EventCount,
-            totalDuration.TotalSeconds,
-            eventThroughput);
+            logger.LogInformation(
+                "Event throughput test complete: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
+                config.EventCount,
+                totalDuration.TotalSeconds,
+                eventThroughput);
 
-        logger.LogInformation(
-            "Publishing: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
-            publishMetrics.EventCount,
-            publishMetrics.Duration.TotalSeconds,
-            publishMetrics.EventsPerSecond);
+            logger.LogInformation(
+                "Publishing: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
+                publishMetrics.EventCount,
+                publishMetrics.Duration.TotalSeconds,
+                publishMetrics.EventsPerSecond);
 
-        return (publishMetrics, startTime, endTime);
+            return new Success(new Output(publishMetrics, startTime, endTime));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Event test phase failed: {Message}", ex.Message);
+            return new Failure(ex.Message);
+        }
     }
 
     /// <summary>

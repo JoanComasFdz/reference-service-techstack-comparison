@@ -110,9 +110,9 @@ public class TestOrchestrator(
             // Phase 1: Event Throughput Test (CONCURRENT publish/consume)
             currentPhase = TestPhase.EventTest;
             progress?.Report(PhaseInfo.Starting(TestPhase.EventTest, $"Starting event test with {configuration.EventCount} events"));
-            var (publishMetrics, eventTestStartTime, eventTestEndTime) = await EventTestPhase.ExecuteAsync(
+            var eventTestOutput = (await EventTestPhase.ExecuteAsync(
                     configuration, serviceProcessId,
-                    systemCpuCount: systemMonitor.CpuCount, 
+                    systemCpuCount: systemMonitor.CpuCount,
                     systemIsWsl2: systemMonitor.IsWsl2,
                     clearSamples: metricsCollector.ClearSamples,
                     startProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid, cancellationToken: cancellationToken),
@@ -120,7 +120,13 @@ public class TestOrchestrator(
                     startDockerMonitoring: () => forAllDockerMonitors(m => m.StartMonitoringAsync(cancellationToken: cancellationToken)),
                     trackEvents: trackEvents,
                     publishEvents: publishEvents,
-                    progress, logger);
+                    progress, logger))
+                .Match(
+                    success: s => s.Value,
+                    failure: f => throw new InvalidOperationException(f.Error));
+            var publishMetrics = eventTestOutput.PublishMetrics;
+            var eventTestStartTime = eventTestOutput.StartTime;
+            var eventTestEndTime = eventTestOutput.EndTime;
             progress?.Report(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));
 
             // Phase 2: API Load Test
