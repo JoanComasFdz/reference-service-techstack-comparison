@@ -1,6 +1,9 @@
+using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.EventPublishing;
+using PerformanceTester.Infrastructure.Database;
 using Serilog.Context;
+using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, string>;
 
 namespace PerformanceTester.Orchestration;
 
@@ -15,7 +18,7 @@ internal static class WarmupPhase
     /// </summary>
     public delegate Task<(int Success, int Failed)> ExecuteWarmupApiCalls(string apiUrl, uint callCount);
 
-    public static async Task ExecuteAsync(
+    public static async Task<Result<Unit, string>> ExecuteAsync(
         TestConfiguration config,
         PhasesToolbox.TrackEvents trackEvents,
         PhasesToolbox.PublishEvents publishEvents,
@@ -70,23 +73,31 @@ internal static class WarmupPhase
 
             // Clear database and queues again
             logger.LogInformation("Warmup: Clearing database and queues before measured test");
-            (await clearDatabase()).Match(
-                success: _ => { },
-                failure: f => throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}' during warmup: {f.Error}"));
-            (await clearAllQueues()).Match(
-                success: _ => { },
-                failure: f => throw new InvalidOperationException($"Failed to clear RabbitMQ queues during warmup: {f.Error}"));
+            var dbResult = await clearDatabase();
+            if (dbResult.IsFailure)
+            {
+                var errorMessage = dbResult.FailureError.Match(
+                    emptyName: _ => "Database name was empty",
+                    databaseNotFound: e => $"Database '{e.Name}' not found",
+                    retriesExhausted: e => $"All {e.Attempts} retry attempts exhausted: {e.Last.Message}");
+                return new Failure($"Failed to clear database '{config.DatabaseName}' during warmup: {errorMessage}");
+            }
+
+            var queuesResult = await clearAllQueues();
+            if (queuesResult.IsFailure)
+                return new Failure($"Failed to clear RabbitMQ queues during warmup: {queuesResult.FailureError}");
 
             logger.LogInformation("Warmup phase complete - starting measured test");
+
+            return new Success(Unit.Value);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Warmup failures should abort the test
             logger.LogError(
                 ex,
                 "Warmup phase failed, aborting test. " +
                 "Fix the warmup configuration or service availability before running the measured test.");
-            throw;
+            return new Failure(ex.Message);
         }
     }
 

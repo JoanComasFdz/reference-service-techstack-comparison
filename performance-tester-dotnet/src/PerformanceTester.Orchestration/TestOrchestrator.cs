@@ -93,7 +93,7 @@ public class TestOrchestrator(
             currentPhase = TestPhase.Warmup;
             progress?.Report(PhaseInfo.Starting(TestPhase.Warmup, $"Starting warmup with {configuration.WarmupEventCount} events"));
             var warmupStartTime = DateTime.UtcNow;
-            await WarmupPhase.ExecuteAsync(
+            var warmupResult = await WarmupPhase.ExecuteAsync(
                 configuration,
                 trackEvents: trackEvents,
                 publishEvents: publishEvents,
@@ -101,6 +101,9 @@ public class TestOrchestrator(
                 clearDatabase: clearDatabase,
                 clearAllQueues: clearAllQueues,
                 logger);
+            warmupResult.Match(
+                success: _ => { },
+                failure: f => throw new InvalidOperationException(f.Error));
             var warmupEndTime = DateTime.UtcNow;
             progress?.Report(PhaseInfo.Completed(TestPhase.Warmup, "Warmup complete"));
 
