@@ -11,20 +11,11 @@ using Serilog.Context;
 namespace PerformanceTester.Orchestration;
 
 /// <summary>
-/// Phase 3: Stop monitors, collect metrics, build report, generate JSON and chart.
+/// Phase 3: Collect metrics, build report, generate JSON and chart.
+/// Expects monitors to be already stopped by the orchestrator.
 /// </summary>
 internal static class ReportingPhase
 {
-    /// <summary>
-    /// Disconnects from the RabbitMQ event publisher.
-    /// </summary>
-    public delegate Task DisconnectEventPublisher();
-
-    /// <summary>
-    /// Stops all monitoring services (BackgroundServices via IHost).
-    /// </summary>
-    public delegate Task StopMonitoring();
-
     /// <summary>
     /// Returns throughput samples collected during the event test.
     /// </summary>
@@ -69,8 +60,6 @@ internal static class ReportingPhase
     public static async Task<TestReport> ExecuteAsync(
         TestResult testResult,
         TestConfiguration config,
-        DisconnectEventPublisher disconnectEventPublisher,
-        StopMonitoring stopMonitoring,
         GetThroughputSamples getThroughputSamples,
         GetProcessMetrics getProcessMetrics,
         GetSystemMetrics getSystemMetrics,
@@ -85,17 +74,7 @@ internal static class ReportingPhase
 
         logger.LogInformation("Starting reporting phase");
 
-        // Step 1: Disconnect from RabbitMQ event publisher
-        logger.LogInformation("Disconnecting from RabbitMQ event publisher...");
-        await disconnectEventPublisher();
-        logger.LogInformation("RabbitMQ event publisher disconnected");
-
-        // Step 2: Stop IHost (all BackgroundServices stop)
-        logger.LogInformation("Stopping monitoring services...");
-        await stopMonitoring();
-        logger.LogInformation("All monitoring services stopped");
-
-        // Step 3: Collect all metrics from monitors
+        // Step 1: Collect all metrics from monitors
         logger.LogInformation("Collecting metrics from monitors...");
 
         var throughputSamples = getThroughputSamples();

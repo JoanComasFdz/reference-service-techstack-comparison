@@ -160,13 +160,20 @@ public class TestOrchestrator(
                 SystemInfo = null
             };
 
-            // Phase 3: Reporting (stops monitors, collects metrics, generates reports)
+            // Teardown
             currentPhase = TestPhase.Reporting;
+            logger.LogInformation("Disconnecting from RabbitMQ event publisher...");
+            await eventPublisher.DisconnectAsync(cancellationToken);
+            logger.LogInformation("RabbitMQ event publisher disconnected");
+
+            logger.LogInformation("Stopping monitoring services...");
+            await host.StopAsync(cancellationToken);
+            logger.LogInformation("All monitoring services stopped");
+
+            // Phase 3: Reporting (collects metrics, generates reports)
             progress?.Report(PhaseInfo.Starting(TestPhase.Reporting, "Starting metrics collection and report generation"));
             var testReport = await ReportingPhase.ExecuteAsync(
                 testResult, configuration,
-                disconnectEventPublisher: () => eventPublisher.DisconnectAsync(cancellationToken),
-                stopMonitoring: () => host.StopAsync(cancellationToken),
                 getThroughputSamples: metricsCollector.GetThroughputSamples,
                 getProcessMetrics: processMonitor.GetCollectedMetrics,
                 getSystemMetrics: systemMonitor.GetCollectedMetrics,
