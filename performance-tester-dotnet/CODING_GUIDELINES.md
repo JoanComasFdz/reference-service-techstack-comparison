@@ -644,6 +644,43 @@ var config = new TestConfiguration(
 
 ---
 
+## Function Composition
+
+### 23. Higher-Order Helper Functions for Structural Duplication
+
+When the same structure (e.g., iterate + await all) is repeated across call sites with only the operation changing, extract the structure as a function that takes a function.
+
+```csharp
+// ❌ Structural duplication — same pattern, different operation
+async () => { await Task.WhenAll(monitors.Select(m => m.WarmupAsync(ct))); }
+async () => { await Task.WhenAll(monitors.Select(m => m.StartAsync(ct))); }
+
+// ✅ Higher-order helper captures the repeated structure
+Task forAllMonitors(Func<IMonitor, Task> action) => Task.WhenAll(monitors.Select(action));
+() => forAllMonitors(m => m.WarmupAsync(ct))
+() => forAllMonitors(m => m.StartAsync(ct))
+```
+
+**When to use:** Two or more call sites share identical structure but plug in different operations.
+
+**When NOT to use:** Only one call site, or the structure is trivial (one-liner with no repetition).
+
+### 24. Behavioral Decisions Belong in the Consumer, Not the Caller
+
+When a class receives a shared function whose signature has a parameter it doesn't need, that class should accept the full signature and provide the default internally. The caller shouldn't encode knowledge about what the consumer does or doesn't care about.
+
+```csharp
+// ❌ Caller decides what the consumer needs — leaks knowledge outward
+trackEvents: (count, timeout) => trackEvents(count, timeout, null),
+
+// ✅ Consumer accepts the full signature and decides for itself
+var task = trackEvents(count, timeout, progress: null);
+```
+
+**Why:** The consumer owns its behavior. If it later starts using the parameter, only the consumer changes — no caller needs updating.
+
+---
+
 ## Summary
 
 **One-liner:** *Make dependencies explicit, keep functions small and pure, let each file tell its own complete story.*
@@ -672,3 +709,5 @@ var config = new TestConfiguration(
 | Unwrap at boundaries | Am I crossing into a primitive-typed API? Use `.Value` |
 | No VO unit tests | Is the validation trivially correct? Skip the test |
 | Value object families | Do multiple VOs share the same validation? Base record + sealed tag types |
+| Higher-order helpers | Is the same structure repeated with different operations plugged in? |
+| Consumer owns defaults | Am I encoding what a consumer needs? Let the consumer decide |
