@@ -10,11 +10,6 @@ namespace PerformanceTester.Orchestration;
 internal static class WarmupPhase
 {
     /// <summary>
-    /// Publishes warmup events and returns publish metrics.
-    /// </summary>
-    public delegate Task<PublishMetrics> PublishEvents(int eventCount);
-
-    /// <summary>
     /// Tracks consumed events until expected count is reached or inactivity timeout expires.
     /// </summary>
     public delegate Task TrackEvents(int expectedCount, TimeSpan inactivityTimeout);
@@ -28,7 +23,7 @@ internal static class WarmupPhase
     public static async Task ExecuteAsync(
         TestConfiguration config,
         TrackEvents trackEvents,
-        PublishEvents publishEvents,
+        PhasesToolbox.PublishEvents publishEvents,
         ExecuteWarmupApiCalls executeWarmupApiCalls,
         PhasesToolbox.ClearDatabase clearDatabase,
         PhasesToolbox.ClearAllQueues clearAllQueues,

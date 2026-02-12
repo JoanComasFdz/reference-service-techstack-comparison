@@ -1,4 +1,5 @@
 using JoanComasFdz.Result;
+using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
 
 namespace PerformanceTester.Orchestration;
@@ -19,4 +20,9 @@ internal static class PhasesToolbox
     /// Returns Unit on success, or an error message on failure.
     /// </summary>
     public delegate Task<Result<Unit, string>> ClearAllQueues();
+
+    /// <summary>
+    /// Publishes the specified number of events and returns publish metrics.
+    /// </summary>
+    public delegate Task<PublishMetrics> PublishEvents(int eventCount);
 }

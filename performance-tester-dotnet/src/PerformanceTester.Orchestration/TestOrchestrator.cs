@@ -99,7 +99,7 @@ public class TestOrchestrator : ITestOrchestrator
 
         try
         {
-            // Shared delegates for Setup and Warmup phases
+            // Shared delegates for multiple phases
             PhasesToolbox.ClearDatabase clearDatabase = () =>
                 _database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
             PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
@@ -108,6 +108,7 @@ public class TestOrchestrator : ITestOrchestrator
                 await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
                 return result;
             };
+            PhasesToolbox.PublishEvents publishEvents = (count) => _eventPublisher.PublishEventsAsync(count, cancellationToken);
 
             // Phase 0: Setup
             progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
@@ -137,7 +138,7 @@ public class TestOrchestrator : ITestOrchestrator
             await WarmupPhase.ExecuteAsync(
                 configuration,
                 trackEvents: (count, timeout) => _eventConsumer.StartTrackingEventsAsync(count, timeout, progress: null, cancellationToken), // No progress reporting during warmup — it's a quick non-measured pre-heating step
-                publishEvents: (count) => _eventPublisher.PublishEventsAsync(count, cancellationToken),
+                publishEvents: publishEvents,
                 executeWarmupApiCalls: (url, count) => WarmupPhase.ExecuteWarmupApiCallsAsync(url, count, _logger, cancellationToken),
                 clearDatabase: clearDatabase,
                 clearAllQueues: clearAllQueues,
@@ -151,9 +152,19 @@ public class TestOrchestrator : ITestOrchestrator
             var (publishMetrics, eventTestStartTime, eventTestEndTime) =
                 await EventTestPhase.ExecuteAsync(
                     configuration, serviceProcessId,
-                    _metricsCollector, _processMonitor, _systemMonitor, _dockerMonitors,
-                    _eventConsumer, _eventPublisher,
-                    progress, _logger, cancellationToken);
+                    systemCpuCount: _systemMonitor.CpuCount,
+                    systemIsWsl2: _systemMonitor.IsWsl2,
+                    clearSamples: _metricsCollector.ClearSamples,
+                    startProcessMonitoring: (pid) => _processMonitor.StartMonitoringAsync(pid, cancellationToken: cancellationToken),
+                    startSystemMonitoring: () => _systemMonitor.StartMonitoringAsync(cancellationToken: cancellationToken),
+                    startDockerMonitoring: async () =>
+                    {
+                        var tasks = _dockerMonitors.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
+                        await Task.WhenAll(tasks);
+                    },
+                    trackEvents: (count, timeout, consumerProgress) => _eventConsumer.StartTrackingEventsAsync(count, timeout, consumerProgress, cancellationToken),
+                    publishEvents: publishEvents,
+                    progress, _logger);
             progress?.Report(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));
 
             // Phase 2: API Load Test

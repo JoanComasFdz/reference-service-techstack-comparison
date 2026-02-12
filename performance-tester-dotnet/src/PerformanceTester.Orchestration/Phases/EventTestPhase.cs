@@ -1,10 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
-using PerformanceTester.ProcessMonitoring;
-using PerformanceTester.SystemMonitoring;
 using Serilog.Context;
 
 namespace PerformanceTester.Orchestration;
@@ -14,18 +11,47 @@ namespace PerformanceTester.Orchestration;
 /// </summary>
 internal static class EventTestPhase
 {
+    /// <summary>
+    /// Clears all collected throughput samples before the measured test starts.
+    /// </summary>
+    public delegate void ClearSamples();
+
+    /// <summary>
+    /// Starts process resource monitoring for the given PID.
+    /// Returns when the first sample has been collected.
+    /// </summary>
+    public delegate Task StartProcessMonitoring(int processId);
+
+    /// <summary>
+    /// Starts system-wide CPU and memory monitoring.
+    /// Returns when the first sample has been collected.
+    /// </summary>
+    public delegate Task StartSystemMonitoring();
+
+    /// <summary>
+    /// Starts all Docker container monitors.
+    /// Returns when first samples have been collected from all containers.
+    /// </summary>
+    public delegate Task StartDockerMonitoring();
+
+    /// <summary>
+    /// Tracks consumed events until expected count is reached or inactivity timeout expires.
+    /// </summary>
+    public delegate Task TrackEvents(int expectedCount, TimeSpan inactivityTimeout, IProgress<ConsumerPhaseInfo>? progress);
+
     public static async Task<(PublishMetrics PublishMetrics, DateTime StartTime, DateTime EndTime)> ExecuteAsync(
         TestConfiguration config,
         int serviceProcessId,
-        IMetricsCollector metricsCollector,
-        IProcessMonitor processMonitor,
-        ISystemMonitor systemMonitor,
-        IEnumerable<IDockerMonitor> dockerMonitors,
-        IEventConsumer eventConsumer,
-        IEventPublisher eventPublisher,
+        int systemCpuCount,
+        bool systemIsWsl2,
+        ClearSamples clearSamples,
+        StartProcessMonitoring startProcessMonitoring,
+        StartSystemMonitoring startSystemMonitoring,
+        StartDockerMonitoring startDockerMonitoring,
+        TrackEvents trackEvents,
+        PhasesToolbox.PublishEvents publishEvents,
         IProgress<PhaseInfo>? progress,
-        ILogger logger,
-        CancellationToken cancellationToken)
+        ILogger logger)
     {
         using var _ = LogContext.PushProperty("Phase", "EventTest");
 
@@ -34,25 +60,23 @@ internal static class EventTestPhase
             config.EventCount);
 
         // Clear any warmup samples before starting the measured test
-        metricsCollector.ClearSamples();
+        clearSamples();
         logger.LogDebug("Cleared warmup throughput samples");
 
         // Start monitoring just before the measured test begins
         // This ensures chart data starts at the same time as the test phases
         logger.LogInformation("Starting process monitoring for PID {ProcessId}...", serviceProcessId);
-        await processMonitor.StartMonitoringAsync(serviceProcessId, cancellationToken: cancellationToken);
+        await startProcessMonitoring(serviceProcessId);
         logger.LogInformation("Process monitoring started");
 
         logger.LogInformation("Starting system-wide monitoring (CPU: {CpuCount} cores, WSL2: {IsWsl2})...",
-            systemMonitor.CpuCount,
-            systemMonitor.IsWsl2);
-        await systemMonitor.StartMonitoringAsync(cancellationToken: cancellationToken);
+            systemCpuCount,
+            systemIsWsl2);
+        await startSystemMonitoring();
         logger.LogInformation("System monitoring started");
 
         logger.LogInformation("Starting Docker container monitors...");
-        var dockerMonitorsList = dockerMonitors.ToList();
-        var dockerStartTasks = dockerMonitorsList.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
-        await Task.WhenAll(dockerStartTasks);
+        await startDockerMonitoring();
         logger.LogInformation("Docker container monitors started (first samples collected)");
 
         var consumerProgress = CreateConsumerProgressCallback(progress, config.EventCount.Value);
@@ -63,15 +87,12 @@ internal static class EventTestPhase
         var stopwatch = Stopwatch.StartNew();
 
         // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
-        var consumerTask = eventConsumer.StartTrackingEventsAsync(
+        var consumerTask = trackEvents(
             config.EventCount.Value,
             config.InactivityTimeout.Value,
-            progress: consumerProgress,
-            cancellationToken);
+            consumerProgress);
 
-        var publisherTask = eventPublisher.PublishEventsAsync(
-            config.EventCount.Value,
-            cancellationToken);
+        var publisherTask = publishEvents(config.EventCount.Value);
 
         // Wait for both to complete
         await Task.WhenAll(consumerTask, publisherTask);
