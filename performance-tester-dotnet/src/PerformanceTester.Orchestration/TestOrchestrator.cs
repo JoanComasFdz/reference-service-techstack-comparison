@@ -67,6 +67,7 @@ public class TestOrchestrator(
             };
             PhasesToolbox.PublishEvents publishEvents = (count) => eventPublisher.PublishEventsAsync(count, cancellationToken);
             PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, cancellationToken);
+            Task forAllDockerMonitors(Func<IDockerMonitor, Task> action) => Task.WhenAll(dockerMonitors.Select(action));
 
             // Phase 0: Setup
             progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
@@ -75,11 +76,7 @@ public class TestOrchestrator(
                 findServiceProcessId: () => serviceDiscovery.FindServiceProcessIdAsync(configuration.ServicePort.Value, TimeSpan.FromSeconds(30), cancellationToken),
                 isMonitoringStarted: () => hostLifetime.ApplicationStarted.IsCancellationRequested,
                 startMonitoring: () => host.StartAsync(cancellationToken),
-                warmupDockerApi: async () =>
-                {
-                    var tasks = dockerMonitors.Select(m => m.WarmupAsync(cancellationToken));
-                    await Task.WhenAll(tasks);
-                },
+                warmupDockerApi: () => forAllDockerMonitors(m => m.WarmupAsync(cancellationToken)),
                 clearDatabase: clearDatabase,
                 clearAllQueues: clearAllQueues,
                 connectEventPublisher: () => eventPublisher.ConnectAsync(cancellationToken), logger);
@@ -114,11 +111,7 @@ public class TestOrchestrator(
                     clearSamples: metricsCollector.ClearSamples,
                     startProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid, cancellationToken: cancellationToken),
                     startSystemMonitoring: () => systemMonitor.StartMonitoringAsync(cancellationToken: cancellationToken),
-                    startDockerMonitoring: async () =>
-                    {
-                        var tasks = dockerMonitors.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
-                        await Task.WhenAll(tasks);
-                    },
+                    startDockerMonitoring: () => forAllDockerMonitors(m => m.StartMonitoringAsync(cancellationToken: cancellationToken)),
                     trackEvents: trackEvents,
                     publishEvents: publishEvents,
                     progress, logger);
