@@ -63,21 +63,21 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
 
         try
         {
-            // Act & Assert: Should timeout during event consumption with partial progress
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            {
-                await System.Orchestration.Orchestrator.RunTestAsync(config);
-            });
+            // Act & Assert: Should return failure during event consumption with partial progress
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
 
-            // Verify exception message shows partial progress (some events out of 200)
+            Assert.True(result.IsFailure, "Expected a failure result for service death during event publishing");
+            Assert.Equal(TestPhase.EventTest, result.FailureError.Phase);
+
+            // Verify failure message shows partial progress (some events out of 200)
             // The service terminates after processing ~30 input events, which interrupts
             // the output publishing before all 200 events are published
             // Progress format is typically "X/Y" where Y is the expected count
             Assert.True(
-                exception.Message.Contains("/200") || exception.Message.Contains("of 200"),
-                $"Exception should show progress out of 200 expected events. Actual: {exception.Message}");
+                result.FailureError.Message.Contains("/200") || result.FailureError.Message.Contains("of 200"),
+                $"Failure should show progress out of 200 expected events. Actual: {result.FailureError.Message}");
 
-            Output.WriteLine($"Test passed: TimeoutException with message: {exception.Message}");
+            Output.WriteLine($"Test passed: Failure with message: {result.FailureError.Message}");
         }
         finally
         {
@@ -132,18 +132,18 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
 
         try
         {
-            // Act & Assert: Should timeout during warmup phase
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            {
-                await System.Orchestration.Orchestrator.RunTestAsync(config);
-            });
+            // Act & Assert: Should return failure during warmup phase
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
 
-            // Verify exception message shows warmup progress (partial progress out of 50 warmup events)
+            Assert.True(result.IsFailure, "Expected a failure result for service death during warmup");
+            Assert.Equal(TestPhase.Warmup, result.FailureError.Phase);
+
+            // Verify failure message shows warmup progress (partial progress out of 50 warmup events)
             Assert.True(
-                exception.Message.Contains("/50") || exception.Message.Contains("of 50"),
-                $"Exception should show warmup progress. Actual: {exception.Message}");
+                result.FailureError.Message.Contains("/50") || result.FailureError.Message.Contains("of 50"),
+                $"Failure should show warmup progress. Actual: {result.FailureError.Message}");
 
-            Output.WriteLine($"Test passed: TimeoutException during warmup with message: {exception.Message}");
+            Output.WriteLine($"Test passed: Failure during warmup with message: {result.FailureError.Message}");
         }
         finally
         {
@@ -228,7 +228,9 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
             await System.ConfigurableReferenceService.DisconnectAsync();
 
             // Wait for test to complete (should abort due to HTTP failures)
-            var report = await testTask;
+            var result = await testTask;
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert: API test should have been aborted due to consecutive failures
             Assert.True(report.Results.Phase3Api.WasAborted,
@@ -301,25 +303,23 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
 
         try
         {
-            // Act: Test should timeout gracefully (not crash) when service dies
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            {
-                await System.Orchestration.Orchestrator.RunTestAsync(config);
-            });
+            // Act: Test should return failure gracefully (not crash) when service dies
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
 
-            // Assert: The test framework didn't crash - we got a proper TimeoutException
+            // Assert: The test framework didn't crash - we got a proper failure result
             // This verifies graceful handling of process death
-            Assert.NotNull(exception);
-            Assert.NotEmpty(exception.Message);
+            Assert.True(result.IsFailure, "Expected a failure result for service death");
+            Assert.Equal(TestPhase.EventTest, result.FailureError.Phase);
+            Assert.NotEmpty(result.FailureError.Message);
 
-            // Verify the exception contains meaningful progress information
+            // Verify the failure message contains meaningful progress information
             // The message should include how many events were received before timeout
             Assert.True(
-                exception.Message.Contains("Inactivity timeout") ||
-                exception.Message.Contains("timeout"),
-                $"Exception should mention timeout. Actual: {exception.Message}");
+                result.FailureError.Message.Contains("Inactivity timeout") ||
+                result.FailureError.Message.Contains("timeout"),
+                $"Failure should mention timeout. Actual: {result.FailureError.Message}");
 
-            Output.WriteLine($"Test passed: Graceful timeout with message: {exception.Message}");
+            Output.WriteLine($"Test passed: Graceful failure with message: {result.FailureError.Message}");
             Output.WriteLine("Process metrics collection stopped gracefully (no crash occurred)");
         }
         finally

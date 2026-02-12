@@ -55,9 +55,11 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
 
             // Act
             var phaseAwaiter = new PhaseAwaiter();
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(
                 config,
                 progress: phaseAwaiter);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert
             await Asserting.That(System.Orchestration.Orchestrator)
@@ -111,9 +113,11 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
 
             // Act
             var phaseAwaiter = new PhaseAwaiter();
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(
                 config,
                 progress: phaseAwaiter);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert
             await Asserting.That(System.Orchestration.Orchestrator)
@@ -165,7 +169,9 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
             await System.WaitForServiceHealthyAsync(port: config.ServicePort.Value, timeout: TimeSpan.FromSeconds(10));
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert
             await Asserting.That(System.Orchestration.Orchestrator)

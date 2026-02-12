@@ -47,7 +47,9 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert
             Assert.True(Directory.Exists(resultsFolder),
@@ -125,26 +127,22 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
                 .Build();
 
             // Act & Assert
-            // The exception type depends on the OS and filesystem:
-            // - Linux: DirectoryNotFoundException or IOException
-            // - Windows: DirectoryNotFoundException or UnauthorizedAccessException
-            var exception = await Assert.ThrowsAnyAsync<Exception>(async () =>
-            {
-                await System.Orchestration.Orchestrator.RunTestAsync(config);
-            });
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
 
-            // The filesystem exception is wrapped in InvalidOperationException by the orchestrator
-            // Verify the error message contains filesystem-related information
-            var isFileSystemRelated = exception.Message.Contains("access", StringComparison.OrdinalIgnoreCase) ||
-                                      exception.Message.Contains("path", StringComparison.OrdinalIgnoreCase) ||
-                                      exception.Message.Contains("directory", StringComparison.OrdinalIgnoreCase) ||
-                                      exception.Message.Contains("file", StringComparison.OrdinalIgnoreCase) ||
-                                      exception.Message.Contains("denied", StringComparison.OrdinalIgnoreCase);
+            Assert.True(result.IsFailure, "Expected a failure result for invalid results folder");
+            Assert.Equal(TestPhase.Reporting, result.FailureError.Phase);
+
+            // Verify the failure message contains filesystem-related information
+            var isFileSystemRelated = result.FailureError.Message.Contains("access", StringComparison.OrdinalIgnoreCase) ||
+                                      result.FailureError.Message.Contains("path", StringComparison.OrdinalIgnoreCase) ||
+                                      result.FailureError.Message.Contains("directory", StringComparison.OrdinalIgnoreCase) ||
+                                      result.FailureError.Message.Contains("file", StringComparison.OrdinalIgnoreCase) ||
+                                      result.FailureError.Message.Contains("denied", StringComparison.OrdinalIgnoreCase);
 
             Assert.True(isFileSystemRelated,
-                $"Expected a filesystem-related error message. Got: {exception.GetType().Name}: {exception.Message}");
+                $"Expected a filesystem-related failure message. Got: {result.FailureError.Message}");
 
-            Output.WriteLine($"Got expected exception: {exception.GetType().Name} - {exception.Message}");
+            Output.WriteLine($"Got expected failure: {result.FailureError.Phase} - {result.FailureError.Message}");
         }
         finally
         {
@@ -204,7 +202,9 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - folder IS created after test
             Assert.True(Directory.Exists(nestedResultsFolder),
@@ -265,7 +265,9 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - get all JSON files
             var jsonFiles = Directory.GetFiles(resultsFolder, "*.json");

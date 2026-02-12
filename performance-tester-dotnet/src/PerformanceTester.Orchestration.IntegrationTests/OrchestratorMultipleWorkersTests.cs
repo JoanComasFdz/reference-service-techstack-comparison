@@ -57,7 +57,9 @@ public sealed class OrchestratorMultipleWorkersTests(ITestOutputHelper output)
             await System.WaitForServiceHealthyAsync(port: testPort, timeout: TimeSpan.FromSeconds(10));
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - Test completes all phases successfully
             await Asserting.That(System.Orchestration.Orchestrator)
@@ -112,7 +114,9 @@ public sealed class OrchestratorMultipleWorkersTests(ITestOutputHelper output)
             await System.WaitForServiceHealthyAsync(port: testPort, timeout: TimeSpan.FromSeconds(10));
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - Test completes successfully
             await Asserting.That(System.Orchestration.Orchestrator)
@@ -168,7 +172,9 @@ public sealed class OrchestratorMultipleWorkersTests(ITestOutputHelper output)
             await System.WaitForServiceHealthyAsync(port: testPort, timeout: TimeSpan.FromSeconds(10));
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - Test completes (no abort)
             await Asserting.That(System.Orchestration.Orchestrator)
@@ -232,7 +238,9 @@ public sealed class OrchestratorMultipleWorkersTests(ITestOutputHelper output)
             await System.WaitForServiceHealthyAsync(port: testPort, timeout: TimeSpan.FromSeconds(10));
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - Test completes successfully
             await Asserting.That(System.Orchestration.Orchestrator)

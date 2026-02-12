@@ -46,7 +46,9 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - TestDate
             Assert.True(report.TestDate > DateTime.MinValue,
@@ -141,7 +143,9 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - Phase 1 timestamps are in order
             Assert.True(report.PhaseTimestamps.Phase1Start < report.PhaseTimestamps.Phase1End,
@@ -218,7 +222,9 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - EventsThroughputSamples should not be empty
             Assert.NotEmpty(report.EventsThroughputSamples);
@@ -314,7 +320,9 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert 1: API throughput samples were collected
             var apiSamples = report.ApiThroughputSamples.ToList();
@@ -403,7 +411,9 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - ProcessResourceSamples should not be empty
             Assert.NotEmpty(report.ProcessResourceSamples);

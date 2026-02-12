@@ -1,4 +1,5 @@
 using JoanComasFdz.AssertingThat;
+using JoanComasFdz.Result;
 using PerformanceTester.Reporting;
 using Xunit;
 
@@ -33,41 +34,38 @@ public static class OrchestrationAssertions
     }
 
     /// <summary>
-    /// Asserts that service discovery timeout occurred.
+    /// Asserts that service discovery returned a setup failure.
     /// </summary>
-    public static async Task ThrowsTimeoutExceptionWhenServiceNotFound(
+    public static async Task ReturnsSetupFailureWhenServiceNotFound(
         this AssertingThat<ITestOrchestrator> assertingThat,
         TestConfiguration config)
     {
-        var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
-        {
-            await assertingThat.InstanceToAssert.RunTestAsync(config);
-        });
+        var result = await assertingThat.InstanceToAssert.RunTestAsync(config);
 
-        Assert.Contains("Service not found on port", exception.Message);
-        Assert.Contains(config.ServicePort.ToString(), exception.Message);
+        Assert.True(result.IsFailure, "Expected a failure result when service is not found");
+        Assert.Equal(TestPhase.Setup, result.FailureError.Phase);
+        Assert.Contains("Service not found on port", result.FailureError.Message);
+        Assert.Contains(config.ServicePort.ToString(), result.FailureError.Message);
     }
 
     /// <summary>
-    /// Asserts that the orchestrator throws TimeoutException due to consumer inactivity timeout.
-    /// Verifies the exception message includes the expected progress (received count).
+    /// Asserts that the orchestrator returns an event test failure due to consumer inactivity timeout.
+    /// Verifies the failure message includes the expected progress (received count).
     /// </summary>
     /// <param name="assertingThat">The asserting wrapper</param>
     /// <param name="config">Test configuration</param>
     /// <param name="expectedReceivedCount">Expected number of events received before timeout</param>
-    public static async Task ThrowsConsumerInactivityTimeout(
+    public static async Task ReturnsEventTestFailureForInactivityTimeout(
         this AssertingThat<ITestOrchestrator> assertingThat,
         TestConfiguration config,
         int expectedReceivedCount)
     {
-        var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
-        {
-            await assertingThat.InstanceToAssert.RunTestAsync(config);
-        });
+        var result = await assertingThat.InstanceToAssert.RunTestAsync(config);
 
-        // Verify exception message includes timeout reason and progress
-        Assert.Contains("Inactivity timeout", exception.Message);
-        Assert.Contains($"{expectedReceivedCount}/{config.EventCount}", exception.Message);
+        Assert.True(result.IsFailure, "Expected a failure result for inactivity timeout");
+        Assert.Equal(TestPhase.EventTest, result.FailureError.Phase);
+        Assert.Contains("Inactivity timeout", result.FailureError.Message);
+        Assert.Contains($"{expectedReceivedCount}/{config.EventCount}", result.FailureError.Message);
     }
 
     /// <summary>

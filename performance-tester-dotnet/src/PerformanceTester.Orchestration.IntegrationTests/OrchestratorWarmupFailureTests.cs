@@ -56,18 +56,18 @@ public sealed class OrchestratorWarmupFailureTests(ITestOutputHelper output)
         try
         {
             // Act & Assert
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            {
-                await System.Orchestration.Orchestrator.RunTestAsync(config);
-            });
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+
+            Assert.True(result.IsFailure, "Expected a failure result for warmup consumer timeout");
+            Assert.Equal(TestPhase.Warmup, result.FailureError.Phase);
 
             // Should mention warmup or inactivity in the error message
             Assert.True(
-                exception.Message.Contains("warmup", StringComparison.OrdinalIgnoreCase) ||
-                exception.Message.Contains("inactivity", StringComparison.OrdinalIgnoreCase),
-                $"Exception should mention warmup or inactivity. Actual: {exception.Message}");
+                result.FailureError.Message.Contains("warmup", StringComparison.OrdinalIgnoreCase) ||
+                result.FailureError.Message.Contains("inactivity", StringComparison.OrdinalIgnoreCase),
+                $"Failure message should mention warmup or inactivity. Actual: {result.FailureError.Message}");
 
-            Output.WriteLine($"Test passed. Exception message: {exception.Message}");
+            Output.WriteLine($"Test passed. Failure message: {result.FailureError.Message}");
         }
         finally
         {
@@ -108,17 +108,17 @@ public sealed class OrchestratorWarmupFailureTests(ITestOutputHelper output)
         try
         {
             // Act & Assert
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            {
-                await System.Orchestration.Orchestrator.RunTestAsync(config);
-            });
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+
+            Assert.True(result.IsFailure, "Expected a failure result for test phase timeout");
+            Assert.Equal(TestPhase.EventTest, result.FailureError.Phase);
 
             // Should timeout during TEST phase showing 0 of expected test events received
             // The progress should show "0/10" (test events, not warmup events)
-            Assert.Contains("0", exception.Message);
-            Assert.Contains(testEventCount.ToString(), exception.Message);
+            Assert.Contains("0", result.FailureError.Message);
+            Assert.Contains(testEventCount.ToString(), result.FailureError.Message);
 
-            Output.WriteLine($"Test passed. Exception message: {exception.Message}");
+            Output.WriteLine($"Test passed. Failure message: {result.FailureError.Message}");
         }
         finally
         {
@@ -163,8 +163,10 @@ public sealed class OrchestratorWarmupFailureTests(ITestOutputHelper output)
 
         try
         {
-            // Act - Test should complete (not throw) because warmup API failures are not fatal
-            var report = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            // Act - Test should complete successfully because warmup API failures are not fatal
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
+            var report = result.SuccessValue;
 
             // Assert - Verify test actually ran through all phases
             Assert.True(report.Results.Phase1Publish.DurationSeconds > 0,
@@ -226,24 +228,21 @@ public sealed class OrchestratorWarmupFailureTests(ITestOutputHelper output)
 
         try
         {
-            // Act & Assert - Should fail during setup/warmup phase with database error
-            var exception = await Assert.ThrowsAnyAsync<Exception>(async () =>
-            {
-                await System.Orchestration.Orchestrator.RunTestAsync(config);
-            });
+            // Act & Assert - Should fail during setup phase with database error
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
 
-            // The exception should be database-related (Npgsql exception or similar)
-            Output.WriteLine($"Test passed. Exception type: {exception.GetType().Name}");
-            Output.WriteLine($"Exception message: {exception.Message}");
+            Assert.True(result.IsFailure, "Expected a failure result for database clear failure");
+            Assert.Equal(TestPhase.Setup, result.FailureError.Phase);
 
-            // Verify it's a database-related exception (Postgres-specific or containing "database")
-            var isDbRelated = exception.GetType().Name.Contains("Postgres") ||
-                             exception.GetType().Name.Contains("Npgsql") ||
-                             exception.Message.Contains("database", StringComparison.OrdinalIgnoreCase) ||
-                             exception.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
+            Output.WriteLine($"Test passed. Failure phase: {result.FailureError.Phase}");
+            Output.WriteLine($"Failure message: {result.FailureError.Message}");
+
+            // Verify the failure message is database-related
+            var isDbRelated = result.FailureError.Message.Contains("database", StringComparison.OrdinalIgnoreCase) ||
+                             result.FailureError.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
 
             Assert.True(isDbRelated,
-                $"Expected a database-related exception. Got: {exception.GetType().Name}: {exception.Message}");
+                $"Expected a database-related failure message. Got: {result.FailureError.Message}");
         }
         finally
         {

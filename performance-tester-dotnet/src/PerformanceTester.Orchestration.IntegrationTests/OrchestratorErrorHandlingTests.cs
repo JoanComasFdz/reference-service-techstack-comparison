@@ -23,14 +23,12 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
         try
         {
             // Act & Assert
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            {
-                await System.Orchestration.Orchestrator.RunTestAsync(config);
-            });
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
 
-            // Verify error message mentions service not found
-            Assert.Contains("No service found", exception.Message);
-            Assert.Contains($"port {config.ServicePort}", exception.Message);
+            Assert.True(result.IsFailure, "Expected a failure result when service is not found");
+            Assert.Equal(TestPhase.Setup, result.FailureError.Phase);
+            Assert.Contains("No service found", result.FailureError.Message);
+            Assert.Contains($"port {config.ServicePort}", result.FailureError.Message);
         }
         finally
         {
@@ -78,15 +76,13 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
             // Health check polls /health endpoint until service reports ready status
             await System.WaitForServiceHealthyAsync(port: config.ServicePort.Value, timeout: TimeSpan.FromSeconds(10));
 
-            // Act & Assert: Should timeout with progress info
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            {
-                await System.Orchestration.Orchestrator.RunTestAsync(config);
-            });
+            // Act & Assert: Should return failure with progress info
+            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
 
-            // Verify exception message includes progress
-            Assert.Contains("Inactivity timeout", exception.Message);
-            Assert.Contains("1/2", exception.Message);  // Received 1 out of 2
+            Assert.True(result.IsFailure, "Expected a failure result for inactivity timeout");
+            Assert.Equal(TestPhase.EventTest, result.FailureError.Phase);
+            Assert.Contains("Inactivity timeout", result.FailureError.Message);
+            Assert.Contains("1/2", result.FailureError.Message);  // Received 1 out of 2
         }
         finally
         {
