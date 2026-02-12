@@ -23,15 +23,14 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
         try
         {
             // Act & Assert
-            var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
                 await System.Orchestration.Orchestrator.RunTestAsync(config);
             });
 
             // Verify error message mentions service not found
-            Assert.Contains("Service not found", exception.Message);
+            Assert.Contains("No service found", exception.Message);
             Assert.Contains($"port {config.ServicePort}", exception.Message);
-            Assert.Contains("30 seconds", exception.Message);
         }
         finally
         {

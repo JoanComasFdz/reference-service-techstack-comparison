@@ -101,11 +101,31 @@ public class TestOrchestrator : ITestOrchestrator
         {
             // Phase 0: Setup
             progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
-            var serviceProcessId = await SetupPhase.ExecuteAsync(
-                configuration, testRunId,
-                _serviceDiscovery, _host, _hostLifetime, _dockerMonitors,
-                _database, _rabbitMq, _eventPublisher,
-                _logger, cancellationToken);
+            var setupResult = await SetupPhase.ExecuteAsync(
+                testRunId,
+                findServiceProcessId: () => _serviceDiscovery.FindServiceProcessIdAsync(
+                    configuration.ServicePort.Value,
+                    TimeSpan.FromSeconds(30),
+                    cancellationToken),
+                isMonitoringStarted: () => _hostLifetime.ApplicationStarted.IsCancellationRequested,
+                startMonitoring: () => _host.StartAsync(cancellationToken),
+                warmupDockerApi: async () =>
+                {
+                    var tasks = _dockerMonitors.Select(m => m.WarmupAsync(cancellationToken));
+                    await Task.WhenAll(tasks);
+                },
+                clearDatabase: () => _database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken),
+                clearAllQueues: async () =>
+                {
+                    var result = await _rabbitMq.ClearAllQueuesAsync(cancellationToken);
+                    await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+                    return result;
+                },
+                connectEventPublisher: () => _eventPublisher.ConnectAsync(cancellationToken), _logger);
+
+            var serviceProcessId = setupResult.Match(
+                success: s => s.Value,
+                failure: f => throw new InvalidOperationException(f.Error));
             progress?.Report(PhaseInfo.Completed(TestPhase.Setup, $"Setup complete, service PID: {serviceProcessId}"));
 
             // Phase 0.5: Warmup (failures abort the test)

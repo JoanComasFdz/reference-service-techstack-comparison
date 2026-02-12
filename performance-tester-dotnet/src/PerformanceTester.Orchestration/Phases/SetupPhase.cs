@@ -1,11 +1,8 @@
 using JoanComasFdz.Result;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.DockerMonitoring;
-using PerformanceTester.EventPublishing;
-using PerformanceTester.Infrastructure;
 using PerformanceTester.Infrastructure.Database;
 using Serilog.Context;
+using static JoanComasFdz.Result.Result<int, string>;
 
 namespace PerformanceTester.Orchestration;
 
@@ -14,94 +11,113 @@ namespace PerformanceTester.Orchestration;
 /// </summary>
 internal static class SetupPhase
 {
-    public static async Task<int> ExecuteAsync(
-        TestConfiguration config,
+    /// <summary>
+    /// Discovers the service process ID listening on the target port.
+    /// Returns the PID on success, or an error message on failure.
+    /// </summary>
+    public delegate Task<Result<int, string>> FindServiceProcessId();
+
+    /// <summary>
+    /// Returns true if monitoring services (BackgroundServices) are already running.
+    /// </summary>
+    public delegate bool IsMonitoringStarted();
+
+    /// <summary>
+    /// Starts all monitoring services (process, system, Docker).
+    /// </summary>
+    public delegate Task StartMonitoring();
+
+    /// <summary>
+    /// Warms up Docker API connections to avoid measurement delays.
+    /// First Docker API call is typically slow (~2-3s).
+    /// </summary>
+    public delegate Task WarmupDockerApi();
+
+    /// <summary>
+    /// Clears all data from the target database.
+    /// Returns Unit on success, or a ClearDatabaseError on failure.
+    /// </summary>
+    public delegate Task<Result<Unit, ClearDatabaseError>> ClearDatabase();
+
+    /// <summary>
+    /// Purges all RabbitMQ queues and waits for consumer recovery.
+    /// Returns Unit on success, or an error message on failure.
+    /// </summary>
+    public delegate Task<Result<Unit, string>> ClearAllQueues();
+
+    /// <summary>
+    /// Establishes connection to RabbitMQ for event publishing.
+    /// </summary>
+    public delegate Task ConnectEventPublisher();
+
+    public static async Task<Result<int, string>> ExecuteAsync(
         Guid testRunId,
-        IServiceDiscovery serviceDiscovery,
-        IHost host,
-        IHostApplicationLifetime hostLifetime,
-        IEnumerable<IDockerMonitor> dockerMonitors,
-        IDatabase database,
-        IRabbitMQ rabbitMq,
-        IEventPublisher eventPublisher,
-        ILogger logger,
-        CancellationToken cancellationToken)
+        FindServiceProcessId findServiceProcessId,
+        IsMonitoringStarted isMonitoringStarted,
+        StartMonitoring startMonitoring,
+        WarmupDockerApi warmupDockerApi,
+        ClearDatabase clearDatabase,
+        ClearAllQueues clearAllQueues,
+        ConnectEventPublisher connectEventPublisher,
+        ILogger logger)
     {
         using var _ = LogContext.PushProperty("TestRunId", testRunId);
         using var __ = LogContext.PushProperty("Phase", "Setup");
 
-        logger.LogInformation(
-            "Starting setup phase for service on port {Port} (database: {Database})",
-            config.ServicePort,
-            config.DatabaseName);
+        logger.LogInformation("Starting setup phase");
 
         // Step 1: Find service process
-        logger.LogInformation("Discovering service on port {Port}...", config.ServicePort);
+        logger.LogInformation("Discovering service process...");
+        var pidResult = await findServiceProcessId();
+        if (pidResult.IsFailure)
+            return new Failure(pidResult.FailureError);
+        var serviceProcessId = pidResult.SuccessValue;
+        logger.LogInformation("Service discovered: PID {ProcessId}", serviceProcessId);
 
-        var serviceDiscoveryResult = await serviceDiscovery.FindServiceProcessIdAsync(
-            config.ServicePort.Value,
-            timeout: TimeSpan.FromSeconds(30),
-            cancellationToken);
-
-        var serviceProcessId = serviceDiscoveryResult.Match(
-            success: s => s.Value,
-            failure: f => throw new TimeoutException(
-                $"Service not found on port {config.ServicePort} within 30 seconds. " +
-                "Ensure the service is running and listening on the specified port."));
-
-        logger.LogInformation(
-            "Service discovered: PID {ProcessId}",
-            serviceProcessId);
-
-        // Step 2: Start IHost (all BackgroundServices start, ProcessMonitor waits)
-        // Check if host is already started (e.g., by System.CommandLine.Hosting in CLI)
-        // IHostApplicationLifetime.ApplicationStarted is cancelled when the host has started
-        if (hostLifetime.ApplicationStarted.IsCancellationRequested)
+        // Step 2: Start monitoring services
+        if (isMonitoringStarted())
         {
             logger.LogInformation("Host already started, monitoring services are running");
         }
         else
         {
             logger.LogInformation("Starting monitoring services...");
-            await host.StartAsync(cancellationToken);
+            await startMonitoring();
             logger.LogInformation("All monitoring services started");
         }
 
-        // Step 3: Warm up Docker API (first call is slow ~2-3 seconds)
-        // We do this in setup so the delay doesn't affect the measured test
-        var dockerMonitorsList = dockerMonitors.ToList();
-        logger.LogInformation("Warming up Docker API for {Count} monitors: {Names}...",
-            dockerMonitorsList.Count,
-            string.Join(", ", dockerMonitorsList.Select(m => m.ContainerName)));
-        var warmupTasks = dockerMonitorsList.Select(m => m.WarmupAsync(cancellationToken));
-        await Task.WhenAll(warmupTasks);
+        // Step 3: Warm up Docker API
+        logger.LogInformation("Warming up Docker API...");
+        await warmupDockerApi();
         logger.LogInformation("Docker API warmup complete");
 
         // Step 4: Clear database
-        logger.LogInformation("Clearing database {Database}...", config.DatabaseName);
-        (await database.ClearDatabaseAsync(config.DatabaseName.Value, cancellationToken)).Match(
-            success: _ => { },
-            failure: f => throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}': {f.Error}"));
+        logger.LogInformation("Clearing database...");
+        var dbResult = await clearDatabase();
+        if (dbResult.IsFailure)
+        {
+            var errorMessage = dbResult.FailureError.Match(
+                emptyName: _ => "Database name was empty",
+                databaseNotFound: e => $"Database '{e.Name}' not found",
+                retriesExhausted: e => $"All {e.Attempts} retry attempts exhausted: {e.Last.Message}");
+            return new Failure($"Failed to clear database: {errorMessage}");
+        }
         logger.LogInformation("Database cleared");
 
         // Step 5: Clear RabbitMQ queues
         logger.LogInformation("Clearing RabbitMQ queues...");
-        (await rabbitMq.ClearAllQueuesAsync(cancellationToken)).Match(
-            success: _ => { },
-            failure: f => throw new InvalidOperationException($"Failed to clear RabbitMQ queues: {f.Error}"));
+        var queuesResult = await clearAllQueues();
+        if (queuesResult.IsFailure)
+            return new Failure($"Failed to clear RabbitMQ queues: {queuesResult.FailureError}");
         logger.LogInformation("RabbitMQ queues cleared");
 
-        // Allow time for RabbitMQ consumers to recover after queue purge
-        // Queue purging can temporarily disrupt active consumers, this delay ensures they're ready
-        await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
-
-        // Step 6: Connect to RabbitMQ event publisher
+        // Step 6: Connect event publisher
         logger.LogInformation("Connecting to RabbitMQ event publisher...");
-        await eventPublisher.ConnectAsync(cancellationToken);
+        await connectEventPublisher();
         logger.LogInformation("RabbitMQ event publisher connected");
 
         logger.LogInformation("Setup phase complete");
 
-        return serviceProcessId;
+        return new Success(serviceProcessId);
     }
 }
