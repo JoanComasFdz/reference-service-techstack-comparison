@@ -5,7 +5,6 @@ using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure;
-using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
 using PerformanceTester.Reporting.ReportGeneration;
@@ -18,64 +17,23 @@ namespace PerformanceTester.Orchestration;
 /// Orchestrates complete performance test workflow from setup through reporting.
 /// Delegates phase execution to dedicated static classes.
 /// </summary>
-public class TestOrchestrator : ITestOrchestrator
+public class TestOrchestrator(
+    IHost host,
+    IHostApplicationLifetime hostLifetime,
+    ILogger<TestOrchestrator> logger,
+    IServiceDiscovery serviceDiscovery,
+    IDatabase database,
+    IRabbitMQ rabbitMq,
+    IEventPublisher eventPublisher,
+    IEventConsumer eventConsumer,
+    IMetricsCollector metricsCollector,
+    IProcessMonitor processMonitor,
+    ISystemMonitor systemMonitor,
+    IEnumerable<IDockerMonitor> dockerMonitors,
+    IApiLoadTester apiLoadTester,
+    ISystemInfoDetector systemInfoDetector,
+    ReportGenerator reportGenerator) : ITestOrchestrator
 {
-    private readonly IHost _host;
-    private readonly IHostApplicationLifetime _hostLifetime;
-    private readonly ILogger<TestOrchestrator> _logger;
-
-    // Phase 1: Infrastructure
-    private readonly IServiceDiscovery _serviceDiscovery;
-    private readonly IDatabase _database;
-    private readonly IRabbitMQ _rabbitMq;
-
-    // Phase 2: Data Collection
-    private readonly IEventPublisher _eventPublisher;
-    private readonly IEventConsumer _eventConsumer;
-    private readonly IMetricsCollector _metricsCollector;
-    private readonly IProcessMonitor _processMonitor;
-    private readonly ISystemMonitor _systemMonitor;
-    private readonly IEnumerable<IDockerMonitor> _dockerMonitors;
-    private readonly IApiLoadTester _apiLoadTester;
-
-    // Phase 3: Reporting
-    private readonly ISystemInfoDetector _systemInfoDetector;
-    private readonly ReportGenerator _reportGenerator;
-
-    public TestOrchestrator(
-        IHost host,
-        IHostApplicationLifetime hostLifetime,
-        ILogger<TestOrchestrator> logger,
-        IServiceDiscovery serviceDiscovery,
-        IDatabase database,
-        IRabbitMQ rabbitMq,
-        IEventPublisher eventPublisher,
-        IEventConsumer eventConsumer,
-        IMetricsCollector metricsCollector,
-        IProcessMonitor processMonitor,
-        ISystemMonitor systemMonitor,
-        IEnumerable<IDockerMonitor> dockerMonitors,
-        IApiLoadTester apiLoadTester,
-        ISystemInfoDetector systemInfoDetector,
-        ReportGenerator reportGenerator)
-    {
-        _host = host ?? throw new ArgumentNullException(nameof(host));
-        _hostLifetime = hostLifetime ?? throw new ArgumentNullException(nameof(hostLifetime));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _serviceDiscovery = serviceDiscovery ?? throw new ArgumentNullException(nameof(serviceDiscovery));
-        _database = database ?? throw new ArgumentNullException(nameof(database));
-        _rabbitMq = rabbitMq ?? throw new ArgumentNullException(nameof(rabbitMq));
-        _eventPublisher = eventPublisher ?? throw new ArgumentNullException(nameof(eventPublisher));
-        _eventConsumer = eventConsumer ?? throw new ArgumentNullException(nameof(eventConsumer));
-        _metricsCollector = metricsCollector ?? throw new ArgumentNullException(nameof(metricsCollector));
-        _processMonitor = processMonitor ?? throw new ArgumentNullException(nameof(processMonitor));
-        _systemMonitor = systemMonitor ?? throw new ArgumentNullException(nameof(systemMonitor));
-        _dockerMonitors = dockerMonitors ?? throw new ArgumentNullException(nameof(dockerMonitors));
-        _apiLoadTester = apiLoadTester ?? throw new ArgumentNullException(nameof(apiLoadTester));
-        _systemInfoDetector = systemInfoDetector ?? throw new ArgumentNullException(nameof(systemInfoDetector));
-        _reportGenerator = reportGenerator ?? throw new ArgumentNullException(nameof(reportGenerator));
-    }
-
     /// <inheritdoc />
     public async Task<TestReport> RunTestAsync(
         TestConfiguration configuration,
@@ -89,7 +47,7 @@ public class TestOrchestrator : ITestOrchestrator
 
         using var logContextTestRunId = LogContext.PushProperty("TestRunId", testRunId);
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "Starting performance test run {TestRunId} for service on port {Port}",
             testRunId,
             configuration.ServicePort);
@@ -101,30 +59,30 @@ public class TestOrchestrator : ITestOrchestrator
         {
             // Shared delegates for multiple phases
             PhasesToolbox.ClearDatabase clearDatabase = () =>
-                _database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
+                database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
             PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
             {
-                var result = await _rabbitMq.ClearAllQueuesAsync(cancellationToken);
+                var result = await rabbitMq.ClearAllQueuesAsync(cancellationToken);
                 await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
                 return result;
             };
-            PhasesToolbox.PublishEvents publishEvents = (count) => _eventPublisher.PublishEventsAsync(count, cancellationToken);
+            PhasesToolbox.PublishEvents publishEvents = (count) => eventPublisher.PublishEventsAsync(count, cancellationToken);
 
             // Phase 0: Setup
             progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
             var setupResult = await SetupPhase.ExecuteAsync(
                 testRunId,
-                findServiceProcessId: () => _serviceDiscovery.FindServiceProcessIdAsync(configuration.ServicePort.Value, TimeSpan.FromSeconds(30), cancellationToken),
-                isMonitoringStarted: () => _hostLifetime.ApplicationStarted.IsCancellationRequested,
-                startMonitoring: () => _host.StartAsync(cancellationToken),
+                findServiceProcessId: () => serviceDiscovery.FindServiceProcessIdAsync(configuration.ServicePort.Value, TimeSpan.FromSeconds(30), cancellationToken),
+                isMonitoringStarted: () => hostLifetime.ApplicationStarted.IsCancellationRequested,
+                startMonitoring: () => host.StartAsync(cancellationToken),
                 warmupDockerApi: async () =>
                 {
-                    var tasks = _dockerMonitors.Select(m => m.WarmupAsync(cancellationToken));
+                    var tasks = dockerMonitors.Select(m => m.WarmupAsync(cancellationToken));
                     await Task.WhenAll(tasks);
                 },
                 clearDatabase: clearDatabase,
                 clearAllQueues: clearAllQueues,
-                connectEventPublisher: () => _eventPublisher.ConnectAsync(cancellationToken), _logger);
+                connectEventPublisher: () => eventPublisher.ConnectAsync(cancellationToken), logger);
 
             var serviceProcessId = setupResult.Match(
                 success: s => s.Value,
@@ -137,12 +95,12 @@ public class TestOrchestrator : ITestOrchestrator
             var warmupStartTime = DateTime.UtcNow;
             await WarmupPhase.ExecuteAsync(
                 configuration,
-                trackEvents: (count, timeout) => _eventConsumer.StartTrackingEventsAsync(count, timeout, progress: null, cancellationToken), // No progress reporting during warmup — it's a quick non-measured pre-heating step
+                trackEvents: (count, timeout) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress: null, cancellationToken), // No progress reporting during warmup — it's a quick non-measured pre-heating step
                 publishEvents: publishEvents,
-                executeWarmupApiCalls: (url, count) => WarmupPhase.ExecuteWarmupApiCallsAsync(url, count, _logger, cancellationToken),
+                executeWarmupApiCalls: (url, count) => WarmupPhase.ExecuteWarmupApiCallsAsync(url, count, logger, cancellationToken),
                 clearDatabase: clearDatabase,
                 clearAllQueues: clearAllQueues,
-                _logger);
+                logger);
             var warmupEndTime = DateTime.UtcNow;
             progress?.Report(PhaseInfo.Completed(TestPhase.Warmup, "Warmup complete"));
 
@@ -152,19 +110,19 @@ public class TestOrchestrator : ITestOrchestrator
             var (publishMetrics, eventTestStartTime, eventTestEndTime) =
                 await EventTestPhase.ExecuteAsync(
                     configuration, serviceProcessId,
-                    systemCpuCount: _systemMonitor.CpuCount,
-                    systemIsWsl2: _systemMonitor.IsWsl2,
-                    clearSamples: _metricsCollector.ClearSamples,
-                    startProcessMonitoring: (pid) => _processMonitor.StartMonitoringAsync(pid, cancellationToken: cancellationToken),
-                    startSystemMonitoring: () => _systemMonitor.StartMonitoringAsync(cancellationToken: cancellationToken),
+                    systemCpuCount: systemMonitor.CpuCount,
+                    systemIsWsl2: systemMonitor.IsWsl2,
+                    clearSamples: metricsCollector.ClearSamples,
+                    startProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid, cancellationToken: cancellationToken),
+                    startSystemMonitoring: () => systemMonitor.StartMonitoringAsync(cancellationToken: cancellationToken),
                     startDockerMonitoring: async () =>
                     {
-                        var tasks = _dockerMonitors.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
+                        var tasks = dockerMonitors.Select(m => m.StartMonitoringAsync(cancellationToken: cancellationToken));
                         await Task.WhenAll(tasks);
                     },
-                    trackEvents: (count, timeout, consumerProgress) => _eventConsumer.StartTrackingEventsAsync(count, timeout, consumerProgress, cancellationToken),
+                    trackEvents: (count, timeout, consumerProgress) => eventConsumer.StartTrackingEventsAsync(count, timeout, consumerProgress, cancellationToken),
                     publishEvents: publishEvents,
-                    progress, _logger);
+                    progress, logger);
             progress?.Report(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));
 
             // Phase 2: API Load Test
@@ -172,9 +130,9 @@ public class TestOrchestrator : ITestOrchestrator
             progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDuration.Value.TotalSeconds}s"));
             var (apiResult, apiTestStartTime, apiTestEndTime) = await ApiTestPhase.ExecuteAsync(
                     configuration,
-                    (url, duration, vus, apiProgress, maxFail, dir) => _apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, cancellationToken),
+                    (url, duration, vus, apiProgress, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, cancellationToken),
                     progress,
-                    _logger);
+                    logger);
             // Report phase completion - Failed if aborted due to consecutive errors, Completed otherwise
             var apiPhaseResult = apiResult.WasAborted
                 ? PhaseInfo.Failed(TestPhase.ApiTest, apiResult.AbortReason ?? "API test aborted")
@@ -212,12 +170,12 @@ public class TestOrchestrator : ITestOrchestrator
             progress?.Report(PhaseInfo.Starting(TestPhase.Reporting, "Starting metrics collection and report generation"));
             var testReport = await ReportingPhase.ExecuteAsync(
                 testResult, configuration,
-                _eventPublisher, _host, _metricsCollector, _processMonitor, _systemMonitor,
-                _dockerMonitors, _systemInfoDetector, _reportGenerator,
-                _logger, cancellationToken);
+                eventPublisher, host, metricsCollector, processMonitor, systemMonitor,
+                dockerMonitors, systemInfoDetector, reportGenerator,
+                logger, cancellationToken);
             progress?.Report(PhaseInfo.Completed(TestPhase.Reporting, "Report generation complete"));
 
-            _logger.LogInformation(
+            logger.LogInformation(
                 "Performance test run {TestRunId} completed successfully in {Duration:F2}s",
                 testRunId,
                 (testEndTime - testStartTime).TotalSeconds);
@@ -226,7 +184,7 @@ public class TestOrchestrator : ITestOrchestrator
         }
         catch (Exception ex)
         {
-            _logger.LogError(
+            logger.LogError(
                 ex,
                 "Performance test run {TestRunId} failed: {Message}",
                 testRunId,
@@ -241,20 +199,20 @@ public class TestOrchestrator : ITestOrchestrator
                 // Try to disconnect event publisher first
                 try
                 {
-                    await _eventPublisher.DisconnectAsync(CancellationToken.None);
+                    await eventPublisher.DisconnectAsync(CancellationToken.None);
                 }
                 catch (Exception disconnectEx)
                 {
-                    _logger.LogWarning(
+                    logger.LogWarning(
                         disconnectEx,
                         "Failed to disconnect event publisher during error cleanup");
                 }
 
-                await _host.StopAsync(CancellationToken.None);
+                await host.StopAsync(CancellationToken.None);
             }
             catch (Exception stopEx)
             {
-                _logger.LogWarning(
+                logger.LogWarning(
                     stopEx,
                     "Failed to stop monitoring services during error cleanup");
             }

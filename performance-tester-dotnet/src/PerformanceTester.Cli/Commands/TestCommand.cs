@@ -3,7 +3,6 @@ using System.CommandLine.Hosting;
 using System.CommandLine.Invocation;
 using JoanComasFdz.Result;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Output;
 using PerformanceTester.Orchestration;
