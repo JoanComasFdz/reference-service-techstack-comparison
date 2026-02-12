@@ -241,11 +241,105 @@ public static Plot Build(ResourceMetricsReport? data, ChartConfig config)
 
 ---
 
+## Function-Typed Dependencies (Named Delegates)
+
+When Guideline 10 says "Composition Over Interfaces," the natural question is: *what replaces the interface?* For single-operation dependencies, the answer is a **named delegate**. This section covers when to use delegates, how to name them, and how they coexist with interfaces at DI boundaries.
+
+### 12. Use Named Delegates for Single-Operation Dependencies
+
+When a dependency is a single operation (one method), use a named `delegate` instead of an interface. Lighter than an interface, more descriptive than raw `Action<T>`/`Func<T>`.
+
+```csharp
+// ✅ Good - named delegate for a single operation
+public delegate void ReportApiLoadProgress(ApiLoadProgress apiLoadProgress);
+
+// ✅ Good - named delegate with richer signature
+public delegate Task<ApiLoadTestResult> StartApiLoadTest(
+    string targetUrl,
+    TimeSpan duration,
+    int virtualUsers,
+    ReportApiLoadProgress progress,
+    int maxConsecutiveFailures,
+    string? scriptDirectory);
+
+// ❌ Avoid - single-method interface (ceremony without benefit)
+public interface IApiLoadProgressReporter
+{
+    void Report(ApiLoadProgress progress);
+}
+
+// ❌ Avoid - raw Action<T> that loses semantic meaning
+public static async Task ExecuteAsync(Action<ApiLoadProgress> progress) { ... }
+```
+
+**When to use:**
+- The dependency is a single operation, not a family of related operations
+- The caller only needs to supply one behavior
+
+**When NOT to use:**
+- The dependency has multiple related methods that change together → use an interface
+- The dependency needs DI container registration at a slice boundary → use an interface (see Guideline 14)
+
+### 13. Prefer Named Delegates Over `Action<T>` / `Func<T>`
+
+A named delegate communicates intent at the type level. This extends Guideline 4 (Descriptive Names) to function-typed parameters.
+
+```csharp
+// ✅ Good - name says what it does
+public delegate void ReportApiLoadProgress(ApiLoadProgress apiLoadProgress);
+public delegate Task<Result<Unit, ClearDatabaseError>> ClearDatabase();
+public delegate Task<Result<Unit, string>> ClearAllQueues();
+public delegate Task<PublishMetrics> PublishEvents(int eventCount);
+
+// ❌ Avoid - only says the shape, not the intent
+Action<ApiLoadProgress>              // Could be anything that takes progress
+Func<Task<Result<Unit, string>>>     // Could be any async operation
+```
+
+**Where to define the delegate:**
+- **Next to its data type** if shared across callers (e.g., `ReportApiLoadProgress` next to `ApiLoadProgress` in `ApiLoadProgress.cs`)
+- **Inside the consumer** if only used by one caller (e.g., `StartApiLoadTest` inside `ApiTestPhase`)
+
+### 14. Interfaces at DI Boundaries, Delegates for Internal Wiring
+
+Interfaces and delegates serve different layers. Use both, but in the right place:
+
+| Layer | Mechanism | Example |
+|-------|-----------|---------|
+| **DI boundary** (slice API) | Interface | `IApiLoadTester`, `IDatabase` |
+| **Internal wiring** (between static classes) | Named delegate | `StartApiLoadTest`, `ClearDatabase` |
+| **Orchestrator** | Lambda adapter | Closes over `CancellationToken`, adapts interface → delegate |
+
+```csharp
+// ✅ Good - orchestrator adapts interface to delegate via lambda
+var (apiResult, apiTestStartTime, apiTestEndTime) = await ApiTestPhase.ExecuteAsync(
+    configuration,
+    (url, duration, vus, apiProgress, maxFail, dir) =>
+        _apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, cancellationToken),
+    progress,
+    _logger);
+
+// ✅ Good - shared delegates created once, reused across phases
+PhasesToolbox.ClearDatabase clearDatabase = () =>
+    _database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
+
+// ❌ Avoid - phase class depending directly on DI interface
+public static async Task ExecuteAsync(IApiLoadTester apiLoadTester, ...) { ... }
+// Couples the phase to the DI interface; the phase doesn't need the full interface
+```
+
+**Why the orchestrator adapts:**
+- Phase classes stay decoupled from DI interfaces (testable with simple lambdas)
+- `CancellationToken` belongs to the orchestrator, not the phase — the lambda closes over it
+- The phase only sees the exact operation it needs, not the full interface surface
+
+---
+
 ## Error Handling with Result Types
 
 This codebase uses the `JoanComasFdz.Result` library (backed by [dunet](https://github.com/domn1995/dunet) discriminated unions) for typed error handling. These guidelines govern how Results are produced and consumed.
 
-### 12. Use Result Types Instead of Exceptions for Expected Failures
+### 15. Use Result Types Instead of Exceptions for Expected Failures
 
 Reserve exceptions for bugs and truly unexpected situations (out of memory, network down). For failures that are **part of the normal domain** (invalid input, resource not found, validation errors), return a `Result<TSuccess, TFailure>`.
 
@@ -273,7 +367,7 @@ public static TimeSpan Parse(string duration)
 
 **Choosing `TFailure`:** Use a typed discriminated union (e.g., `DurationParseError`) when the caller needs to distinguish between different failure reasons. Use `string` when a human-readable message is sufficient.
 
-### 13. Use `using static` to Shorten Result Construction
+### 16. Use `using static` to Shorten Result Construction
 
 Producer methods that return `Result<TSuccess, TFailure>` should add a `using static` directive to avoid repeating the full generic type on every `new Success(...)` / `new Failure(...)`.
 
@@ -296,7 +390,7 @@ When `TSuccess` or `TFailure` uses types from other namespaces, use fully qualif
 using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, string>;
 ```
 
-### 14. Use dunet `Match` for Exhaustive Result Consumption
+### 17. Use dunet `Match` for Exhaustive Result Consumption
 
 When consuming a Result, always use dunet's generated `Match` method instead of native C# pattern matching (`is`, `is not`, `switch`). `Match` guarantees exhaustiveness at compile time — if a variant is added, all call sites fail to compile until updated.
 
@@ -383,7 +477,7 @@ _metricsParser.ParseLine(line).Match(
 
 When a primitive (`int`, `string`, `TimeSpan`) has domain rules (valid range, format, non-empty), wrap it in a sealed record with a `Create()` factory returning `Result<T, TError>`. Once constructed, the value is guaranteed valid — "parse, don't validate."
 
-### 15. Use Value Objects for Constrained Primitives
+### 18. Use Value Objects for Constrained Primitives
 
 ```csharp
 // ✅ Good - invalid state is unrepresentable
@@ -417,7 +511,7 @@ if (options.Events < 1 || options.Events > 1_000_000) return "error";
 - The constraint is only checked once at a single boundary
 - The overhead outweighs the clarity (e.g., internal loop counters)
 
-### 16. Value Object Structure
+### 19. Value Object Structure
 
 Follow this exact structure for consistency:
 
@@ -451,7 +545,7 @@ public sealed record EventCount
 - **`Create()` accepts the wider type** — e.g., `Create(int)` even if internal storage is `ushort`, to avoid casting noise at call sites
 - **`ToString()` override** — enables seamless use in string interpolation and structured logging
 
-### 17. Unwrap `.Value` at Boundaries, Not Everywhere
+### 20. Unwrap `.Value` at Boundaries, Not Everywhere
 
 Downstream interfaces (e.g., `IEventPublisher.PublishEventsAsync(int count)`) still accept primitives. Unwrap `.Value` at the call site where the boundary is crossed.
 
@@ -469,7 +563,7 @@ var count = config.EventCount.Value;
 _logger.LogInformation("Processing {Count} events", count);
 ```
 
-### 18. No Unit Tests for Value Objects
+### 21. No Unit Tests for Value Objects
 
 Value object validation logic (range checks, format checks) is trivially correct by inspection. The factory + Result pattern makes invalid construction impossible at compile time. Existing integration and validator tests exercise the parse path indirectly.
 
@@ -485,7 +579,7 @@ EventCount.Create(1000001) // → Failure("Events must be between 1 and 1,000,00
 
 **Exception:** If a value object has complex parsing logic (regex, multi-step validation), tests may be warranted.
 
-### 19. Value Object Families via Base Record
+### 22. Value Object Families via Base Record
 
 When multiple value objects share identical validation but represent distinct domain concepts, use a non-sealed base `record` with a `protected` constructor and a generic `Create<T>` factory. Derive sealed tag types that delegate to the base. This eliminates code duplication while providing compile-time swap prevention — you cannot accidentally pass a `RabbitMqContainerName` where a `PostgresContainerName` is expected.
 
@@ -567,6 +661,9 @@ var config = new TestConfiguration(
 | No useless wrappers | Does this wrapper add value? |
 | Composition over interfaces | Do I actually need this abstraction? |
 | Return early | Can I use a guard clause to avoid nesting? |
+| Named delegates | Is this dependency a single operation? Use a named delegate |
+| Named over Action/Func | Does the delegate name describe what it does? |
+| Interfaces vs delegates | Am I at a DI boundary (interface) or internal wiring (delegate)? |
 | Result over exceptions | Is this failure expected? Use Result, not exceptions |
 | `using static` for Results | Am I producing Results? Shorten with `using static` |
 | dunet Match | Am I consuming a Result? Use `Match` (consumption) or `IsFailure` (pipelines) |
