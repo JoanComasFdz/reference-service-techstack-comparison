@@ -5,8 +5,10 @@ using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure;
+using PerformanceTester.Orchestration.ValueObjects;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
+using PerformanceTester.Reporting.ChartGeneration;
 using PerformanceTester.Reporting.ReportGeneration;
 using PerformanceTester.SystemMonitoring;
 using Serilog.Context;
@@ -68,6 +70,7 @@ public class TestOrchestrator(
             PhasesToolbox.PublishEvents publishEvents = (count) => eventPublisher.PublishEventsAsync(count, cancellationToken);
             PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, cancellationToken);
             Task forAllDockerMonitors(Func<IDockerMonitor, Task> action) => Task.WhenAll(dockerMonitors.Select(action));
+            IReadOnlyCollection<DockerMetrics> dockerMetricsFor(NonEmptyString containerName) => dockerMonitors.Single(m => m.ContainerName == containerName.Value).GetCollectedMetrics();
 
             // Phase 0: Setup
             progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
@@ -162,9 +165,17 @@ public class TestOrchestrator(
             progress?.Report(PhaseInfo.Starting(TestPhase.Reporting, "Starting metrics collection and report generation"));
             var testReport = await ReportingPhase.ExecuteAsync(
                 testResult, configuration,
-                eventPublisher, host, metricsCollector, processMonitor, systemMonitor,
-                dockerMonitors, systemInfoDetector, reportGenerator,
-                logger, cancellationToken);
+                disconnectEventPublisher: () => eventPublisher.DisconnectAsync(cancellationToken),
+                stopMonitoring: () => host.StopAsync(cancellationToken),
+                getThroughputSamples: metricsCollector.GetThroughputSamples,
+                getProcessMetrics: processMonitor.GetCollectedMetrics,
+                getSystemMetrics: systemMonitor.GetCollectedMetrics,
+                getRabbitMqMetrics: () => dockerMetricsFor(configuration.RabbitMqContainerName),
+                getPostgresMetrics: () => dockerMetricsFor(configuration.PostgresContainerName),
+                getSystemInfo: () => systemInfoDetector.GetSystemInfoAsync(cancellationToken),
+                generateReport: (folder, report) => reportGenerator.GenerateReportAsync(folder, report, cancellationToken),
+                generateChart: (folder, report, log) => ChartGenerator.GenerateChartAsync(folder, report, log, cancellationToken),
+                logger);
             progress?.Report(PhaseInfo.Completed(TestPhase.Reporting, "Report generation complete"));
 
             logger.LogInformation(
