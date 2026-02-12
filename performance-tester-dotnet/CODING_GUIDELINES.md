@@ -349,6 +349,34 @@ _metricsParser.ParseLine(line).Match(
 
 > **Exception for tests:** In unit tests, `Assert.IsType<Result<T, E>.Success>(result)` is acceptable because xUnit's type assertion provides sufficient exhaustiveness for test scenarios.
 
+> **Exception for sequential pipelines:** In methods that chain multiple Result-returning operations and need to short-circuit on the first failure, use `IsFailure` + early return instead of `Match`. The `Match` lambda cannot `return` from the enclosing method, making it awkward for sequential composition.
+>
+> ```csharp
+> // ✅ Good - sequential pipeline with early return
+> var pidResult = await findServiceProcessId();
+> if (pidResult.IsFailure)
+>     return new Failure(pidResult.FailureError);
+> var serviceProcessId = pidResult.SuccessValue;
+>
+> var dbResult = await clearDatabase();
+> if (dbResult.IsFailure)
+>     return new Failure($"Failed to clear database: {dbResult.FailureError}");
+>
+> // ... continue with more steps ...
+> return new Success(serviceProcessId);
+>
+> // ❌ Avoid - Match in sequential pipeline (verbose, can't early-return)
+> var pidResult = await findServiceProcessId();
+> var pid = pidResult.Match(
+>     success: s => (int?)s.Value,
+>     failure: _ => null);
+> if (pid is null)
+>     return new Failure(pidResult.Match(success: _ => "", failure: f => f.Error));
+> ```
+>
+> **Use `Match`** at consumption points (branching on outcome, extracting values).
+> **Use `IsFailure` + early return** in sequential pipelines (checking and propagating).
+
 ---
 
 ## Value Objects (Eliminating Primitive Obsession)
@@ -541,7 +569,7 @@ var config = new TestConfiguration(
 | Return early | Can I use a guard clause to avoid nesting? |
 | Result over exceptions | Is this failure expected? Use Result, not exceptions |
 | `using static` for Results | Am I producing Results? Shorten with `using static` |
-| dunet Match | Am I consuming a Result? Use `Match`, not `is`/`switch` |
+| dunet Match | Am I consuming a Result? Use `Match` (consumption) or `IsFailure` (pipelines) |
 | Value objects | Does this primitive have domain constraints? Wrap it |
 | Value object structure | sealed record, private ctor, `Create()` → Result, `ToString()` |
 | Unwrap at boundaries | Am I crossing into a primitive-typed API? Use `.Value` |
