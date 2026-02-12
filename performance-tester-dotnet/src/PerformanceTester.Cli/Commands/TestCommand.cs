@@ -168,21 +168,30 @@ public static class TestCommand
                 config.EventCount,
                 config.ApiDuration);
 
-            var report = await orchestrator.RunTestAsync(
+            var result = await orchestrator.RunTestAsync(
                 config,
                 progressAdapter,
                 cancellationToken);
 
-            progressReporter.Complete();
-
-            // Display results
-            consoleWriter.WriteLine();
-            consoleWriter.WriteHeader("Test Results");
-            consoleWriter.WriteResultsTable(report);
-            consoleWriter.WriteLine();
-            consoleWriter.WriteSuccess($"Reports saved to: {config.ResultsFolder}");
-
-            return 0;
+            return result.Match(
+                success: s =>
+                {
+                    progressReporter.Complete();
+                    consoleWriter.WriteLine();
+                    consoleWriter.WriteHeader("Test Results");
+                    consoleWriter.WriteResultsTable(s.Value);
+                    consoleWriter.WriteLine();
+                    consoleWriter.WriteSuccess($"Reports saved to: {config.ResultsFolder}");
+                    return 0;
+                },
+                failure: f =>
+                {
+                    progressReporter.SetPhaseStatus(PhaseStatus.Failed, message: f.Error.Message);
+                    progressReporter.Complete();
+                    consoleWriter.WriteError($"{f.Error.Phase} failed: {f.Error.Message}");
+                    logger.LogError("Test failed in {Phase}: {Message}", f.Error.Phase, f.Error.Message);
+                    return 3;
+                });
         }
         catch (OperationCanceledException)
         {
@@ -191,32 +200,13 @@ public static class TestCommand
             consoleWriter.WriteWarning("Test cancelled by user");
             return 130; // Standard exit code for SIGINT
         }
-        catch (TimeoutException ex)
-        {
-            return HandleTestError(ex, progressReporter, consoleWriter, logger, $"Timeout: {ex.Message}", 2);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return HandleTestError(ex, progressReporter, consoleWriter, logger, $"Test failed: {ex.Message}", 3);
-        }
         catch (Exception ex)
-        {
-            return HandleTestError(ex, progressReporter, consoleWriter, logger, $"Unexpected error: {ex.Message}", 1);
-        }
-
-        static int HandleTestError(
-            Exception ex,
-            ProgressReporter progressReporter,
-            ConsoleWriter consoleWriter,
-            ILogger logger,
-            string userMessage,
-            int exitCode)
         {
             progressReporter.SetPhaseStatus(PhaseStatus.Failed, message: ex.Message);
             progressReporter.Complete();
-            consoleWriter.WriteError(userMessage);
-            logger.LogError(ex, "Test failed: {Message}", userMessage);
-            return exitCode;
+            consoleWriter.WriteError($"Unexpected error: {ex.Message}");
+            logger.LogError(ex, "Unexpected error: {Message}", ex.Message);
+            return 1;
         }
     }
 
