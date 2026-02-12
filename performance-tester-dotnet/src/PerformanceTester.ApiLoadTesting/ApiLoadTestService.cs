@@ -20,9 +20,9 @@ internal sealed class ApiLoadTestService : IApiLoadTester
         string targetUrl,
         TimeSpan duration,
         int virtualUsers,
+        ReportApiLoadProgress reportApiLoadProgress,
         int maxConsecutiveFailures = 3,
         string? scriptDirectory = null,
-        IProgress<ApiLoadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         // Validate parameters
@@ -65,7 +65,7 @@ internal sealed class ApiLoadTestService : IApiLoadTester
             // Execute k6 and get metrics
             var executor = new K6Executor(_logger);
             var testStartTime = DateTimeOffset.UtcNow;
-            var executionResult = await executor.ExecuteAsync(scriptPath, duration, progress, cancellationToken);
+            var executionResult = await executor.ExecuteAsync(scriptPath, duration, reportApiLoadProgress, cancellationToken);
             var testEndTime = DateTimeOffset.UtcNow;
             var actualDuration = testEndTime - testStartTime;
 

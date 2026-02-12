@@ -10,3 +10,9 @@ public readonly record struct ApiLoadProgress(
     int RequestCount,
     int SuccessCount,
     int FailedCount);
+
+/// <summary>
+/// Delegate for reporting API load progress updates.
+/// </summary>
+public delegate void ReportApiLoadProgress(ApiLoadProgress apiLoadProgress);
+

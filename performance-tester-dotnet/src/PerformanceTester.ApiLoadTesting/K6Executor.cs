@@ -30,14 +30,14 @@ internal sealed partial class K6Executor
     /// </summary>
     /// <param name="scriptPath">Path to k6 script file.</param>
     /// <param name="totalDuration">Total expected test duration for progress reporting.</param>
-    /// <param name="progress">Optional progress reporter for real-time updates.</param>
+    /// <param name="reportApiLoadProgress">Optional progress reporter for real-time updates.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>K6 execution result with metrics and abort information.</returns>
     /// <exception cref="InvalidOperationException">k6 binary not found or execution failed (non-abort errors).</exception>
     public async Task<K6ExecutionResult> ExecuteAsync(
         string scriptPath,
         TimeSpan totalDuration,
-        IProgress<ApiLoadProgress>? progress,
+        ReportApiLoadProgress reportApiLoadProgress,
         CancellationToken cancellationToken)
     {
         ValidateK6Binary();
@@ -98,18 +98,20 @@ internal sealed partial class K6Executor
                     }
 
                     // Report progress every 500ms (avoid flooding)
-                    if (progress != null && (DateTime.UtcNow - lastProgressReport).TotalMilliseconds >= 500)
+                    if ((DateTime.UtcNow - lastProgressReport).TotalMilliseconds < 500)
                     {
-                        var elapsed = (DateTime.UtcNow - testStartTime).TotalSeconds;
-                        successCount = requestCount - failedCount;
-                        progress.Report(new ApiLoadProgress(
-                            ElapsedSeconds: elapsed,
-                            TotalSeconds: totalDuration.TotalSeconds,
-                            RequestCount: requestCount,
-                            SuccessCount: successCount,
-                            FailedCount: failedCount));
-                        lastProgressReport = DateTime.UtcNow;
+                        return;
                     }
+
+                    var elapsed = (DateTime.UtcNow - testStartTime).TotalSeconds;
+                    successCount = requestCount - failedCount;
+                    reportApiLoadProgress(new ApiLoadProgress(
+                        ElapsedSeconds: elapsed,
+                        TotalSeconds: totalDuration.TotalSeconds,
+                        RequestCount: requestCount,
+                        SuccessCount: successCount,
+                        FailedCount: failedCount));
+                    lastProgressReport = DateTime.UtcNow;
                 },
                 failure: _ => { });
         }

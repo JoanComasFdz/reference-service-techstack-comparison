@@ -9,12 +9,25 @@ namespace PerformanceTester.Orchestration;
 /// </summary>
 internal static class ApiTestPhase
 {
+    // TODO: When IApiLoadTester.StartTestAsync is migrated to the Result pattern,
+    // update this delegate's return type and ExecuteAsync's signature/return type accordingly.
+
+    /// <summary>
+    /// Executes an HTTP API load test using k6 and returns aggregated results.
+    /// </summary>
+    public delegate Task<ApiLoadTestResult> StartApiLoadTest(
+        string targetUrl,
+        TimeSpan duration,
+        int virtualUsers,
+        ReportApiLoadProgress progress,
+        int maxConsecutiveFailures,
+        string? scriptDirectory);
+
     public static async Task<(ApiLoadTestResult Result, DateTime StartTime, DateTime EndTime)> ExecuteAsync(
         TestConfiguration config,
-        IApiLoadTester apiLoadTester,
+        StartApiLoadTest startApiLoadTest,
         IProgress<PhaseInfo>? progress,
-        ILogger logger,
-        CancellationToken cancellationToken)
+        ILogger logger)
     {
         using var _ = LogContext.PushProperty("Phase", "ApiTest");
 
@@ -25,29 +38,18 @@ internal static class ApiTestPhase
 
         var startTime = DateTime.UtcNow;
 
-        // Create explicit API progress callback
-        // (CODING_GUIDELINES: Explicit Parameters - callback logic visible here)
-        // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
-        IProgress<ApiLoadProgress>? apiProgress = null;
-        if (progress != null)
-        {
-            apiProgress = new SynchronousProgress<ApiLoadProgress>(info =>
-            {
-                // Report via PhaseInfo - explicit message format
-                progress.Report(PhaseInfo.Starting(
-                    TestPhase.ApiTest,
-                    $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
-            });
-        }
+        ReportApiLoadProgress apiProgress = progress is null
+            ? (_) => { }
+            : (info) => progress.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
 
-        var result = await apiLoadTester.StartTestAsync(
+        var result = await startApiLoadTest(
             config.ApiUrl,
             config.ApiDuration.Value,
             config.ApiWorkers.Value,
+            apiProgress,
             config.MaxConsecutiveApiFailures,
-            config.ResultsFolder.Value,
-            progress: apiProgress,
-            cancellationToken);
+            config.ResultsFolder.Value
+            );
 
         var endTime = DateTime.UtcNow;
 

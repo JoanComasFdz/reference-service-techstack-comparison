@@ -15,7 +15,7 @@ public interface IApiLoadTester
     /// <param name="maxConsecutiveFailures">Maximum consecutive failures before aborting (0 = disabled, default: 3).</param>
     /// <param name="scriptDirectory">Directory for temporary k6 scripts. If null, uses user's home directory.
     /// Note: /tmp is avoided as it's not accessible to snap-installed k6.</param>
-    /// <param name="progress">Optional progress reporter for real-time updates.</param>
+    /// <param name="reportApiLoadProgress">Progress reporter for real-time updates.</param>
     /// <param name="cancellationToken">Cancellation token to stop the test early.</param>
     /// <returns>API load test result with aggregated metrics.</returns>
     /// <exception cref="ArgumentException">Invalid target URL or parameters.</exception>
@@ -25,8 +25,8 @@ public interface IApiLoadTester
         string targetUrl,
         TimeSpan duration,
         int virtualUsers,
-        int maxConsecutiveFailures = 3,
+        ReportApiLoadProgress reportApiLoadProgress,
+        int maxConsecutiveFailures = 3,        
         string? scriptDirectory = null,
-        IProgress<ApiLoadProgress>? progress = null,
         CancellationToken cancellationToken = default);
 }

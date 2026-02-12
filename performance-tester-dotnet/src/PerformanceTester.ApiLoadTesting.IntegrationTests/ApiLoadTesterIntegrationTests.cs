@@ -23,7 +23,8 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
         var result = await System.ApiLoadTesting.LoadTester.StartTestAsync(
             targetUrl: server.BaseUrl,
             duration: TimeSpan.FromSeconds(5),
-            virtualUsers: 1);
+            virtualUsers: 1,
+            (_) => { });
 
         // Assert
         Asserting.That(result)
@@ -41,7 +42,8 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
         var result = await System.ApiLoadTesting.LoadTester.StartTestAsync(
             targetUrl: server.BaseUrl,
             duration: TimeSpan.FromSeconds(10),
-            virtualUsers: 10);
+            virtualUsers: 10,
+            (_) => { });
 
         // Assert - Should generate at least some requests (realistic expectation)
         Asserting.That(result)
@@ -59,7 +61,8 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
         var result = await System.ApiLoadTesting.LoadTester.StartTestAsync(
             targetUrl: server.BaseUrl,
             duration: TimeSpan.FromSeconds(5),
-            virtualUsers: 2);
+            virtualUsers: 2,
+            (_) => { });
 
         // Assert - Enhanced with semantic checks
         Asserting.That(result)
@@ -78,7 +81,8 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
         var result = await System.ApiLoadTesting.LoadTester.StartTestAsync(
             targetUrl: server.BaseUrl,
             duration: TimeSpan.FromSeconds(5),
-            virtualUsers: 2);
+            virtualUsers: 2,
+            (_) => { });
 
         // Assert - This test would have caught the bug!
         Asserting.That(result)
@@ -98,7 +102,8 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
         var result = await System.ApiLoadTesting.LoadTester.StartTestAsync(
             targetUrl: server.BaseUrl,
             duration: TimeSpan.FromSeconds(5),
-            virtualUsers: 2);
+            virtualUsers: 2,
+            (_) => { });
 
         // Assert - First verify we have valid data
         Assert.True(result.TotalRequests > 0, "Test must produce requests");
@@ -145,7 +150,8 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
             await System.ApiLoadTesting.LoadTester.StartTestAsync(
                 targetUrl: "not-a-valid-url",
                 duration: TimeSpan.FromSeconds(5),
-                virtualUsers: 1);
+                virtualUsers: 1,
+                (_) => { });
         });
     }
 
@@ -160,6 +166,7 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
             targetUrl: server.BaseUrl,
             duration: TimeSpan.FromSeconds(30),  // Long duration - should abort early
             virtualUsers: 1,
+            (_) => { },
             maxConsecutiveFailures: 3);
 
         // Assert - Test should be aborted with failed requests
@@ -180,6 +187,7 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
             targetUrl: server.BaseUrl,
             duration: TimeSpan.FromSeconds(3),  // Short duration since all requests will fail
             virtualUsers: 1,
+            (_) => { },
             maxConsecutiveFailures: 0);  // Disable abort
 
         // Assert - Test should complete normally (not aborted) but have failed requests
@@ -199,6 +207,7 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
             targetUrl: server.BaseUrl,
             duration: TimeSpan.FromSeconds(5),
             virtualUsers: 1,
+            (_) => { },
             maxConsecutiveFailures: 3);
 
         // Assert - Test should complete normally without abort

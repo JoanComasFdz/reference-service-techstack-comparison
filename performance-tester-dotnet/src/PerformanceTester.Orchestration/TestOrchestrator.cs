@@ -170,11 +170,11 @@ public class TestOrchestrator : ITestOrchestrator
             // Phase 2: API Load Test
             currentPhase = TestPhase.ApiTest;
             progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDuration.Value.TotalSeconds}s"));
-            var (apiResult, apiTestStartTime, apiTestEndTime) =
-                await ApiTestPhase.ExecuteAsync(
+            var (apiResult, apiTestStartTime, apiTestEndTime) = await ApiTestPhase.ExecuteAsync(
                     configuration,
-                    _apiLoadTester,
-                    progress, _logger, cancellationToken);
+                    (url, duration, vus, apiProgress, maxFail, dir) => _apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, cancellationToken),
+                    progress,
+                    _logger);
             // Report phase completion - Failed if aborted due to consecutive errors, Completed otherwise
             var apiPhaseResult = apiResult.WasAborted
                 ? PhaseInfo.Failed(TestPhase.ApiTest, apiResult.AbortReason ?? "API test aborted")
