@@ -1,9 +1,5 @@
-using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
-using PerformanceTester.Infrastructure;
-using PerformanceTester.Infrastructure.Database;
 using Serilog.Context;
 
 namespace PerformanceTester.Orchestration;
@@ -13,14 +9,30 @@ namespace PerformanceTester.Orchestration;
 /// </summary>
 internal static class WarmupPhase
 {
+    /// <summary>
+    /// Publishes warmup events and returns publish metrics.
+    /// </summary>
+    public delegate Task<PublishMetrics> PublishEvents(int eventCount);
+
+    /// <summary>
+    /// Tracks consumed events until expected count is reached or inactivity timeout expires.
+    /// </summary>
+    public delegate Task TrackEvents(int expectedCount, TimeSpan inactivityTimeout);
+
+    /// <summary>
+    /// Executes warmup HTTP calls to the API endpoint.
+    /// Returns (successCount, failedCount).
+    /// </summary>
+    public delegate Task<(int Success, int Failed)> ExecuteWarmupApiCalls(string apiUrl, uint callCount);
+
     public static async Task ExecuteAsync(
         TestConfiguration config,
-        IEventPublisher eventPublisher,
-        IEventConsumer eventConsumer,
-        IDatabase database,
-        IRabbitMQ rabbitMq,
-        ILogger logger,
-        CancellationToken cancellationToken)
+        TrackEvents trackEvents,
+        PublishEvents publishEvents,
+        ExecuteWarmupApiCalls executeWarmupApiCalls,
+        PhasesToolbox.ClearDatabase clearDatabase,
+        PhasesToolbox.ClearAllQueues clearAllQueues,
+        ILogger logger)
     {
         using var _ = LogContext.PushProperty("Phase", "Warmup");
 
@@ -34,16 +46,12 @@ internal static class WarmupPhase
                 config.WarmupInactivityTimeout.Value.TotalSeconds);
 
             // Start consumer tracking
-            var consumerTask = eventConsumer.StartTrackingEventsAsync(
+            var consumerTask = trackEvents(
                 config.WarmupEventCount.Value,
-                config.WarmupInactivityTimeout.Value,
-                progress: null,
-                cancellationToken);
+                config.WarmupInactivityTimeout.Value);
 
             // Publish warmup events
-            var publishMetrics = await eventPublisher.PublishEventsAsync(
-                config.WarmupEventCount.Value,
-                cancellationToken);
+            var publishMetrics = await publishEvents(config.WarmupEventCount.Value);
 
             logger.LogInformation(
                 "Warmup: Published {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
@@ -61,8 +69,8 @@ internal static class WarmupPhase
                 "Warmup: Making {Count} HTTP calls to API endpoint",
                 config.WarmupApiCallCount);
 
-            var (successCount, failCount) = await ExecuteWarmupApiCallsAsync(
-                config.ApiUrl, config.WarmupApiCallCount.Value, logger, cancellationToken);
+            var (successCount, failCount) = await executeWarmupApiCalls(
+                config.ApiUrl, config.WarmupApiCallCount.Value);
 
             logger.LogInformation(
                 "Warmup: API calls complete - {Success} succeeded, {Failed} failed",
@@ -71,10 +79,10 @@ internal static class WarmupPhase
 
             // Clear database and queues again
             logger.LogInformation("Warmup: Clearing database and queues before measured test");
-            (await database.ClearDatabaseAsync(config.DatabaseName.Value, cancellationToken)).Match(
+            (await clearDatabase()).Match(
                 success: _ => { },
                 failure: f => throw new InvalidOperationException($"Failed to clear database '{config.DatabaseName}' during warmup: {f.Error}"));
-            (await rabbitMq.ClearAllQueuesAsync(cancellationToken)).Match(
+            (await clearAllQueues()).Match(
                 success: _ => { },
                 failure: f => throw new InvalidOperationException($"Failed to clear RabbitMQ queues during warmup: {f.Error}"));
 
@@ -91,7 +99,11 @@ internal static class WarmupPhase
         }
     }
 
-    private static async Task<(int Success, int Failed)> ExecuteWarmupApiCallsAsync(
+    /// <summary>
+    /// Executes warmup API calls using a simple HttpClient.
+    /// This method can be passed as the <see cref="ExecuteWarmupApiCalls"/> delegate.
+    /// </summary>
+    public static async Task<(int Success, int Failed)> ExecuteWarmupApiCallsAsync(
         string apiUrl,
         uint callCount,
         ILogger logger,

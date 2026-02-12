@@ -99,14 +99,21 @@ public class TestOrchestrator : ITestOrchestrator
 
         try
         {
+            // Shared delegates for Setup and Warmup phases
+            PhasesToolbox.ClearDatabase clearDatabase = () =>
+                _database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
+            PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
+            {
+                var result = await _rabbitMq.ClearAllQueuesAsync(cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+                return result;
+            };
+
             // Phase 0: Setup
             progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
             var setupResult = await SetupPhase.ExecuteAsync(
                 testRunId,
-                findServiceProcessId: () => _serviceDiscovery.FindServiceProcessIdAsync(
-                    configuration.ServicePort.Value,
-                    TimeSpan.FromSeconds(30),
-                    cancellationToken),
+                findServiceProcessId: () => _serviceDiscovery.FindServiceProcessIdAsync(configuration.ServicePort.Value, TimeSpan.FromSeconds(30), cancellationToken),
                 isMonitoringStarted: () => _hostLifetime.ApplicationStarted.IsCancellationRequested,
                 startMonitoring: () => _host.StartAsync(cancellationToken),
                 warmupDockerApi: async () =>
@@ -114,13 +121,8 @@ public class TestOrchestrator : ITestOrchestrator
                     var tasks = _dockerMonitors.Select(m => m.WarmupAsync(cancellationToken));
                     await Task.WhenAll(tasks);
                 },
-                clearDatabase: () => _database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken),
-                clearAllQueues: async () =>
-                {
-                    var result = await _rabbitMq.ClearAllQueuesAsync(cancellationToken);
-                    await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
-                    return result;
-                },
+                clearDatabase: clearDatabase,
+                clearAllQueues: clearAllQueues,
                 connectEventPublisher: () => _eventPublisher.ConnectAsync(cancellationToken), _logger);
 
             var serviceProcessId = setupResult.Match(
@@ -134,8 +136,12 @@ public class TestOrchestrator : ITestOrchestrator
             var warmupStartTime = DateTime.UtcNow;
             await WarmupPhase.ExecuteAsync(
                 configuration,
-                _eventPublisher, _eventConsumer, _database, _rabbitMq,
-                _logger, cancellationToken);
+                trackEvents: (count, timeout) => _eventConsumer.StartTrackingEventsAsync(count, timeout, progress: null, cancellationToken), // No progress reporting during warmup — it's a quick non-measured pre-heating step
+                publishEvents: (count) => _eventPublisher.PublishEventsAsync(count, cancellationToken),
+                executeWarmupApiCalls: (url, count) => WarmupPhase.ExecuteWarmupApiCallsAsync(url, count, _logger, cancellationToken),
+                clearDatabase: clearDatabase,
+                clearAllQueues: clearAllQueues,
+                _logger);
             var warmupEndTime = DateTime.UtcNow;
             progress?.Report(PhaseInfo.Completed(TestPhase.Warmup, "Warmup complete"));
 

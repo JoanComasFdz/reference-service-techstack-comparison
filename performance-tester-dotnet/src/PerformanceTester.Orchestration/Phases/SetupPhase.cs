@@ -34,18 +34,6 @@ internal static class SetupPhase
     public delegate Task WarmupDockerApi();
 
     /// <summary>
-    /// Clears all data from the target database.
-    /// Returns Unit on success, or a ClearDatabaseError on failure.
-    /// </summary>
-    public delegate Task<Result<Unit, ClearDatabaseError>> ClearDatabase();
-
-    /// <summary>
-    /// Purges all RabbitMQ queues and waits for consumer recovery.
-    /// Returns Unit on success, or an error message on failure.
-    /// </summary>
-    public delegate Task<Result<Unit, string>> ClearAllQueues();
-
-    /// <summary>
     /// Establishes connection to RabbitMQ for event publishing.
     /// </summary>
     public delegate Task ConnectEventPublisher();
@@ -56,8 +44,8 @@ internal static class SetupPhase
         IsMonitoringStarted isMonitoringStarted,
         StartMonitoring startMonitoring,
         WarmupDockerApi warmupDockerApi,
-        ClearDatabase clearDatabase,
-        ClearAllQueues clearAllQueues,
+        PhasesToolbox.ClearDatabase clearDatabase,
+        PhasesToolbox.ClearAllQueues clearAllQueues,
         ConnectEventPublisher connectEventPublisher,
         ILogger logger)
     {
