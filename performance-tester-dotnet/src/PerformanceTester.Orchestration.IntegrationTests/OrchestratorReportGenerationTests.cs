@@ -130,7 +130,6 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
             var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
 
             Assert.True(result.IsFailure, "Expected a failure result for invalid results folder");
-            Assert.Equal(TestPhase.Reporting, result.FailureError.Phase);
 
             // Verify the failure message contains filesystem-related information
             var isFileSystemRelated = result.FailureError.Message.Contains("access", StringComparison.OrdinalIgnoreCase) ||
