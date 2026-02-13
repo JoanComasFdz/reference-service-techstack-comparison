@@ -141,7 +141,9 @@ internal static class EventTestPhase
         int totalEventCount)
     {
         if (progress == null)
+        {
             return null;
+        }
 
         // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
         // Throttle by time (200ms) to avoid excessive updates while staying responsive

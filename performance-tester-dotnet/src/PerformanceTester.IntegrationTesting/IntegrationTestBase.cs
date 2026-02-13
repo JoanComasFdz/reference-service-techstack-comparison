@@ -17,7 +17,7 @@ public abstract class IntegrationTestBase<TSystem> : IAsyncLifetime where TSyste
     /// </summary>
     protected ITestOutputHelper Output { get; }
 
-    protected TSystem System { get; private set; } 
+    protected TSystem System { get; private set; }
 
     protected IntegrationTestBase(ITestOutputHelper output)
     {
@@ -46,7 +46,7 @@ public abstract class IntegrationTestBase<TSystem> : IAsyncLifetime where TSyste
         {
             var testContext = GetTestContext();
             Output.WriteLine($"[VHOST] Setting up vhost for test: {testContext.ClassName}.{testContext.MethodName}");
-            
+
             await vhostSystem.SetupVhostAsync(
                 testContext.ClassName,
                 testContext.MethodName,
@@ -121,7 +121,7 @@ public abstract class IntegrationTestBase<TSystem> : IAsyncLifetime where TSyste
                 {
                     // Get the test case's DisplayName which contains class.method
                     var testCaseProp = test.GetType().GetProperty("TestCase");
-                    
+
                     if (testCaseProp != null)
                     {
                         var testCase = testCaseProp.GetValue(test);
@@ -167,8 +167,8 @@ public abstract class IntegrationTestBase<TSystem> : IAsyncLifetime where TSyste
                                                                         if (!string.IsNullOrEmpty(className))
                                                                         {
                                                                             // Extract simple class name (without namespace)
-                                                                            var simpleClassName = className.Contains('.') 
-                                                                                ? className[(className.LastIndexOf('.') + 1)..] 
+                                                                            var simpleClassName = className.Contains('.')
+                                                                                ? className[(className.LastIndexOf('.') + 1)..]
                                                                                 : className;
                                                                             return new TestContext(simpleClassName, methodName);
                                                                         }

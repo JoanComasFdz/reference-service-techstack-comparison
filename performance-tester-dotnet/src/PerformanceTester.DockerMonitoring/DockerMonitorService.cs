@@ -72,7 +72,9 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         CancellationToken cancellationToken = default)
     {
         if (_started)
+        {
             throw new InvalidOperationException($"Monitoring has already been started for container {_containerName}");
+        }
 
         _started = true;
         _progress = progress;
@@ -186,7 +188,9 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             try
             {
                 if (_streamingTask != null)
+                {
                     await _streamingTask.WaitAsync(StreamingConstants.StreamingShutdownTimeout);
+                }
             }
             catch { /* Ignore timeout or exceptions */ }
 
@@ -276,7 +280,11 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             }
             catch (Exception ex)
             {
-                if (!ShouldRetry(ex)) break;
+                if (!ShouldRetry(ex))
+                {
+                    break;
+                }
+
                 currentContainerId = await AttemptReconnectionAsync(
                     ex, currentContainerId, cancellationToken);
             }
@@ -318,7 +326,9 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         _dockerClient.InvalidateContainerCache(_containerName);
 
         if (_consecutiveFailures <= StreamingConstants.MaxReconnectAttempts)
+        {
             return true;
+        }
 
         // === REPORT: Failed Permanently ===
         _logger.LogError(ex,

@@ -41,7 +41,9 @@ internal sealed class DockerClientWrapper : IDisposable
     {
         // Check cache first
         if (_containerIdCache.TryGetValue(containerName, out var cachedId))
+        {
             return cachedId;
+        }
 
         try
         {

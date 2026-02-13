@@ -21,7 +21,10 @@ public sealed class ProgressReporter
     {
         lock (_lock)
         {
-            if (_isInitialized) return;
+            if (_isInitialized)
+            {
+                return;
+            }
 
             _currentProgress = null;
             _hasRenderedLine = false;
@@ -39,10 +42,16 @@ public sealed class ProgressReporter
     {
         lock (_lock)
         {
-            if (!_isInitialized || _isCompleted) return;
+            if (!_isInitialized || _isCompleted)
+            {
+                return;
+            }
 
             // Only show progress for Event Processing and API Test phases
-            if (!ProgressPhases.Contains(progress.PhaseNumber)) return;
+            if (!ProgressPhases.Contains(progress.PhaseNumber))
+            {
+                return;
+            }
 
             // If phase completed, clear the progress line
             if (progress.Status != PhaseStatus.InProgress)
@@ -71,8 +80,15 @@ public sealed class ProgressReporter
     {
         lock (_lock)
         {
-            if (!_isInitialized || _isCompleted) return;
-            if (_currentProgress is not { } current) return;
+            if (!_isInitialized || _isCompleted)
+            {
+                return;
+            }
+
+            if (_currentProgress is not { } current)
+            {
+                return;
+            }
 
             if (status != PhaseStatus.InProgress)
             {
@@ -96,7 +112,10 @@ public sealed class ProgressReporter
     {
         lock (_lock)
         {
-            if (!_isInitialized || _isCompleted) return;
+            if (!_isInitialized || _isCompleted)
+            {
+                return;
+            }
 
             _isCompleted = true;
             ClearCurrentLine();
@@ -109,7 +128,10 @@ public sealed class ProgressReporter
 
     private void RenderCurrentProgress()
     {
-        if (_currentProgress is not { } progress) return;
+        if (_currentProgress is not { } progress)
+        {
+            return;
+        }
 
         // Clear previous line if we rendered one
         if (_hasRenderedLine)

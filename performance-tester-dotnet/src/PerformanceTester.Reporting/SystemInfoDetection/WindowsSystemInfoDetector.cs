@@ -327,7 +327,9 @@ internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
     private static string? MapMemoryType(string? memoryTypeCode)
     {
         if (memoryTypeCode == null || !int.TryParse(memoryTypeCode, out var code))
+        {
             return null;
+        }
 
         return code switch
         {
@@ -360,7 +362,9 @@ internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
     {
         // Default if no info available
         if (string.IsNullOrEmpty(mediaType))
+        {
             return "Unknown";
+        }
 
         // Map MediaType to base type
         var baseType = mediaType.ToUpperInvariant() switch
@@ -373,16 +377,23 @@ internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
 
         // If unknown base type, return as-is
         if (baseType == "Unknown")
+        {
             return baseType;
+        }
 
         // Append bus type for more specific identification
         if (!string.IsNullOrEmpty(busType))
         {
             var upperBusType = busType.ToUpperInvariant();
             if (upperBusType.Contains("NVME"))
+            {
                 return $"{baseType} (NVMe)";
+            }
+
             if (upperBusType.Contains("SATA"))
+            {
                 return $"{baseType} (SATA)";
+            }
         }
 
         return baseType;
@@ -395,15 +406,21 @@ internal sealed class WindowsSystemInfoDetector : ISystemInfoDetector
     private static string DetermineWindowsDiskType(string? mediaType)
     {
         if (string.IsNullOrEmpty(mediaType))
+        {
             return "Unknown";
+        }
 
         var lower = mediaType.ToLowerInvariant();
 
         if (lower.Contains("ssd") || lower.Contains("solid state"))
+        {
             return "SSD";
+        }
 
         if (lower.Contains("fixed") || lower.Contains("hard disk"))
+        {
             return "HDD";
+        }
 
         return "Unknown";
     }

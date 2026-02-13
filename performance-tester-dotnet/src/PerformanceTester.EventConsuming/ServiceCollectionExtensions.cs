@@ -1,6 +1,6 @@
+using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Threading.Channels;
 
 namespace PerformanceTester.EventConsuming;
 
@@ -30,11 +30,20 @@ public static class ServiceCollectionExtensions
         string rabbitMqConnectionString,
         string queueName = "performancetesterdotnet")
     {
-        if (services == null) throw new ArgumentNullException(nameof(services));
+        if (services == null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
+
         if (string.IsNullOrWhiteSpace(rabbitMqConnectionString))
+        {
             throw new ArgumentException("RabbitMQ connection string cannot be null or empty", nameof(rabbitMqConnectionString));
+        }
+
         if (string.IsNullOrWhiteSpace(queueName))
+        {
             throw new ArgumentException("Queue name cannot be null or empty", nameof(queueName));
+        }
 
         // Register channel for throughput samples (singleton - shared between services)
         services.AddSingleton(Channel.CreateUnbounded<EventThroughputSample>(new UnboundedChannelOptions

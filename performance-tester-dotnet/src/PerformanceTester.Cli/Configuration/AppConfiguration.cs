@@ -35,12 +35,12 @@ public sealed class AppConfiguration
             from pgUser in Username.Create(configuration["POSTGRES_USER"] ?? "admin")
             from pgPassword in Password.Create(configuration["POSTGRES_PASSWORD"] ?? "admin")
             from pgDatabase in DatabaseName.Create(configuration["POSTGRES_DB"] ?? "postgres")
-            // RabbitMQ
+                // RabbitMQ
             from rmqHost in Host.Create(configuration["RABBITMQ_HOST"] ?? "localhost")
             from rmqPort in Port.Create(configuration["RABBITMQ_PORT"] ?? "5672")
             from rmqUser in Username.Create(configuration["RABBITMQ_USER"] ?? "admin")
             from rmqPassword in Password.Create(configuration["RABBITMQ_PASS"] ?? "admin")
-            // Container names
+                // Container names
             from rmqContainer in RabbitMqContainerName.Create(configuration["RABBITMQ_CONTAINER"] ?? "performancetest-rabbitmq")
             from pgContainer in PostgresContainerName.Create(configuration["POSTGRES_CONTAINER"] ?? "performancetest-postgres")
             select new AppConfiguration

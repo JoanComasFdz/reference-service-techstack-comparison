@@ -1,6 +1,6 @@
 using PerformanceTester.Reporting.IntegrationTests.Builders;
-using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.Reporting.IntegrationTests.Infrastructure;
+using PerformanceTester.Reporting.ValueObjects;
 using Xunit;
 using Xunit.Abstractions;
 

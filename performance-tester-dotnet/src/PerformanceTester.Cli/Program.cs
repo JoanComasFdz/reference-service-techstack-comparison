@@ -96,7 +96,9 @@ public partial class Program
                 // Load configuration (fail fast on invalid env vars)
                 var loadResult = AppConfiguration.Load(context.Configuration);
                 if (loadResult.IsFailure)
+                {
                     throw new InvalidOperationException($"Configuration error: {loadResult.FailureError}");
+                }
 
                 var appConfig = loadResult.SuccessValue;
                 services.AddSingleton(appConfig);

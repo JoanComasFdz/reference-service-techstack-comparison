@@ -15,7 +15,10 @@ public static class StatisticsCalculator
     public static double CalculateStdDev(IEnumerable<double> values)
     {
         var valuesList = values.ToList();
-        if (valuesList.Count < 2) return 0.0;
+        if (valuesList.Count < 2)
+        {
+            return 0.0;
+        }
 
         var avg = valuesList.Average();
         var sumOfSquares = valuesList.Sum(v => Math.Pow(v - avg, 2));
@@ -32,10 +35,16 @@ public static class StatisticsCalculator
     public static double CalculateCV(IEnumerable<double> values)
     {
         var valuesList = values.ToList();
-        if (valuesList.Count < 2) return 0.0;
+        if (valuesList.Count < 2)
+        {
+            return 0.0;
+        }
 
         var avg = valuesList.Average();
-        if (avg == 0.0) return 0.0;
+        if (avg == 0.0)
+        {
+            return 0.0;
+        }
 
         var stdDev = CalculateStdDev(valuesList);
         return (stdDev / avg) * 100.0;

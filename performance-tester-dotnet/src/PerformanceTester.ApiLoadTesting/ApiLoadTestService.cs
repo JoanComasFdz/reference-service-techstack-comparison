@@ -27,19 +27,29 @@ internal sealed class ApiLoadTestService : IApiLoadTester
     {
         // Validate parameters
         if (string.IsNullOrWhiteSpace(targetUrl))
+        {
             throw new ArgumentException("Target URL cannot be null or empty", nameof(targetUrl));
+        }
 
         if (!Uri.IsWellFormedUriString(targetUrl, UriKind.Absolute))
+        {
             throw new ArgumentException($"Invalid URL: {targetUrl}", nameof(targetUrl));
+        }
 
         if (duration <= TimeSpan.Zero)
+        {
             throw new ArgumentException("Duration must be positive", nameof(duration));
+        }
 
         if (virtualUsers < 1)
+        {
             throw new ArgumentException("Virtual users must be at least 1", nameof(virtualUsers));
+        }
 
         if (maxConsecutiveFailures < 0)
+        {
             throw new ArgumentException("Max consecutive failures cannot be negative", nameof(maxConsecutiveFailures));
+        }
 
         _logger.LogInformation("=== Starting API load test: {Url}, duration: {Duration}, VUs: {VUs}, maxConsecutiveFailures: {MaxFailures} ===",
             targetUrl, duration, virtualUsers, maxConsecutiveFailures);

@@ -16,24 +16,34 @@ public static class ProcessNameExtractor
     public static string ExtractMeaningfulName(string baseProcessName, string[]? commandLine)
     {
         if (commandLine is null || commandLine.Length == 0)
+        {
             return baseProcessName;
+        }
 
         // Java processes: look for JAR file or main class
         if (baseProcessName.Equals("java", StringComparison.OrdinalIgnoreCase))
+        {
             return ExtractJavaServiceName(commandLine) ?? baseProcessName;
+        }
 
         // .NET processes: look for DLL file (dotnet myapp.dll)
         if (baseProcessName.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+        {
             return ExtractDotNetServiceName(commandLine) ?? baseProcessName;
+        }
 
         // Python processes: look for script name
         if (baseProcessName.StartsWith("python", StringComparison.OrdinalIgnoreCase))
+        {
             return ExtractPythonServiceName(commandLine) ?? baseProcessName;
+        }
 
         // Node/Bun: look for script name
         if (baseProcessName.Equals("node", StringComparison.OrdinalIgnoreCase) ||
             baseProcessName.Equals("bun", StringComparison.OrdinalIgnoreCase))
+        {
             return ExtractNodeServiceName(commandLine) ?? baseProcessName;
+        }
 
         // For native executables, use the executable name from command line if available
         var executableName = Path.GetFileNameWithoutExtension(commandLine[0]);
@@ -55,7 +65,9 @@ public static class ProcessNameExtractor
 
             // Check for JAR file as direct argument (e.g., java myapp.jar)
             if (arg.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) && !arg.StartsWith("-"))
+            {
                 return Path.GetFileNameWithoutExtension(arg);
+            }
         }
 
         // Look for main class (last non-option argument that looks like a class name)
@@ -79,11 +91,15 @@ public static class ProcessNameExtractor
         {
             // Skip flags
             if (arg.StartsWith("-"))
+            {
                 continue;
+            }
 
             // Found a DLL file
             if (arg.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
                 return Path.GetFileNameWithoutExtension(arg);
+            }
         }
 
         return null;
@@ -95,11 +111,15 @@ public static class ProcessNameExtractor
         {
             // Skip python executable and flags
             if (arg.StartsWith("-") || arg.Contains("python"))
+            {
                 continue;
+            }
 
             // Found a script file
             if (arg.EndsWith(".py", StringComparison.OrdinalIgnoreCase))
+            {
                 return Path.GetFileNameWithoutExtension(arg);
+            }
         }
 
         return null;
@@ -111,7 +131,9 @@ public static class ProcessNameExtractor
         {
             // Skip node/bun executable and flags
             if (arg.StartsWith("-"))
+            {
                 continue;
+            }
 
             // Found a script file
             if (arg.EndsWith(".js", StringComparison.OrdinalIgnoreCase) ||

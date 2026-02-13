@@ -57,7 +57,7 @@ public class VhostIsolatedSystem : System
         // Timestamp format: yyyy_MMM_dd_HH_mm_ss (e.g., 2025_Nov_24_15_05_33)
         var timestamp = DateTime.UtcNow.ToString("yyyy_MMM_dd_HH_mm_ss");
         var fullName = $"test_{testClassName}_{testMethodName}_{timestamp}";
-        
+
         // Truncate to 63 characters (safe margin for RabbitMQ's 255 char limit)
         VhostName = fullName.Length > 63 ? fullName[..63] : fullName;
 
@@ -77,7 +77,9 @@ public class VhostIsolatedSystem : System
     internal async Task TeardownVhostAsync()
     {
         if (string.IsNullOrEmpty(VhostName) || string.IsNullOrEmpty(BaseConnectionString))
+        {
             return;
+        }
 
         try
         {

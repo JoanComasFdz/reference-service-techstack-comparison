@@ -26,7 +26,9 @@ public static class ResultLinqExtensions
         Func<T, U> selector)
     {
         if (result is Result<T, TError>.Success s)
+        {
             return new Result<U, TError>.Success(selector(s.Value));
+        }
 
         return new Result<U, TError>.Failure(((Result<T, TError>.Failure)result).Error);
     }
@@ -40,11 +42,15 @@ public static class ResultLinqExtensions
         Func<T, U, V> project)
     {
         if (result is not Result<T, TError>.Success s)
+        {
             return new Result<V, TError>.Failure(((Result<T, TError>.Failure)result).Error);
+        }
 
         var bound = bind(s.Value);
         if (bound is Result<U, TError>.Success next)
+        {
             return new Result<V, TError>.Success(project(s.Value, next.Value));
+        }
 
         return new Result<V, TError>.Failure(((Result<U, TError>.Failure)bound).Error);
     }

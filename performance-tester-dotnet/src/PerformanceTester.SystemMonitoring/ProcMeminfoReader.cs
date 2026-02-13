@@ -33,7 +33,10 @@ internal sealed class ProcMeminfoReader
             {
                 // Format: "MemTotal:       32768000 kB"
                 var colonIndex = line.IndexOf(':');
-                if (colonIndex <= 0) continue;
+                if (colonIndex <= 0)
+                {
+                    continue;
+                }
 
                 var key = line[..colonIndex].Trim();
                 var valuePart = line[(colonIndex + 1)..].Trim();

@@ -15,13 +15,17 @@ public sealed partial record InactivityTimeout
     public static Result<InactivityTimeout, string> Create(string duration)
     {
         if (string.IsNullOrWhiteSpace(duration))
+        {
             return new Failure(
                 $"Invalid inactivity timeout format: '{duration}'. Expected format: <number><unit> (e.g., 120s, 2m, 1h)");
+        }
 
         var match = DurationPattern().Match(duration.Trim().ToLowerInvariant());
         if (!match.Success)
+        {
             return new Failure(
                 $"Invalid inactivity timeout format: '{duration}'. Expected format: <number><unit> (e.g., 120s, 2m, 1h)");
+        }
 
         var value = int.Parse(match.Groups[1].Value);
         var unit = match.Groups[2].Value;

@@ -1,6 +1,6 @@
 using PerformanceTester.Reporting.IntegrationTests.Builders;
-using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.Reporting.IntegrationTests.Infrastructure;
+using PerformanceTester.Reporting.ValueObjects;
 using Xunit.Abstractions;
 
 namespace PerformanceTester.Reporting.IntegrationTests.ContractTests;
@@ -539,7 +539,10 @@ public sealed class ComparisonReportContractTests : IntegrationTest
         Assert.True(tableStart >= 0, $"No table found after section '{sectionName}'");
 
         var tableEnd = afterSection.IndexOf("\n\n", tableStart);
-        if (tableEnd < 0) tableEnd = afterSection.Length;
+        if (tableEnd < 0)
+        {
+            tableEnd = afterSection.Length;
+        }
 
         var tableContent = afterSection.Substring(tableStart, tableEnd - tableStart);
 

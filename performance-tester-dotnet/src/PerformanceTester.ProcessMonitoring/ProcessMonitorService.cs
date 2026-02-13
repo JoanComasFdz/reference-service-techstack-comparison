@@ -1,6 +1,6 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
 
 namespace PerformanceTester.ProcessMonitoring;
 
@@ -32,7 +32,9 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
         ILogger<ProcessMonitorService> logger)
     {
         if (samplingInterval <= TimeSpan.Zero)
+        {
             throw new ArgumentOutOfRangeException(nameof(samplingInterval), samplingInterval, "Sampling interval must be positive");
+        }
 
         _samplingInterval = samplingInterval;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -45,10 +47,14 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
         CancellationToken cancellationToken = default)
     {
         if (processId <= 0)
+        {
             throw new ArgumentOutOfRangeException(nameof(processId), processId, "Process ID must be positive");
+        }
 
         if (_processId.HasValue)
+        {
             throw new InvalidOperationException($"Monitoring has already been started for process {_processId.Value}");
+        }
 
         _processId = processId;
         _progress = progress;
@@ -88,11 +94,15 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
 
             var processId = await WaitForProcessIdAsync(stoppingToken);
             if (processId is null)
+            {
                 return;
+            }
 
             process = InitializeProcess(processId.Value);
             if (process is null)
+            {
                 return;
+            }
 
             // Initialize CPU calculator (first sample returns 0.0)
             cpuCalculator.Sample(process);
@@ -105,7 +115,9 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
             {
                 var shouldContinue = CollectSample(process, cpuCalculator, processId.Value);
                 if (!shouldContinue)
+                {
                     break;
+                }
             }
 
             _logger.LogInformation("ProcessMonitor stopping gracefully");
@@ -304,7 +316,9 @@ internal sealed class ProcessMonitorService : BackgroundService, IProcessMonitor
     {
         var cmdLinePath = $"/proc/{processId}/cmdline";
         if (!File.Exists(cmdLinePath))
+        {
             return null;
+        }
 
         try
         {

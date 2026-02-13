@@ -49,7 +49,7 @@ internal static class ApiTestPhase
 
             ReportApiLoadProgress apiProgress = progress is null
                 ? (_) => { }
-                : (info) => progress.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
+            : (info) => progress.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
 
             var result = await startApiLoadTest(
                 config.ApiUrl,

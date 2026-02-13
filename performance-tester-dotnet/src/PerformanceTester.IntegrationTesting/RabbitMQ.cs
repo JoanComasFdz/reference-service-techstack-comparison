@@ -12,7 +12,7 @@ namespace PerformanceTester.IntegrationTesting;
 public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDisposable
 {
     private HttpClient? _httpClient;
-    
+
     private bool _disposed;
     /// <summary>
     /// The connection string used to connect to the RabbitMQ instance via AMQP.
@@ -215,10 +215,12 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
     private HttpClient GetHttpClient()
     {
         if (_httpClient != null)
+        {
             return _httpClient;
+        }
 
         _httpClient = new HttpClient();
-        
+
         // Extract credentials from connection string
         var uri = new Uri(ConnectionString);
         var credentials = uri.UserInfo; // Format: "user:pass"
@@ -226,11 +228,11 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
         {
             credentials = "guest:guest"; // Default RabbitMQ credentials
         }
-        
+
         var authToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials));
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Basic", authToken);
-        
+
         return _httpClient;
     }
 
@@ -313,7 +315,7 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
     public static string WithVhost(string baseConnectionString, string vhostName)
     {
         var uri = new Uri(baseConnectionString);
-        
+
         // Build new URI with vhost path
         // The vhost must be URL-encoded in the path
         var encodedVhost = Uri.EscapeDataString(vhostName);
@@ -321,7 +323,7 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
         {
             Path = "/" + encodedVhost
         };
-        
+
         return newUri.Uri.ToString();
     }
 
@@ -333,7 +335,7 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
     {
         var uri = new Uri(ConnectionString);
         var host = uri.Host;
-        
+
         var managementPort = ManagementPort;
         if (!managementPort.HasValue)
         {
@@ -351,7 +353,10 @@ public class RabbitMQ(string ConnectionString, int? ManagementPort = null) : IDi
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _httpClient?.Dispose();
 

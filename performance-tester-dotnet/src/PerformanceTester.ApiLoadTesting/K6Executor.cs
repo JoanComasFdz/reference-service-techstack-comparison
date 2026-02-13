@@ -1,8 +1,8 @@
-using JoanComasFdz.Result;
-using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
+using JoanComasFdz.Result;
+using Microsoft.Extensions.Logging;
 
 namespace PerformanceTester.ApiLoadTesting;
 

@@ -44,7 +44,7 @@ public class IntegrationTestBaseTests(Xunit.Abstractions.ITestOutputHelper outpu
         using var channel = await connection.CreateChannelAsync();
 
         var queueName = "test-queue-verification";
-        await channel.QueueDeclareAsync(queue: queueName, durable: false, exclusive: true,autoDelete: true, arguments: null);
+        await channel.QueueDeclareAsync(queue: queueName, durable: false, exclusive: true, autoDelete: true, arguments: null);
 
         var message = "test-message";
         var body = Encoding.UTF8.GetBytes(message);

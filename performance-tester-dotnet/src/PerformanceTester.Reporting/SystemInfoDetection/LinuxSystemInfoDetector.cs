@@ -77,17 +77,23 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
     {
         const string procVersionPath = "/proc/version";
         if (!File.Exists(procVersionPath))
+        {
             return null;
+        }
 
         try
         {
             var versionInfo = (await File.ReadAllTextAsync(procVersionPath)).ToLowerInvariant();
 
             if (!versionInfo.Contains("microsoft") && !versionInfo.Contains("wsl"))
+            {
                 return null;
+            }
 
             if (versionInfo.Contains("wsl2") || Directory.Exists("/run/WSL"))
+            {
                 return "WSL2";
+            }
 
             return "WSL1";
         }
@@ -105,7 +111,9 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
     {
         const string osReleasePath = "/etc/os-release";
         if (!File.Exists(osReleasePath))
+        {
             return null;
+        }
 
         try
         {
@@ -123,10 +131,14 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
 
             // Prefer PRETTY_NAME (e.g., "Ubuntu 24.04.3 LTS"), fall back to NAME + VERSION_ID
             if (!string.IsNullOrEmpty(prettyName))
+            {
                 return prettyName;
+            }
 
             if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(versionId))
+            {
                 return $"{name} {versionId}";
+            }
 
             return name; // May be null
         }
@@ -161,19 +173,25 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
                 {
                     var parts = line.Split(':', 2);
                     if (parts.Length == 2)
+                    {
                         modelName = parts[1].Trim();
+                    }
                 }
                 else if (line.Contains("cpu MHz") && speedMhz == null)
                 {
                     var parts = line.Split(':', 2);
                     if (parts.Length == 2 && double.TryParse(parts[1].Trim(), out var mhz))
+                    {
                         speedMhz = mhz;
+                    }
                 }
                 else if (line.Contains("physical id"))
                 {
                     var parts = line.Split(':', 2);
                     if (parts.Length == 2)
+                    {
                         physicalIds.Add(parts[1].Trim());
+                    }
                 }
             }
 
@@ -204,7 +222,9 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
         {
             var wslRam = await GetRamInfoWsl2Async(cancellationToken);
             if (wslRam != null)
+            {
                 return wslRam;
+            }
         }
 
         // Native Linux: Parse /proc/meminfo
@@ -326,7 +346,9 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
         {
             var wslDisks = await GetDiskInfoWsl2Async(cancellationToken);
             if (wslDisks.Count > 0)
+            {
                 return wslDisks;
+            }
         }
 
         // Native Linux: Use lsblk command
@@ -363,7 +385,9 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
             {
                 var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length < 3)
+                {
                     continue;
+                }
 
                 var name = parts[0];
                 var sizeBytes = long.TryParse(parts[1], out var bytes) ? bytes : 0;
@@ -372,11 +396,15 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
 
                 // Only include physical disks (type=disk)
                 if (type != "disk")
+                {
                     continue;
+                }
 
                 // Filter: Only disks >= 500GB (matches Python behavior)
                 if (sizeGb < 500.0)
+                {
                     continue;
+                }
 
                 // Format size as human-readable string (matches Python format)
                 var sizeFormatted = FormatDiskSize(sizeGb);
@@ -442,12 +470,16 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
 
                 // Filter: Only disks >= 500GB (matches Python behavior)
                 if (sizeGb < 500.0)
+                {
                     continue;
+                }
 
                 // Skip virtual disks (WSL2 creates these)
                 var friendlyName = d.FriendlyName ?? "";
                 if (friendlyName.Contains("Virtual", StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
+                }
 
                 disks.Add(new DiskInfo
                 {
@@ -494,7 +526,9 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
     private static string? MapMemoryType(string? memoryTypeCode)
     {
         if (memoryTypeCode == null || !int.TryParse(memoryTypeCode, out var code))
+        {
             return null;
+        }
 
         return code switch
         {
@@ -513,13 +547,19 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
     private static string DetermineLinuxDiskType(string deviceName)
     {
         if (deviceName.StartsWith("nvme"))
+        {
             return "NVMe SSD";
+        }
 
         if (deviceName.StartsWith("sd"))
+        {
             return "SSD/HDD"; // Cannot distinguish without additional info
+        }
 
         if (deviceName.StartsWith("hd"))
+        {
             return "HDD";
+        }
 
         return "Unknown";
     }
@@ -532,7 +572,9 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
     {
         // Default if no info available
         if (string.IsNullOrEmpty(mediaType))
+        {
             return "Unknown";
+        }
 
         // Map MediaType to base type
         var baseType = mediaType.ToUpperInvariant() switch
@@ -545,16 +587,23 @@ internal sealed class LinuxSystemInfoDetector : ISystemInfoDetector
 
         // If unknown base type, return as-is
         if (baseType == "Unknown")
+        {
             return baseType;
+        }
 
         // Append bus type for more specific identification
         if (!string.IsNullOrEmpty(busType))
         {
             var upperBusType = busType.ToUpperInvariant();
             if (upperBusType.Contains("NVME"))
+            {
                 return $"{baseType} (NVMe)";
+            }
+
             if (upperBusType.Contains("SATA"))
+            {
                 return $"{baseType} (SATA)";
+            }
         }
 
         return baseType;

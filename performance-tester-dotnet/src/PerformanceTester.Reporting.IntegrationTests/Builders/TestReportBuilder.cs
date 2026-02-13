@@ -16,7 +16,7 @@ public class TestReportBuilder
     private double _apiThroughput = 100.0;
     private double _apiCv = 3.0;
     private DateTime _testDate = new DateTime(2025, 11, 13, 14, 25, 30, DateTimeKind.Utc);
-    
+
     // Optional overrides for advanced customization
     private PhaseTimestamps? _phaseTimestamps;
     private TestResults? _results;

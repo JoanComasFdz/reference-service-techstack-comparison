@@ -602,11 +602,19 @@ public sealed class ComparisonReportGenerator
     private static string AddMedal(string valueStr, double value, double? first, double? second, double? third)
     {
         if (Math.Abs(value - (first ?? double.MaxValue)) < 0.001)
+        {
             return $"{valueStr} 🥇";
+        }
+
         if (Math.Abs(value - (second ?? double.MaxValue)) < 0.001)
+        {
             return $"{valueStr} 🥈";
+        }
+
         if (Math.Abs(value - (third ?? double.MaxValue)) < 0.001)
+        {
             return $"{valueStr} 🥉";
+        }
 
         return valueStr;
     }
@@ -617,11 +625,19 @@ public sealed class ComparisonReportGenerator
     private static string AddMedal(string valueStr, int value, int? first, int? second, int? third)
     {
         if (value == first)
+        {
             return $"{valueStr} 🥇";
+        }
+
         if (value == second)
+        {
             return $"{valueStr} 🥈";
+        }
+
         if (value == third)
+        {
             return $"{valueStr} 🥉";
+        }
 
         return valueStr;
     }
@@ -632,7 +648,9 @@ public sealed class ComparisonReportGenerator
     private static string FormatNumber(double value, int decimals)
     {
         if (double.IsNaN(value) || double.IsInfinity(value))
+        {
             return "N/A";
+        }
 
         return value.ToString($"F{decimals}");
     }
@@ -647,9 +665,14 @@ public sealed class ComparisonReportGenerator
         var secs = (int)(seconds % 60);
 
         if (hours > 0)
+        {
             return $"{hours}h {minutes}m {secs}s";
+        }
+
         if (minutes > 0)
+        {
             return $"{minutes}m {secs}s";
+        }
 
         return $"{secs}s";
     }

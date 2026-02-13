@@ -15,13 +15,17 @@ public sealed partial record ApiDuration
     public static Result<ApiDuration, string> Create(string duration)
     {
         if (string.IsNullOrWhiteSpace(duration))
+        {
             return new Failure(
                 $"Invalid API duration format: '{duration}'. Expected format: <number><unit> (e.g., 30s, 5m, 2h)");
+        }
 
         var match = DurationPattern().Match(duration.Trim().ToLowerInvariant());
         if (!match.Success)
+        {
             return new Failure(
                 $"Invalid API duration format: '{duration}'. Expected format: <number><unit> (e.g., 30s, 5m, 2h)");
+        }
 
         var value = int.Parse(match.Groups[1].Value);
         var unit = match.Groups[2].Value;

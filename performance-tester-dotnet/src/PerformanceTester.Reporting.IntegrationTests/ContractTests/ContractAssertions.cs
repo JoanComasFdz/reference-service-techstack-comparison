@@ -150,7 +150,7 @@ public static class ContractAssertions
                 Assert.True(
                     positions[i].position > positions[i - 1].position,
                     $"Field '{expectedOrder[i]}' should come after '{expectedOrder[i - 1]}' but doesn't. " +
-                    $"'{expectedOrder[i-1]}' at position {positions[i-1].position}, '{expectedOrder[i]}' at position {positions[i].position}");
+                    $"'{expectedOrder[i - 1]}' at position {positions[i - 1].position}, '{expectedOrder[i]}' at position {positions[i].position}");
             }
         }
     }
@@ -221,7 +221,9 @@ public static class ContractAssertions
     private static string GetFieldNames(JsonElement element)
     {
         if (element.ValueKind != JsonValueKind.Object)
+        {
             return "(not an object)";
+        }
 
         var names = new List<string>();
         foreach (var prop in element.EnumerateObject())

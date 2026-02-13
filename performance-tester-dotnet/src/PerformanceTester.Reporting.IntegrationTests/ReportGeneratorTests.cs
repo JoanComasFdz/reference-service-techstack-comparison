@@ -1,9 +1,9 @@
 using System.Text.Json;
-using PerformanceTester.Reporting.ValueObjects;
 using System.Text.RegularExpressions;
 using PerformanceTester.Reporting.ChartGeneration;
 using PerformanceTester.Reporting.IntegrationTests.Builders;
 using PerformanceTester.Reporting.IntegrationTests.Infrastructure;
+using PerformanceTester.Reporting.ValueObjects;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -71,7 +71,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
     {
         // Arrange
         var outputDirectory = System.FileSystem.CreateTempDirectory("report-test");
-        
+
         // Create test report with specific decimal precision values
         var phaseTimestamps = new PhaseTimestamps
         {
@@ -489,7 +489,7 @@ public sealed class ReportGeneratorTests : IntegrationTest
 
             // Assert - Verify chart has reasonable size (not empty, not corrupted)
             var fileInfo = new FileInfo(chartPath);
-            Assert.True(fileInfo.Length > 10_000, 
+            Assert.True(fileInfo.Length > 10_000,
                 $"Chart file should be > 10KB (actual: {fileInfo.Length} bytes)");
             Assert.True(fileInfo.Length < 5_000_000,
                 $"Chart file should be < 5MB (actual: {fileInfo.Length} bytes)");
@@ -503,11 +503,11 @@ public sealed class ReportGeneratorTests : IntegrationTest
             var resourceJson = await File.ReadAllTextAsync(resourceMetricsPath);
             var resourceDoc = JsonDocument.Parse(resourceJson);
             var samples = resourceDoc.RootElement.GetProperty("samples");
-            
+
             if (samples.GetArrayLength() > 0)
             {
                 var firstSample = samples[0];
-                Assert.True(firstSample.TryGetProperty("memory_rss_mb", out _), 
+                Assert.True(firstSample.TryGetProperty("memory_rss_mb", out _),
                     "Process metrics should have memory_rss_mb");
                 Assert.True(firstSample.TryGetProperty("threads", out _),
                     "Process metrics should have threads");

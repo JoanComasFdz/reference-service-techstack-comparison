@@ -33,9 +33,15 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         string rabbitMqConnectionString)
     {
-        if (services == null) throw new ArgumentNullException(nameof(services));
+        if (services == null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
+
         if (string.IsNullOrWhiteSpace(rabbitMqConnectionString))
+        {
             throw new ArgumentException("RabbitMQ connection string cannot be null or empty", nameof(rabbitMqConnectionString));
+        }
 
         // Register internal dependencies
         services.AddSingleton<RabbitMqPublisher>(sp => new RabbitMqPublisher(

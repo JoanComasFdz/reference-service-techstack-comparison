@@ -64,7 +64,11 @@ public sealed class EventConsuming : IDisposable
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        if (_host == null) throw new InvalidOperationException("Host not initialized");
+        if (_host == null)
+        {
+            throw new InvalidOperationException("Host not initialized");
+        }
+
         await _host.StartAsync(cancellationToken);
     }
 
@@ -74,7 +78,11 @@ public sealed class EventConsuming : IDisposable
     /// </summary>
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
-        if (_host == null) return;
+        if (_host == null)
+        {
+            return;
+        }
+
         await _host.StopAsync(cancellationToken);
     }
 

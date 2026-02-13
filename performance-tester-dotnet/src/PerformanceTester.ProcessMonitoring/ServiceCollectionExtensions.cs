@@ -37,7 +37,10 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         TimeSpan? samplingInterval = null)
     {
-        if (services == null) throw new ArgumentNullException(nameof(services));
+        if (services == null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
 
         var interval = samplingInterval ?? TimeSpan.FromMilliseconds(500);
 

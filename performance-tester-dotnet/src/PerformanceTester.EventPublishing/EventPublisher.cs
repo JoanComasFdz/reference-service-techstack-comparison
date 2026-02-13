@@ -1,6 +1,6 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
-using System.Diagnostics;
 
 namespace PerformanceTester.EventPublishing;
 

@@ -58,7 +58,10 @@ internal static class SetupPhase
         logger.LogInformation("Discovering service process...");
         var pidResult = await findServiceProcessId();
         if (pidResult.IsFailure)
+        {
             return new Failure(pidResult.FailureError);
+        }
+
         var serviceProcessId = pidResult.SuccessValue;
         logger.LogInformation("Service discovered: PID {ProcessId}", serviceProcessId);
 
@@ -96,7 +99,10 @@ internal static class SetupPhase
         logger.LogInformation("Clearing RabbitMQ queues...");
         var queuesResult = await clearAllQueues();
         if (queuesResult.IsFailure)
+        {
             return new Failure($"Failed to clear RabbitMQ queues: {queuesResult.FailureError}");
+        }
+
         logger.LogInformation("RabbitMQ queues cleared");
 
         // Step 6: Connect event publisher

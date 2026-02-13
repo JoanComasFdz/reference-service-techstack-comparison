@@ -62,7 +62,9 @@ internal static class PowerShellHelper
         foreach (var candidate in pathCandidates)
         {
             if (TryValidatePowerShell(candidate))
+            {
                 return candidate;
+            }
         }
 
         // Explicit paths - validate by file existence first (faster), then execution
@@ -76,7 +78,9 @@ internal static class PowerShellHelper
         foreach (var path in explicitPaths)
         {
             if (File.Exists(path) && TryValidatePowerShell(path))
+            {
                 return path;
+            }
         }
 
         // No PowerShell available - return null (caller should check IsAvailable first)
@@ -102,7 +106,9 @@ internal static class PowerShellHelper
             });
 
             if (process == null)
+            {
                 return false;
+            }
 
             var completed = process.WaitForExit(5000);
             if (!completed)

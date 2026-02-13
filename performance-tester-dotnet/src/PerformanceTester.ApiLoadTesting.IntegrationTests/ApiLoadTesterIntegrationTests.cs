@@ -128,7 +128,9 @@ public sealed class ApiLoadTesterIntegrationTests(ITestOutputHelper output) : In
 
             // Skip validation if no time passed or no requests in interval
             if (timeDiff <= 0 || countDiff <= 0)
+            {
                 continue;
+            }
 
             var expectedRps = countDiff / timeDiff;
 

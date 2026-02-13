@@ -168,7 +168,9 @@ public static class ApiLoadTestingAssertions
             $"but got {result.RequestsPerSecond}");
 
         if (result.ThroughputSamples.Count == 0)
+        {
             return assertingThat;
+        }
 
         var avgSampleRps = result.ThroughputSamples.Average(s => s.RequestsPerSecond);
 

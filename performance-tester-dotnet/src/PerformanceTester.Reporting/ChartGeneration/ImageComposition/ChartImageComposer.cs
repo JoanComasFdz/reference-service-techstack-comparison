@@ -24,7 +24,9 @@ internal static class ChartImageComposer
     public static void CombineAndSave(IReadOnlyList<SKBitmap> bitmaps, string outputPath)
     {
         if (bitmaps.Count == 0)
+        {
             throw new ArgumentException("No bitmaps to combine", nameof(bitmaps));
+        }
 
         var totalHeight = bitmaps.Sum(b => b.Height);
         var width = bitmaps[0].Width;

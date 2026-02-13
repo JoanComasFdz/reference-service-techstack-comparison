@@ -28,7 +28,9 @@ internal static class WindowsCpuQuery
             Command, TimeoutSeconds, cancellationToken, logger);
 
         if (result is null)
+        {
             return null;
+        }
 
         if (!result.Success)
         {
@@ -49,7 +51,9 @@ internal static class WindowsCpuQuery
         {
             var trimmed = line.Trim();
             if (!string.IsNullOrEmpty(trimmed) && double.TryParse(trimmed, out var cpuPercent))
+            {
                 cpuValues.Add(cpuPercent);
+            }
         }
 
         if (cpuValues.Count == 0)

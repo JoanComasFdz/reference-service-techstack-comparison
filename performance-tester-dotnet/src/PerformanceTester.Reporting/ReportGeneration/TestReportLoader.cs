@@ -47,7 +47,9 @@ public static class TestReportLoader
             .ToList();
 
         if (reportFiles.Count == 0)
+        {
             return [];
+        }
 
         var testReports = new List<TestReport>();
         foreach (var file in reportFiles)

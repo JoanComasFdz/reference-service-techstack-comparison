@@ -22,12 +22,16 @@ internal static class ContainerDetector
     {
         // Method 1: /.dockerenv file (Docker-specific)
         if (File.Exists("/.dockerenv"))
+        {
             return true;
+        }
 
         // Method 2: DEVCONTAINER environment variable (VS Code devcontainers)
         // This is set in devcontainer.json containerEnv
         if (Environment.GetEnvironmentVariable("DEVCONTAINER")?.Equals("true", StringComparison.OrdinalIgnoreCase) == true)
+        {
             return true;
+        }
 
         // Method 3: Check /proc/1/cgroup for container runtime markers
         // This works for Docker, containerd, Kubernetes, and LXC

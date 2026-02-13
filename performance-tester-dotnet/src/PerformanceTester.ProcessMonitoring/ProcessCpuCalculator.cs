@@ -78,8 +78,15 @@ internal sealed class ProcessCpuCalculator
 
         // Clamp to reasonable range (0 to 100 * cores)
         var maxPercent = Environment.ProcessorCount * 100.0;
-        if (cpuPercent < 0) cpuPercent = 0;
-        if (cpuPercent > maxPercent) cpuPercent = maxPercent;
+        if (cpuPercent < 0)
+        {
+            cpuPercent = 0;
+        }
+
+        if (cpuPercent > maxPercent)
+        {
+            cpuPercent = maxPercent;
+        }
 
         return cpuPercent;
     }

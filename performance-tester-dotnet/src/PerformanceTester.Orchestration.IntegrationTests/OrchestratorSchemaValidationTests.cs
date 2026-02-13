@@ -1,6 +1,6 @@
+using PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
-using PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 
 namespace PerformanceTester.Orchestration.IntegrationTests;
 
@@ -339,7 +339,7 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
 
                 Assert.True(interval > 0,
                     $"Interval {i} should be positive but was {interval:F3}s " +
-                    $"(sample[{i-1}]={apiSamples[i-1].ElapsedSeconds:F3}s, sample[{i}]={apiSamples[i].ElapsedSeconds:F3}s)");
+                    $"(sample[{i - 1}]={apiSamples[i - 1].ElapsedSeconds:F3}s, sample[{i}]={apiSamples[i].ElapsedSeconds:F3}s)");
             }
 
             Output.WriteLine($"Validated {intervals.Count} intervals - all positive");

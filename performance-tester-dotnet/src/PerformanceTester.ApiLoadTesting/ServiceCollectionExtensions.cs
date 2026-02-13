@@ -21,7 +21,10 @@ public static class ServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddApiLoadTesting(this IServiceCollection services)
     {
-        if (services == null) throw new ArgumentNullException(nameof(services));
+        if (services == null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
 
         // Register ApiLoadTestService as IApiLoadTester (transient)
         services.AddTransient<IApiLoadTester, ApiLoadTestService>();

@@ -85,7 +85,9 @@ internal static class WarmupPhase
 
             var queuesResult = await clearAllQueues();
             if (queuesResult.IsFailure)
+            {
                 return new Failure($"Failed to clear RabbitMQ queues during warmup: {queuesResult.FailureError}");
+            }
 
             logger.LogInformation("Warmup phase complete - starting measured test");
 

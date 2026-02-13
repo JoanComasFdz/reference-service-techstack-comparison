@@ -681,6 +681,87 @@ var task = trackEvents(count, timeout, progress: null);
 
 ---
 
+## Formatting
+
+These rules are enforced by `.editorconfig` where possible and by convention otherwise. Run `dotnet format` to auto-fix violations.
+
+### 25. Always Use Braces in Control Flow Statements
+
+Every `if`, `else`, `for`, `foreach`, `while`, `do`, and `using` must use braces, even when the body is a single line. This prevents bugs when lines are added later and makes the code structure unambiguous.
+
+```csharp
+// ✅ Good - braces always present
+if (result.IsFailure)
+{
+    return Fail(TestPhase.Setup, result.FailureError);
+}
+
+foreach (var item in items)
+{
+    Process(item);
+}
+
+// ❌ Avoid - braceless single-line body
+if (result.IsFailure)
+    return Fail(TestPhase.Setup, result.FailureError);
+
+foreach (var item in items)
+    Process(item);
+```
+
+**Enforced by:** `.editorconfig` rule `csharp_prefer_braces = true:warning`
+
+**No exceptions.** Even guard clauses and early returns use braces. The visual consistency outweighs the marginal brevity.
+
+### 26. Blank Line After Closing Brace
+
+Every closing brace `}` must be followed by a blank line, **except** when the next line is:
+- Another closing brace `}`
+- An `else`, `catch`, or `finally` keyword (continuation of the same statement)
+
+This gives each block visual breathing room and makes the code scannable.
+
+```csharp
+// ✅ Good - blank line after each block
+if (setupResult.IsFailure)
+{
+    return Fail(TestPhase.Setup, setupResult.FailureError);
+}
+
+var serviceProcessId = setupResult.SuccessValue;
+
+try
+{
+    var warmupResult = await WarmupPhase.ExecuteAsync(...);
+
+    if (warmupResult.IsFailure)
+    {
+        return Fail(TestPhase.Warmup, warmupResult.FailureError);
+    }
+
+    var warmupEndTime = DateTime.UtcNow;
+}
+catch (Exception ex)
+{
+    logger.LogError(ex, "Unexpected error");
+}
+finally
+{
+    await Cleanup();
+}
+
+// ❌ Avoid - no blank line after closing brace
+if (setupResult.IsFailure)
+{
+    return Fail(TestPhase.Setup, setupResult.FailureError);
+}
+var serviceProcessId = setupResult.SuccessValue;
+```
+
+**Not enforced by `.editorconfig`** (no built-in rule). Enforced by convention and code review. Consider adding `StyleCop.Analyzers` (rule `SA1513`) if build-time enforcement is desired.
+
+---
+
 ## Summary
 
 **One-liner:** *Make dependencies explicit, keep functions small and pure, let each file tell its own complete story.*
@@ -711,3 +792,5 @@ var task = trackEvents(count, timeout, progress: null);
 | Value object families | Do multiple VOs share the same validation? Base record + sealed tag types |
 | Higher-order helpers | Is the same structure repeated with different operations plugged in? |
 | Consumer owns defaults | Am I encoding what a consumer needs? Let the consumer decide |
+| Always use braces | Does every `if`/`else`/`for`/`while`/`using` have braces? |
+| Blank line after `}` | Is there a blank line after every closing brace (unless followed by another `}`, `else`, `catch`, `finally`)? |

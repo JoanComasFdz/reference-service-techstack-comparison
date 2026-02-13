@@ -116,7 +116,10 @@ internal static class ProgressLineRenderer
         string? unit,
         string? message)
     {
-        if (total <= 0) return;
+        if (total <= 0)
+        {
+            return;
+        }
 
         // Progress bar using toolbox
         var percent = ProgressToolbox.CalculatePercent(current, total);
@@ -138,7 +141,10 @@ internal static class ProgressLineRenderer
         string? unit,
         string? message)
     {
-        if (total <= 0) return;
+        if (total <= 0)
+        {
+            return;
+        }
 
         // Full progress bar
         sb.Append(ProgressToolbox.RenderProgressBar(100));

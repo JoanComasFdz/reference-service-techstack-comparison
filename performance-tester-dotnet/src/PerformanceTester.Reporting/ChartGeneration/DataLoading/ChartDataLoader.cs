@@ -24,14 +24,18 @@ internal static class ChartDataLoader
     public static ThroughputReport? LoadEventsThroughputReport(string filePath, ILogger? logger = null)
     {
         if (!File.Exists(filePath))
+        {
             return null;
+        }
 
         try
         {
             var json = File.ReadAllText(filePath);
             var report = JsonSerializer.Deserialize<EventsThroughputReportJson>(json, JsonOptions);
             if (report == null)
+            {
                 return null;
+            }
 
             return new ThroughputReport
             {
@@ -64,14 +68,18 @@ internal static class ChartDataLoader
     public static ThroughputReport? LoadApiThroughputReport(string filePath, ILogger? logger = null)
     {
         if (!File.Exists(filePath))
+        {
             return null;
+        }
 
         try
         {
             var json = File.ReadAllText(filePath);
             var report = JsonSerializer.Deserialize<ApiThroughputReportJson>(json, JsonOptions);
             if (report == null)
+            {
                 return null;
+            }
 
             return new ThroughputReport
             {
@@ -111,14 +119,18 @@ internal static class ChartDataLoader
     public static ResourceMetricsReport? LoadContainerResourceReport(string filePath, ILogger? logger = null)
     {
         if (!File.Exists(filePath))
+        {
             return null;
+        }
 
         try
         {
             var json = File.ReadAllText(filePath);
             var report = JsonSerializer.Deserialize<ContainerMetricsReportJson>(json, JsonOptions);
             if (report == null)
+            {
                 return null;
+            }
 
             var cpuValues = report.Samples.Select(s => s.CpuPercent).ToList();
             var memoryValues = report.Samples.Select(s => s.MemoryMb).ToList();
@@ -165,14 +177,18 @@ internal static class ChartDataLoader
     public static ResourceMetricsReport? LoadSystemResourceReport(string filePath, ILogger? logger = null)
     {
         if (!File.Exists(filePath))
+        {
             return null;
+        }
 
         try
         {
             var json = File.ReadAllText(filePath);
             var report = JsonSerializer.Deserialize<SystemMetricsReportJson>(json, JsonOptions);
             if (report == null)
+            {
                 return null;
+            }
 
             var cpuValues = report.Samples.Select(s => s.CpuPercent).ToList();
             var memoryValues = report.Samples.Select(s => s.MemoryUsedMb).ToList();
@@ -220,14 +236,18 @@ internal static class ChartDataLoader
     public static ResourceMetricsReport? LoadProcessResourceReport(string filePath, ILogger? logger = null)
     {
         if (!File.Exists(filePath))
+        {
             return null;
+        }
 
         try
         {
             var json = File.ReadAllText(filePath);
             var report = JsonSerializer.Deserialize<ProcessResourceReportJson>(json, JsonOptions);
             if (report == null)
+            {
                 return null;
+            }
 
             var cpuValues = report.Samples.Select(s => s.CpuPercent).ToList();
             var memoryValues = report.Samples.Select(s => s.MemoryRssMb).ToList();
@@ -271,7 +291,9 @@ internal static class ChartDataLoader
     private static int CalculateMode(List<double> values)
     {
         if (values.Count == 0)
+        {
             return 0;
+        }
 
         return values
             .Select(v => (int)Math.Round(v))

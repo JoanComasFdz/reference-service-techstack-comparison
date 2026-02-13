@@ -1,8 +1,8 @@
 using System.Text.Json;
 using PerformanceTester.Reporting.ChartGeneration;
-using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.Reporting.IntegrationTests.Builders;
 using PerformanceTester.Reporting.IntegrationTests.Infrastructure;
+using PerformanceTester.Reporting.ValueObjects;
 using SkiaSharp;
 using Xunit;
 using Xunit.Abstractions;

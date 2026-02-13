@@ -544,7 +544,14 @@ builder.Services.AddInfrastructure(
 
 ## Code Quality Standards
 
-**See also:** [CODING_GUIDELINES.md](CODING_GUIDELINES.md) for functional architecture principles (static classes, explicit parameters, toolbox pattern, vertical slice ownership).
+**See also:** [CODING_GUIDELINES.md](CODING_GUIDELINES.md) for functional architecture principles (static classes, explicit parameters, toolbox pattern, vertical slice ownership, formatting rules).
+
+### Formatting Rules (enforced by `.editorconfig`)
+
+1. **Always use braces** in `if`/`else`/`for`/`foreach`/`while`/`using` — even for single-line bodies. Enforced by `csharp_prefer_braces = true:warning`.
+2. **Blank line after `}`** — every closing brace must be followed by a blank line, except before another `}`, `else`, `catch`, or `finally`. Enforced by convention (see CODING_GUIDELINES.md #25-#26).
+
+Run `dotnet format` to auto-fix `.editorconfig`-enforced violations.
 
 ### Zero Warnings Policy
 

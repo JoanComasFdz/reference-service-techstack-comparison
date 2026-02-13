@@ -20,7 +20,10 @@ internal static class StatisticsCalculator
     public static double CalculateAverage(IEnumerable<double> values)
     {
         var valuesList = values.ToList();
-        if (valuesList.Count == 0) return 0.0;
+        if (valuesList.Count == 0)
+        {
+            return 0.0;
+        }
 
         return valuesList.Average();
     }
@@ -36,7 +39,10 @@ internal static class StatisticsCalculator
     public static double CalculateStandardDeviation(IEnumerable<double> values)
     {
         var valuesList = values.ToList();
-        if (valuesList.Count < 2) return 0.0;
+        if (valuesList.Count < 2)
+        {
+            return 0.0;
+        }
 
         return Statistics.StandardDeviation(valuesList);
     }
@@ -56,10 +62,16 @@ internal static class StatisticsCalculator
     public static double CalculateCoefficientOfVariation(IEnumerable<double> values)
     {
         var valuesList = values.ToList();
-        if (valuesList.Count < 2) return 0.0;
+        if (valuesList.Count < 2)
+        {
+            return 0.0;
+        }
 
         var mean = valuesList.Average();
-        if (mean == 0.0) return 0.0;
+        if (mean == 0.0)
+        {
+            return 0.0;
+        }
 
         var stdDev = Statistics.StandardDeviation(valuesList);
         return (stdDev / mean) * 100.0;
@@ -79,7 +91,10 @@ internal static class StatisticsCalculator
     public static int CalculateMode(IEnumerable<double> values)
     {
         var valuesList = values.ToList();
-        if (valuesList.Count == 0) return 0;
+        if (valuesList.Count == 0)
+        {
+            return 0;
+        }
 
         // Round to nearest integer and count frequency
         var frequencies = valuesList
@@ -107,7 +122,10 @@ internal static class StatisticsCalculator
     public static double CalculateMinExcludingZeros(IEnumerable<double> values)
     {
         var nonZeroValues = values.Where(v => v > 0).ToList();
-        if (nonZeroValues.Count == 0) return 0.0;
+        if (nonZeroValues.Count == 0)
+        {
+            return 0.0;
+        }
 
         return nonZeroValues.Min();
     }
@@ -119,7 +137,10 @@ internal static class StatisticsCalculator
     public static double CalculateMax(IEnumerable<double> values)
     {
         var valuesList = values.ToList();
-        if (valuesList.Count == 0) return 0.0;
+        if (valuesList.Count == 0)
+        {
+            return 0.0;
+        }
 
         return valuesList.Max();
     }
@@ -137,7 +158,10 @@ internal static class StatisticsCalculator
     public static double CalculatePercentile(IEnumerable<double> values, double percentile)
     {
         var valuesList = values.ToList();
-        if (valuesList.Count == 0) return 0.0;
+        if (valuesList.Count == 0)
+        {
+            return 0.0;
+        }
 
         return Statistics.Percentile(valuesList, (int)percentile);
     }
@@ -154,7 +178,11 @@ internal static class StatisticsCalculator
     /// </remarks>
     public static double CalculateAverageResponseTime(double averageRate)
     {
-        if (averageRate == 0.0) return 0.0;
+        if (averageRate == 0.0)
+        {
+            return 0.0;
+        }
+
         return 1000.0 / averageRate;
     }
 

@@ -157,7 +157,9 @@ public static class ChartGenerator
     private static void SyncXAxisLimits(List<Plot> plots)
     {
         if (plots.Count == 0)
+        {
             return;
+        }
 
         // Force auto-scaling on all plots
         foreach (var plot in plots)

@@ -26,7 +26,7 @@ public interface IApiLoadTester
         TimeSpan duration,
         int virtualUsers,
         ReportApiLoadProgress reportApiLoadProgress,
-        int maxConsecutiveFailures = 3,        
+        int maxConsecutiveFailures = 3,
         string? scriptDirectory = null,
         CancellationToken cancellationToken = default);
 }

@@ -33,7 +33,9 @@ internal static class WindowsMemoryQuery
             Command, TimeoutSeconds, cancellationToken, logger);
 
         if (result is null)
+        {
             return null;
+        }
 
         if (!result.Success)
         {

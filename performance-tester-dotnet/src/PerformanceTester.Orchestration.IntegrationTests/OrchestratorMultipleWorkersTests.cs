@@ -1,7 +1,7 @@
 using JoanComasFdz.AssertingThat;
+using PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
-using PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 
 namespace PerformanceTester.Orchestration.IntegrationTests;
 

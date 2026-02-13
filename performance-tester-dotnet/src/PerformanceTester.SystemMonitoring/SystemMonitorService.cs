@@ -43,7 +43,9 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
         ILogger<SystemMonitorService> logger)
     {
         if (samplingInterval <= TimeSpan.Zero)
+        {
             throw new ArgumentOutOfRangeException(nameof(samplingInterval), samplingInterval, "Sampling interval must be positive");
+        }
 
         _samplingInterval = samplingInterval;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -297,10 +299,14 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
             // Native Linux: use /proc/stat for CPU and /proc/meminfo for memory
             // Fail clearly if readers are not initialized or fail - no fallbacks
             if (_cpuReader is null)
+            {
                 throw new InvalidOperationException("CPU reader not initialized for Linux platform. This indicates a bug in SystemMonitorService initialization.");
+            }
 
             if (_memoryReader is null)
+            {
                 throw new InvalidOperationException("Memory reader not initialized for Linux platform. This indicates a bug in SystemMonitorService initialization.");
+            }
 
             try
             {

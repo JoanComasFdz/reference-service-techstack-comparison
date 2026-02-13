@@ -1,8 +1,8 @@
 using JoanComasFdz.AssertingThat;
+using PerformanceTester.Orchestration;  // For TestPhase, PhaseState
+using PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
-using PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
-using PerformanceTester.Orchestration;  // For TestPhase, PhaseState
 
 namespace PerformanceTester.Orchestration.IntegrationTests;
 

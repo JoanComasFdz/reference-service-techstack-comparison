@@ -1,8 +1,8 @@
+using System.Net;
 using CloudNative.CloudEvents;
 using CloudNative.CloudEvents.SystemTextJson;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using System.Net;
 using Xunit.Abstractions;
 
 namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
@@ -288,7 +288,7 @@ public sealed class ConfigurableReferenceService(
             const int maxRetries = 5;
             const int retryDelayMs = 100;
             bool started = false;
-            
+
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
@@ -306,18 +306,18 @@ public sealed class ConfigurableReferenceService(
                     // Dispose failed listener before retrying
                     _httpListener?.Close();
                     _httpListener = null;
-                    
+
                     if (attempt == maxRetries)
                     {
                         _output?.WriteLine($"❌ Failed to start HTTP listener on port {listenPort.Value} after {maxRetries} attempts");
                         throw;
                     }
-                    
+
                     _output?.WriteLine($"⚠️ Port {listenPort.Value} in use (attempt {attempt}/{maxRetries}), retrying in {retryDelayMs * attempt}ms...");
                     await Task.Delay(retryDelayMs * attempt, cancellationToken); // Exponential backoff
                 }
             }
-            
+
             if (started)
             {
                 _output?.WriteLine($"✓ HTTP listener started on port {listenPort.Value} (discoverable by ServiceDiscovery)");

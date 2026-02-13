@@ -18,7 +18,10 @@ internal sealed class MetricsAggregator
     /// </summary>
     public void AccumulateK6Metric(K6Metric metric)
     {
-        if (metric.Data == null) return;
+        if (metric.Data == null)
+        {
+            return;
+        }
 
         switch (metric.Metric)
         {
@@ -108,7 +111,10 @@ internal sealed class MetricsAggregator
 
     private static double CalculatePercentile(List<double> values, double percentile)
     {
-        if (values.Count == 0) return 0;
+        if (values.Count == 0)
+        {
+            return 0;
+        }
 
         var sorted = values.OrderBy(v => v).ToList();
         var index = (int)Math.Ceiling(sorted.Count * percentile) - 1;

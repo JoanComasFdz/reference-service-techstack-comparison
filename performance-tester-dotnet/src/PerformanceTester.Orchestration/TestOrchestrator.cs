@@ -75,25 +75,28 @@ public class TestOrchestrator(
             return new TestRunFailure(phase, message);
         }
 
-        // Phase 0: Setup (before try — nothing to clean up yet)
-        progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
-        var setupResult = await SetupPhase.ExecuteAsync(
-            testRunId,
-            findServiceProcessId: () => serviceDiscovery.FindServiceProcessIdAsync(configuration.ServicePort.Value, TimeSpan.FromSeconds(30), cancellationToken),
-            isMonitoringStarted: () => hostLifetime.ApplicationStarted.IsCancellationRequested,
-            startMonitoring: () => host.StartAsync(cancellationToken),
-            warmupDockerApi: () => forAllDockerMonitors(m => m.WarmupAsync(cancellationToken)),
-            clearDatabase: clearDatabase,
-            clearAllQueues: clearAllQueues,
-            connectEventPublisher: () => eventPublisher.ConnectAsync(cancellationToken), logger);
-
-        if (setupResult.IsFailure)
-            return Fail(TestPhase.Setup, setupResult.FailureError);
-        var serviceProcessId = setupResult.SuccessValue;
-        progress?.Report(PhaseInfo.Completed(TestPhase.Setup, $"Setup complete, service PID: {serviceProcessId}"));
-
         try
         {
+            // Phase 0: Setup (before try — nothing to clean up yet)
+            progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
+            var setupResult = await SetupPhase.ExecuteAsync(
+                testRunId,
+                findServiceProcessId: () => serviceDiscovery.FindServiceProcessIdAsync(configuration.ServicePort.Value, TimeSpan.FromSeconds(30), cancellationToken),
+                isMonitoringStarted: () => hostLifetime.ApplicationStarted.IsCancellationRequested,
+                startMonitoring: () => host.StartAsync(cancellationToken),
+                warmupDockerApi: () => forAllDockerMonitors(m => m.WarmupAsync(cancellationToken)),
+                clearDatabase: clearDatabase,
+                clearAllQueues: clearAllQueues,
+                connectEventPublisher: () => eventPublisher.ConnectAsync(cancellationToken), logger);
+
+            if (setupResult.IsFailure)
+            {
+                return Fail(TestPhase.Setup, setupResult.FailureError);
+            }
+
+            var serviceProcessId = setupResult.SuccessValue;
+            progress?.Report(PhaseInfo.Completed(TestPhase.Setup, $"Setup complete, service PID: {serviceProcessId}"));
+
             // Phase 0.5: Warmup (failures abort the test)
             progress?.Report(PhaseInfo.Starting(TestPhase.Warmup, $"Starting warmup with {configuration.WarmupEventCount} events"));
             var warmupStartTime = DateTime.UtcNow;
@@ -106,7 +109,10 @@ public class TestOrchestrator(
                 clearAllQueues: clearAllQueues,
                 logger);
             if (warmupResult.IsFailure)
+            {
                 return Fail(TestPhase.Warmup, warmupResult.FailureError);
+            }
+
             var warmupEndTime = DateTime.UtcNow;
             progress?.Report(PhaseInfo.Completed(TestPhase.Warmup, "Warmup complete"));
 
@@ -124,7 +130,10 @@ public class TestOrchestrator(
                 publishEvents: publishEvents,
                 progress, logger);
             if (eventTestResult.IsFailure)
+            {
                 return Fail(TestPhase.EventTest, eventTestResult.FailureError);
+            }
+
             var eventTestOutput = eventTestResult.SuccessValue;
             var publishMetrics = eventTestOutput.PublishMetrics;
             var eventTestStartTime = eventTestOutput.StartTime;
@@ -139,7 +148,10 @@ public class TestOrchestrator(
                 progress,
                 logger);
             if (apiTestResult.IsFailure)
+            {
                 return Fail(TestPhase.ApiTest, apiTestResult.FailureError);
+            }
+
             var apiTestOutput = apiTestResult.SuccessValue;
             var apiResult = apiTestOutput.ApiLoadTestResult;
             var apiTestStartTime = apiTestOutput.StartTime;
@@ -199,7 +211,10 @@ public class TestOrchestrator(
                 generateChart: (folder, report, log) => ChartGenerator.GenerateChartAsync(folder, report, log, cancellationToken),
                 logger);
             if (reportingResult.IsFailure)
+            {
                 return Fail(TestPhase.Reporting, reportingResult.FailureError);
+            }
+
             var testReport = reportingResult.SuccessValue;
             progress?.Report(PhaseInfo.Completed(TestPhase.Reporting, "Report generation complete"));
 

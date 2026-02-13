@@ -14,10 +14,16 @@ internal static partial class ProgressMessageParser
     /// </summary>
     public static (int Current, int Total)? TryParseEventProgress(string? message)
     {
-        if (string.IsNullOrEmpty(message)) return null;
+        if (string.IsNullOrEmpty(message))
+        {
+            return null;
+        }
 
         var match = EventProgressRegex().Match(message);
-        if (!match.Success) return null;
+        if (!match.Success)
+        {
+            return null;
+        }
 
         return (
             Current: int.Parse(match.Groups[1].Value),
@@ -30,10 +36,16 @@ internal static partial class ProgressMessageParser
     /// </summary>
     public static (double Elapsed, double Total, int Requests)? TryParseApiProgress(string? message)
     {
-        if (string.IsNullOrEmpty(message)) return null;
+        if (string.IsNullOrEmpty(message))
+        {
+            return null;
+        }
 
         var match = ApiProgressRegex().Match(message);
-        if (!match.Success) return null;
+        if (!match.Success)
+        {
+            return null;
+        }
 
         return (
             Elapsed: double.Parse(match.Groups[1].Value),
