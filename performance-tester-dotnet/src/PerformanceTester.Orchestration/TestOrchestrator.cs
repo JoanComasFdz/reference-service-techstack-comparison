@@ -2,7 +2,6 @@ using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
-using PerformanceTester.Orchestration.ValueObjects;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
 using Serilog.Context;
