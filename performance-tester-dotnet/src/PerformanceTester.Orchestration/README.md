@@ -17,14 +17,29 @@ The Orchestration slice coordinates all phases of performance testing:
 
 ## API
 
-### ITestOrchestrator
+### TestOrchestrator (Static)
 
 ```csharp
-public interface ITestOrchestrator
+internal static class TestOrchestrator
 {
-    Task<TestReport> RunTestAsync(
+    public static Task<Result<TestReport, TestRunFailure>> RunTestAsync(
+        OrchestratorDeps deps,
         TestConfiguration configuration,
-        CancellationToken cancellationToken = default);
+        IProgress<PhaseInfo>? progress,
+        ILogger logger);
+}
+```
+
+### TestOrchestratorBuilder (Static Factory)
+
+```csharp
+internal static class TestOrchestratorBuilder
+{
+    public static OrchestratorDeps Build(
+        IServiceProvider services,
+        TestConfiguration config,
+        ILogger logger,
+        CancellationToken ct);
 }
 ```
 
@@ -129,7 +144,9 @@ builder.Services.AddOrchestration(
 var host = builder.Build();
 
 // Note: Do NOT call host.StartAsync() - orchestrator manages IHost lifecycle
-var orchestrator = host.Services.GetRequiredService<ITestOrchestrator>();
+// Use TestOrchestratorBuilder.Build() + TestOrchestrator.RunTestAsync()
+var deps = TestOrchestratorBuilder.Build(host.Services, config, logger, ct);
+var result = await TestOrchestrator.RunTestAsync(deps, config, progress, logger);
 ```
 
 ### Registered Services
@@ -153,10 +170,7 @@ var orchestrator = host.Services.GetRequiredService<ITestOrchestrator>();
 - `IReportGenerator` - JSON report generation
 - `IChartGenerator` - PNG chart generation
 
-**Phase 4: Orchestration**
-- `ITestOrchestrator` - Main workflow coordinator
-
-**Note:** `IProcessMonitor` is NOT registered by `AddOrchestration()` because it requires a process ID that's only discovered at runtime. The orchestrator must handle process monitoring registration separately after service discovery.
+**Note:** `IProcessMonitor` is NOT registered by `AddOrchestration()` because it requires a process ID that's only discovered at runtime. The `TestOrchestratorBuilder` handles process monitoring registration separately after service discovery. The orchestrator itself (`TestOrchestrator`) is a static class — not registered in DI — and receives pre-composed delegates via `OrchestratorDeps`.
 
 ## Usage Example
 
@@ -184,10 +198,12 @@ var config = new TestConfiguration(
     ResultsFolder: "./test-results");
 
 // Run test
-var orchestrator = host.Services.GetRequiredService<ITestOrchestrator>();
-var report = await orchestrator.RunTestAsync(config, cancellationToken);
+var deps = TestOrchestratorBuilder.Build(host.Services, config, logger, cancellationToken);
+var result = await TestOrchestrator.RunTestAsync(deps, config, progress: null, logger);
 
-Console.WriteLine($"Test complete: {report.Results.Phase2Consume.ThroughputEventsPerSec:F2} events/s");
+result.Match(
+    success: s => Console.WriteLine($"Test complete: {s.Value.Results.Phase2Consume.ThroughputEventsPerSec:F2} events/s"),
+    failure: f => Console.WriteLine($"Test failed in {f.Error.Phase}: {f.Error.Message}"));
 ```
 
 ## Design Decisions

@@ -258,8 +258,8 @@ var metrics = await publisher.PublishEventsAsync(count: 1000);
 ### ✅ Phase 4: Orchestration (COMPLETE)
 
 **Deliverables:**
-- `ITestOrchestrator` - Complete workflow coordination
-- `TestOrchestrator` - 7-phase test execution engine
+- `TestOrchestrator` - Static 7-phase test execution engine (internal)
+- `TestOrchestratorBuilder` - Static factory composing phase-level delegates (internal)
 - `TestConfiguration` - Test parameters record
 - `TestResult` - Raw test data aggregation
 - Concurrent publish/consume (not sequential)

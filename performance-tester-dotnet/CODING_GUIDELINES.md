@@ -762,6 +762,69 @@ var serviceProcessId = setupResult.SuccessValue;
 
 ---
 
+## 27. Minimize Interface Reach with Dependency Builders
+
+Classes should depend on **pre-composed capabilities**, not on the interfaces or individual operations behind them. Interfaces are a DI registration concern — contain them in a **dependency builder**: a static factory that resolves interfaces and produces bound delegates at the right abstraction level. Consumers receive delegates matching their actual abstraction level.
+
+```csharp
+// ✅ Good — builder composes phases, orchestrator sees only phase delegates
+internal static class OrchestratorBuilder
+{
+    public static OrchestratorDeps Build(
+        IServiceProvider services, Config config, CancellationToken ct) => new(
+        RunSetup: (testRunId) => SetupPhase.ExecuteAsync(testRunId,
+            clearDb: () => services.GetRequiredService<IDatabase>().ClearAsync(config.Db, ct),
+            ...),
+        RunProcess: () => ProcessPhase.ExecuteAsync(
+            start: () => services.GetRequiredService<IProcessRunner>().StartAsync(ct),
+            ...));
+}
+
+// Consumer — knows only about phases, not their internals
+internal static class Orchestrator
+{
+    public static async Task<Result<Report, Error>> RunAsync(OrchestratorDeps deps)
+    {
+        var setup = await deps.RunSetup(Guid.NewGuid());
+        var result = await deps.RunProcess();
+        ...
+    }
+}
+
+// ❌ Avoid — consumer depends on every individual operation
+public class Orchestrator(IDatabase db, IProcessRunner runner, IEventPublisher publisher)
+{
+    // Knows about clearing databases, starting processes, publishing events...
+    // Should only know about phases.
+}
+```
+
+**Why:**
+
+- Classes should know about their dependencies at their abstraction level, not every small operation
+- Dependency builders centralize plumbing (interface resolution, config binding, CT binding)
+- Consumers become testable with simple lambdas at the right granularity
+- Adding a new operation inside a phase doesn't change the orchestrator
+
+**The pattern: Configure → Build → Run**
+
+1. **Configure:** Register interfaces in DI (`AddInfrastructure()`, `AddEventPublishing()`, etc.)
+2. **Build:** Builder resolves interfaces, composes them into capability-level delegates
+3. **Run:** Consumer calls delegates with zero knowledge of interfaces or internal operations
+
+**When to use:**
+
+- Any class that coordinates multiple components (orchestrators, pipelines)
+- Any class where you use only specific methods from broader interfaces
+- Any static class that needs "injected" capabilities
+
+**When NOT to use:**
+
+- Inside the builder itself (it must see interfaces to compose them)
+- Leaf classes that genuinely work at the operation level (the phases themselves)
+
+---
+
 ## Summary
 
 **One-liner:** *Make dependencies explicit, keep functions small and pure, let each file tell its own complete story.*
@@ -794,3 +857,4 @@ var serviceProcessId = setupResult.SuccessValue;
 | Consumer owns defaults | Am I encoding what a consumer needs? Let the consumer decide |
 | Always use braces | Does every `if`/`else`/`for`/`while`/`using` have braces? |
 | Blank line after `}` | Is there a blank line after every closing brace (unless followed by another `}`, `else`, `catch`, `finally`)? |
+| Dependency builders | Am I receiving interfaces? Contain them in a builder, expose delegates at the right level |
