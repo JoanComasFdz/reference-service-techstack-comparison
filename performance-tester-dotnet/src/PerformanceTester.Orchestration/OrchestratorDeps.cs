@@ -3,7 +3,7 @@ namespace PerformanceTester.Orchestration;
 /// <summary>
 /// Phase-level delegates for the test orchestrator.
 /// Each delegate has its internal plumbing (interfaces, config, CT) pre-bound
-/// by <see cref="TestOrchestratorBuilder.Build"/>.
+/// by <see cref="TestOrchestratorDependencies.Build"/>.
 /// The orchestrator sequences these and threads inter-phase data.
 /// </summary>
 internal record OrchestratorDeps(

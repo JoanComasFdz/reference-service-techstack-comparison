@@ -30,10 +30,10 @@ internal static class TestOrchestrator
 }
 ```
 
-### TestOrchestratorBuilder (Static Factory)
+### TestOrchestratorDependencies (Static Factory)
 
 ```csharp
-internal static class TestOrchestratorBuilder
+internal static class TestOrchestratorDependencies
 {
     public static OrchestratorDeps Build(
         IServiceProvider services,
@@ -144,8 +144,8 @@ builder.Services.AddOrchestration(
 var host = builder.Build();
 
 // Note: Do NOT call host.StartAsync() - orchestrator manages IHost lifecycle
-// Use TestOrchestratorBuilder.Build() + TestOrchestrator.RunTestAsync()
-var deps = TestOrchestratorBuilder.Build(host.Services, config, logger, ct);
+// Use TestOrchestratorDependencies.Build() + TestOrchestrator.RunTestAsync()
+var deps = TestOrchestratorDependencies.Build(host.Services, config, logger, ct);
 var result = await TestOrchestrator.RunTestAsync(deps, config, progress, logger);
 ```
 
@@ -170,7 +170,7 @@ var result = await TestOrchestrator.RunTestAsync(deps, config, progress, logger)
 - `IReportGenerator` - JSON report generation
 - `IChartGenerator` - PNG chart generation
 
-**Note:** `IProcessMonitor` is NOT registered by `AddOrchestration()` because it requires a process ID that's only discovered at runtime. The `TestOrchestratorBuilder` handles process monitoring registration separately after service discovery. The orchestrator itself (`TestOrchestrator`) is a static class — not registered in DI — and receives pre-composed delegates via `OrchestratorDeps`.
+**Note:** `IProcessMonitor` is NOT registered by `AddOrchestration()` because it requires a process ID that's only discovered at runtime. The `TestOrchestratorDependencies` handles process monitoring registration separately after service discovery. The orchestrator itself (`TestOrchestrator`) is a static class — not registered in DI — and receives pre-composed delegates via `OrchestratorDeps`.
 
 ## Usage Example
 
@@ -198,7 +198,7 @@ var config = new TestConfiguration(
     ResultsFolder: "./test-results");
 
 // Run test
-var deps = TestOrchestratorBuilder.Build(host.Services, config, logger, cancellationToken);
+var deps = TestOrchestratorDependencies.Build(host.Services, config, logger, cancellationToken);
 var result = await TestOrchestrator.RunTestAsync(deps, config, progress: null, logger);
 
 result.Match(

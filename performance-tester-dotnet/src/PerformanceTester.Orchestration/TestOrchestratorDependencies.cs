@@ -19,7 +19,7 @@ namespace PerformanceTester.Orchestration;
 /// Builds <see cref="OrchestratorDeps"/> from DI-resolved interfaces.
 /// This is the ONLY place in the codebase that interfaces are converted to phase delegates.
 /// </summary>
-internal static class TestOrchestratorBuilder
+internal static class TestOrchestratorDependencies
 {
     public static OrchestratorDeps Build(
         IServiceProvider services,

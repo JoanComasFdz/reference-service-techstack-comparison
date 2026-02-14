@@ -12,7 +12,7 @@ namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 /// <summary>
 /// Facade for accessing TestOrchestrator.
 /// Creates IHost with all Phase 1-3 services registered via AddOrchestration().
-/// Wraps TestOrchestratorBuilder.Build() + TestOrchestrator.RunTestAsync() into a single public method.
+/// Wraps TestOrchestratorDependencies.Build() + TestOrchestrator.RunTestAsync() into a single public method.
 /// </summary>
 public sealed class Orchestration : IDisposable
 {
@@ -68,7 +68,7 @@ public sealed class Orchestration : IDisposable
 
     /// <summary>
     /// Builds phase delegates and runs the full test orchestration.
-    /// Wraps TestOrchestratorBuilder.Build() + TestOrchestrator.RunTestAsync().
+    /// Wraps TestOrchestratorDependencies.Build() + TestOrchestrator.RunTestAsync().
     /// </summary>
     public Task<Result<TestReport, TestRunFailure>> RunTestAsync(
         TestConfiguration config,
@@ -80,7 +80,7 @@ public sealed class Orchestration : IDisposable
             throw new InvalidOperationException("Host not initialized");
         }
 
-        var deps = TestOrchestratorBuilder.Build(_host.Services, config, Logger, cancellationToken);
+        var deps = TestOrchestratorDependencies.Build(_host.Services, config, Logger, cancellationToken);
         return TestOrchestrator.RunTestAsync(deps, config, progress, Logger);
     }
 
