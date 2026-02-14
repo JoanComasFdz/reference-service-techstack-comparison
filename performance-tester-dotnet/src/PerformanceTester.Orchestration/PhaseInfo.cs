@@ -26,6 +26,11 @@ public enum TestPhase
     ApiTest,
 
     /// <summary>
+    /// Teardown phase: disconnect event publisher, stop monitoring services.
+    /// </summary>
+    Teardown,
+
+    /// <summary>
     /// Reporting phase: metrics collection, report generation.
     /// </summary>
     Reporting
