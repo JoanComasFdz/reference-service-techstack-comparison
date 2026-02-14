@@ -56,6 +56,8 @@ public static class PhaseAwaiterExtensions
             (TestPhase.EventTest, PhaseState.Completed),
             (TestPhase.ApiTest, PhaseState.Starting),
             (TestPhase.ApiTest, PhaseState.Completed),
+            (TestPhase.Teardown, PhaseState.Starting),
+            (TestPhase.Teardown, PhaseState.Completed),
             (TestPhase.Reporting, PhaseState.Starting),
             (TestPhase.Reporting, PhaseState.Completed));
     }
