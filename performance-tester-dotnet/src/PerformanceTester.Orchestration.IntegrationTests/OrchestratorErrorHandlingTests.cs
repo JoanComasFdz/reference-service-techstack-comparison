@@ -23,7 +23,7 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
         try
         {
             // Act & Assert
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
 
             Assert.True(result.IsFailure, "Expected a failure result when service is not found");
             Assert.Equal(TestPhase.Setup, result.FailureError.Phase);
@@ -77,7 +77,7 @@ public sealed class OrchestratorErrorHandlingTests(ITestOutputHelper output)
             await System.WaitForServiceHealthyAsync(port: config.ServicePort.Value, timeout: TimeSpan.FromSeconds(10));
 
             // Act & Assert: Should return failure with progress info
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
 
             Assert.True(result.IsFailure, "Expected a failure result for inactivity timeout");
             Assert.Equal(TestPhase.EventTest, result.FailureError.Phase);

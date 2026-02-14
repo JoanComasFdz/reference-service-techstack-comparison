@@ -56,7 +56,7 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
             // ACT
             // ====================================================================
 
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config, progress: phaseAwaiter);
+            var result = await System.Orchestration.RunTestAsync(config, progress: phaseAwaiter);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
@@ -212,8 +212,7 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
                 "Total runtime should be at least API test duration");
 
             // Verify all phases completed (using custom assertion)
-            await Asserting.That(System.Orchestration.Orchestrator)
-                .CompletedAllPhases(report);
+            await Asserting.That(report).CompletedAllPhases();
 
             Output.WriteLine($"✓ Complete Workflow: Total runtime {report.TotalRuntimeSeconds:F2}s");
             Output.WriteLine("✓ All phases completed successfully!");

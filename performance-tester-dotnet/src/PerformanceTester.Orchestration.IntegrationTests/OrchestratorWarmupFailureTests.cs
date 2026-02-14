@@ -56,7 +56,7 @@ public sealed class OrchestratorWarmupFailureTests(ITestOutputHelper output)
         try
         {
             // Act & Assert
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
 
             Assert.True(result.IsFailure, "Expected a failure result for warmup consumer timeout");
             Assert.Equal(TestPhase.Warmup, result.FailureError.Phase);
@@ -108,7 +108,7 @@ public sealed class OrchestratorWarmupFailureTests(ITestOutputHelper output)
         try
         {
             // Act & Assert
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
 
             Assert.True(result.IsFailure, "Expected a failure result for test phase timeout");
             Assert.Equal(TestPhase.EventTest, result.FailureError.Phase);
@@ -164,7 +164,7 @@ public sealed class OrchestratorWarmupFailureTests(ITestOutputHelper output)
         try
         {
             // Act - Test should complete successfully because warmup API failures are not fatal
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
@@ -229,7 +229,7 @@ public sealed class OrchestratorWarmupFailureTests(ITestOutputHelper output)
         try
         {
             // Act & Assert - Should fail during setup phase with database error
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
 
             Assert.True(result.IsFailure, "Expected a failure result for database clear failure");
             Assert.Equal(TestPhase.Setup, result.FailureError.Phase);

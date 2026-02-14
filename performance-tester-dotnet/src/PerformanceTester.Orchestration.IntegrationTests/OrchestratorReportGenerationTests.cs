@@ -47,7 +47,7 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
@@ -127,7 +127,7 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
                 .Build();
 
             // Act & Assert
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
 
             Assert.True(result.IsFailure, "Expected a failure result for invalid results folder");
 
@@ -201,7 +201,7 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
@@ -264,7 +264,7 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 

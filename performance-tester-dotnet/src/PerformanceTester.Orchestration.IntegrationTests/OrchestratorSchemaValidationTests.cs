@@ -46,7 +46,7 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
@@ -143,7 +143,7 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
@@ -222,7 +222,7 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
@@ -320,7 +320,7 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
@@ -411,7 +411,7 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
                 .Build();
 
             // Act
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 

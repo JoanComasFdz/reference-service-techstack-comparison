@@ -1,22 +1,27 @@
+using JoanComasFdz.Result;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.IntegrationTesting.Logging;
+using PerformanceTester.Reporting;
 using Xunit.Abstractions;
 
 namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// Facade for accessing ITestOrchestrator and dependencies.
-/// Creates IHost with all Phase 1-4 services registered via AddOrchestration().
-/// Provides direct access to IEventConsumer for testing consumer timeout behavior.
+/// Facade for accessing TestOrchestrator.
+/// Creates IHost with all Phase 1-3 services registered via AddOrchestration().
+/// Wraps TestOrchestratorBuilder.Build() + TestOrchestrator.RunTestAsync() into a single public method.
 /// </summary>
 public sealed class Orchestration : IDisposable
 {
     private IHost? _host;
 
-    public ITestOrchestrator Orchestrator { get; private set; } = null!;
+    /// <summary>
+    /// Logger for orchestrator output, configured to write to xUnit test output.
+    /// </summary>
+    public ILogger Logger { get; private set; } = null!;
 
     public Orchestration(
         string postgresConnectionString,
@@ -27,7 +32,6 @@ public sealed class Orchestration : IDisposable
     {
         output?.WriteLine("[ORCH] Creating Orchestration IHost...");
 
-        // Build IHost with all services
         output?.WriteLine("[ORCH] Creating host builder...");
         var builder = Host.CreateApplicationBuilder();
         output?.WriteLine("[ORCH] ✓ Host builder created");
@@ -39,9 +43,10 @@ public sealed class Orchestration : IDisposable
         {
             builder.Logging.AddXunitOutput(output);
         }
+
         output?.WriteLine("[ORCH] ✓ Logging configured");
 
-        // Single call registers ALL dependencies (Phases 1-4)
+        // Single call registers ALL dependencies (Phases 1-3)
         output?.WriteLine("[ORCH] Registering services (AddOrchestration)...");
         builder.Services.AddOrchestration(
             postgresConnectionString: postgresConnectionString,
@@ -54,12 +59,29 @@ public sealed class Orchestration : IDisposable
         _host = builder.Build();
         output?.WriteLine("[ORCH] ✓ IHost built");
 
-        // Resolve orchestrator
-        output?.WriteLine("[ORCH] Resolving ITestOrchestrator...");
-        this.Orchestrator = _host.Services.GetRequiredService<ITestOrchestrator>();
-        output?.WriteLine("[ORCH] ✓ ITestOrchestrator resolved");
+        // Create logger for orchestrator
+        this.Logger = _host.Services.GetRequiredService<ILoggerFactory>()
+            .CreateLogger(typeof(TestOrchestrator).FullName!);
 
         output?.WriteLine("[ORCH] ✅ Orchestration IHost creation complete");
+    }
+
+    /// <summary>
+    /// Builds phase delegates and runs the full test orchestration.
+    /// Wraps TestOrchestratorBuilder.Build() + TestOrchestrator.RunTestAsync().
+    /// </summary>
+    public Task<Result<TestReport, TestRunFailure>> RunTestAsync(
+        TestConfiguration config,
+        IProgress<PhaseInfo>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_host == null)
+        {
+            throw new InvalidOperationException("Host not initialized");
+        }
+
+        var deps = TestOrchestratorBuilder.Build(_host.Services, config, Logger, cancellationToken);
+        return TestOrchestrator.RunTestAsync(deps, config, progress, Logger);
     }
 
     /// <summary>
@@ -91,10 +113,6 @@ public sealed class Orchestration : IDisposable
 
     public void Dispose()
     {
-        // IMPORTANT: Must call StopAsync before Dispose to allow BackgroundServices
-        // (like EventConsumerService) to shut down gracefully and release resources
-        // (RabbitMQ connections, channels, semaphores). Without this, tests can hang
-        // intermittently due to resource contention between test runs.
         if (_host != null)
         {
             try
@@ -103,7 +121,7 @@ public sealed class Orchestration : IDisposable
             }
             catch (Exception)
             {
-                // Ignore exceptions during stop - Dispose will clean up anyway
+                // Ignore exceptions during stop
             }
             finally
             {

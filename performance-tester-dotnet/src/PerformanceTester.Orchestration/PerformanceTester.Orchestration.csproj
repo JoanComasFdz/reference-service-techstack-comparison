@@ -8,6 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="PerformanceTester.Orchestration.IntegrationTests" />
+    <InternalsVisibleTo Include="performance-tester" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\PerformanceTester.Infrastructure\PerformanceTester.Infrastructure.csproj" />
     <ProjectReference Include="..\PerformanceTester.EventPublishing\PerformanceTester.EventPublishing.csproj" />
     <ProjectReference Include="..\PerformanceTester.EventConsuming\PerformanceTester.EventConsuming.csproj" />

@@ -17,7 +17,7 @@ namespace PerformanceTester.Orchestration;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers orchestration services and all dependencies (Phases 1-4).
+    /// Registers orchestration services and all dependencies (Phases 1-3).
     /// This is the single entry point for DI registration.
     /// </summary>
     /// <param name="services">Service collection</param>
@@ -34,7 +34,6 @@ public static class ServiceCollectionExtensions
     /// <item><description>Phase 1: Infrastructure (ServiceDiscovery, Database, RabbitMQ)</description></item>
     /// <item><description>Phase 2: Data Collection (EventPublishing, EventConsuming, DockerMonitoring, ApiLoadTesting)</description></item>
     /// <item><description>Phase 3: Reporting (SystemInfo, ReportGenerator, ChartGenerator)</description></item>
-    /// <item><description>Phase 4: Orchestration (TestOrchestrator)</description></item>
     /// </list>
     /// <para>
     /// ProcessMonitoring uses deferred start pattern - the process ID is provided after IHost.StartAsync()
@@ -75,9 +74,6 @@ public static class ServiceCollectionExtensions
 
         // Phase 3: Reporting
         services.AddReporting();
-
-        // Phase 4: Orchestration (self)
-        services.AddSingleton<ITestOrchestrator, TestOrchestrator>();
 
         // Configure host options
         services.Configure<HostOptions>(options =>

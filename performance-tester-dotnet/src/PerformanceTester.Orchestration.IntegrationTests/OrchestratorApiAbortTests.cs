@@ -55,15 +55,12 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
 
             // Act
             var phaseAwaiter = new PhaseAwaiter();
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(
-                config,
-                progress: phaseAwaiter);
+            var result = await System.Orchestration.RunTestAsync(config, progress: phaseAwaiter);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
             // Assert
-            await Asserting.That(System.Orchestration.Orchestrator)
-                .ApiLoadTestWasAborted(report, "consecutive failures");
+            await Asserting.That(report).ApiLoadTestWasAborted("consecutive failures");
 
             Assert.True(report.Results.Phase3Api.ErrorCount > 0,
                 "Should have recorded errors");
@@ -113,15 +110,12 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
 
             // Act
             var phaseAwaiter = new PhaseAwaiter();
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(
-                config,
-                progress: phaseAwaiter);
+            var result = await System.Orchestration.RunTestAsync(config, progress: phaseAwaiter);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
             // Assert
-            await Asserting.That(System.Orchestration.Orchestrator)
-                .ApiLoadTestCompletedWithoutAbort(report);
+            await Asserting.That(report).ApiLoadTestCompletedWithoutAbort();
 
             // Verify API phase completed successfully (not failed/aborted)
             phaseAwaiter.AssertPhasesReceivedInOrder(
@@ -169,13 +163,12 @@ public sealed class OrchestratorApiAbortTests(ITestOutputHelper output)
             await System.WaitForServiceHealthyAsync(port: config.ServicePort.Value, timeout: TimeSpan.FromSeconds(10));
 
             // Act
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 
             // Assert
-            await Asserting.That(System.Orchestration.Orchestrator)
-                .ApiLoadTestCompletedWithoutAbort(report);
+            await Asserting.That(report).ApiLoadTestCompletedWithoutAbort();
 
             Assert.True(report.Results.Phase3Api.ErrorCount > 0,
                 "Should have some errors from intermittent failures");

@@ -64,7 +64,7 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
         try
         {
             // Act & Assert: Should return failure during event consumption with partial progress
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
 
             Assert.True(result.IsFailure, "Expected a failure result for service death during event publishing");
             Assert.Equal(TestPhase.EventTest, result.FailureError.Phase);
@@ -133,7 +133,7 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
         try
         {
             // Act & Assert: Should return failure during warmup phase
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
 
             Assert.True(result.IsFailure, "Expected a failure result for service death during warmup");
             Assert.Equal(TestPhase.Warmup, result.FailureError.Phase);
@@ -209,9 +209,7 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
             // Start the test with progress reporting
             var testTask = Task.Run(async () =>
             {
-                return await System.Orchestration.Orchestrator.RunTestAsync(
-                    config,
-                    progress: phaseAwaiter);
+                return await System.Orchestration.RunTestAsync(config, progress: phaseAwaiter);
             });
 
             // DETERMINISTIC: Wait for API phase to actually start
@@ -304,7 +302,7 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
         try
         {
             // Act: Test should return failure gracefully (not crash) when service dies
-            var result = await System.Orchestration.Orchestrator.RunTestAsync(config);
+            var result = await System.Orchestration.RunTestAsync(config);
 
             // Assert: The test framework didn't crash - we got a proper failure result
             // This verifies graceful handling of process death

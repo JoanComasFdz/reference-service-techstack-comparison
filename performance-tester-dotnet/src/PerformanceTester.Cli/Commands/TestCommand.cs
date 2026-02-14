@@ -139,7 +139,7 @@ public static class TestCommand
                 host.Services.GetRequiredService<ILogger<Program>>(),
                 consoleWriter,
                 host.Services.GetRequiredService<ProgressReporter>(),
-                host.Services.GetRequiredService<ITestOrchestrator>(),
+                host.Services,
                 context.GetCancellationToken());
         });
 
@@ -151,7 +151,7 @@ public static class TestCommand
         ILogger<Program> logger,
         ConsoleWriter consoleWriter,
         ProgressReporter progressReporter,
-        ITestOrchestrator orchestrator,
+        IServiceProvider services,
         CancellationToken cancellationToken)
     {
         try
@@ -168,10 +168,8 @@ public static class TestCommand
                 config.EventCount,
                 config.ApiDuration);
 
-            var result = await orchestrator.RunTestAsync(
-                config,
-                progressAdapter,
-                cancellationToken);
+            var deps = TestOrchestratorBuilder.Build(services, config, logger, cancellationToken);
+            var result = await TestOrchestrator.RunTestAsync(deps, config, progressAdapter, logger);
 
             return result.Match(
                 success: s =>
