@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
@@ -25,7 +24,6 @@ internal static class TestOrchestratorDependencies
         var rabbitMq = services.GetRequiredService<IRabbitMQ>();
         var eventPublisher = services.GetRequiredService<IEventPublisher>();
         var eventConsumer = services.GetRequiredService<IEventConsumer>();
-        var host = services.GetRequiredService<IHost>();
 
         // Shared operation-level delegates (reused across phases)
         PhasesToolbox.ClearDatabase clearDatabase = () => database.ClearDatabaseAsync(config.DatabaseName.Value, ct);
@@ -42,13 +40,15 @@ internal static class TestOrchestratorDependencies
         PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) =>
             eventConsumer.StartTrackingEventsAsync(count, timeout, progress, ct);
 
+        var (runTeardown, cleanupResources) = TeardownPhaseDependencies.Build(services, logger, ct);
+
         return new OrchestratorDeps(
             RunSetup: SetupPhaseDependencies.Build(services, clearDatabase, clearAllQueues, config, logger, ct),
             RunWarmup: WarmupPhaseDependencies.Build(trackEvents, publishEvents, clearDatabase, clearAllQueues, config, logger, ct),
             RunEventTest: EventTestPhaseDependencies.Build(services, trackEvents, publishEvents, config, logger, ct),
             RunApiTest: ApiTestPhaseDependencies.Build(services, config, logger, ct),
+            RunTeardown: runTeardown,
             RunReporting: ReportingPhaseDependencies.Build(services, config, logger, ct),
-            StopMonitoring: () => host.StopAsync(CancellationToken.None),
-            DisconnectEventPublisher: () => eventPublisher.DisconnectAsync(CancellationToken.None));
+            CleanupResources: cleanupResources);
     }
 }
