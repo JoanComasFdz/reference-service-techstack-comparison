@@ -28,19 +28,21 @@ internal delegate Task<Result<EventTestPhase.Output, string>> RunEventTest(int s
 internal delegate Task<Result<ApiTestPhase.Output, string>> RunApiTest(IProgress<PhaseInfo>? progress);
 
 /// <summary>
+/// Runs Teardown phase: disconnect event publisher, stop monitoring services.
+/// Pre-bound with the active CancellationToken — cancellable during normal flow.
+/// Must complete before reporting can collect metrics.
+/// </summary>
+internal delegate Task<Result<Unit, string>> RunTeardown();
+
+/// <summary>
+/// Best-effort resource cleanup for the finally block.
+/// Pre-bound with CancellationToken.None — must complete even after cancellation or failure.
+/// Runs the same operations as <see cref="RunTeardown"/> but is not cancellable.
+/// </summary>
+internal delegate Task CleanupResources();
+
+/// <summary>
 /// Runs Reporting phase: metrics collection, report and chart generation.
 /// testResult is assembled at runtime from all phase outputs.
 /// </summary>
 internal delegate Task<Result<TestReport, string>> RunReporting(TestResult testResult);
-
-/// <summary>
-/// Stops all monitoring BackgroundServices (process, system, Docker).
-/// Bound to IHost.StopAsync with CancellationToken.None for safe cleanup.
-/// </summary>
-internal delegate Task StopMonitoring();
-
-/// <summary>
-/// Disconnects the RabbitMQ event publisher connection.
-/// Bound to IEventPublisher.DisconnectAsync with CancellationToken.None for safe cleanup.
-/// </summary>
-internal delegate Task DisconnectEventPublisher();

@@ -11,6 +11,6 @@ internal record OrchestratorDeps(
     RunWarmup RunWarmup,
     RunEventTest RunEventTest,
     RunApiTest RunApiTest,
+    RunTeardown RunTeardown,
     RunReporting RunReporting,
-    StopMonitoring StopMonitoring,
-    DisconnectEventPublisher DisconnectEventPublisher);
+    CleanupResources CleanupResources);
