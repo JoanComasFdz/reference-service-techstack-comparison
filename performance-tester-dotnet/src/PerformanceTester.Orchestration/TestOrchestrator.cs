@@ -124,14 +124,15 @@ internal static class TestOrchestrator
                 SystemInfo = null
             };
 
-            // Teardown
-            logger.LogInformation("Disconnecting from RabbitMQ event publisher...");
-            await deps.DisconnectEventPublisher();
-            logger.LogInformation("RabbitMQ event publisher disconnected");
+            // Phase: Teardown (cancellable during normal flow)
+            progress?.Report(PhaseInfo.Starting(TestPhase.Teardown, "Disconnecting publisher and stopping monitors"));
+            var teardownResult = await deps.RunTeardown();
+            if (teardownResult.IsFailure)
+            {
+                return Fail(TestPhase.Teardown, teardownResult.FailureError);
+            }
 
-            logger.LogInformation("Stopping monitoring services...");
-            await deps.StopMonitoring();
-            logger.LogInformation("All monitoring services stopped");
+            progress?.Report(PhaseInfo.Completed(TestPhase.Teardown, "Teardown complete"));
 
             // Phase 3: Reporting (collects metrics, generates reports)
             progress?.Report(PhaseInfo.Starting(TestPhase.Reporting, "Starting metrics collection and report generation"));
@@ -153,12 +154,9 @@ internal static class TestOrchestrator
         }
         finally
         {
-            // Best-effort cleanup (delegates bound with CancellationToken.None)
-            try { await deps.DisconnectEventPublisher(); }
-            catch (Exception ex) { logger.LogWarning(ex, "Failed to disconnect event publisher during cleanup"); }
-
-            try { await deps.StopMonitoring(); }
-            catch (Exception ex) { logger.LogWarning(ex, "Failed to stop monitoring services during cleanup"); }
+            // Best-effort cleanup — non-cancellable, must complete even after failure
+            try { await deps.CleanupResources(); }
+            catch (Exception ex) { logger.LogWarning(ex, "Failed during resource cleanup"); }
         }
     }
 }
