@@ -41,8 +41,15 @@ internal static class PhaseInfoConverter
         int currentEvents,
         int totalEvents,
         string? message = null)
-        => new("Event Processing", PhaseNumber: 3, TotalPhases: 4, status,
-            Current: currentEvents, Total: totalEvents, Unit: "events", Message: message);
+        => new(
+            "Event Processing",
+            PhaseNumber: 3,
+            TotalPhases: 4,
+            status,
+            Current: currentEvents,
+            Total: totalEvents,
+            Unit: "events",
+            Message: message);
 
     /// <summary>
     /// Creates TestProgress for API Load Testing phase.
@@ -54,7 +61,13 @@ internal static class PhaseInfoConverter
         double totalSeconds,
         int requestCount,
         string? message = null)
-        => new("API Load Testing", PhaseNumber: 4, TotalPhases: 4, status,
-            Current: elapsedSeconds, Total: totalSeconds, Unit: "s",
+        => new(
+            "API Load Testing",
+            PhaseNumber: 4,
+            TotalPhases: 4,
+            status,
+            Current: elapsedSeconds,
+            Total: totalSeconds,
+            Unit: "s",
             Message: message ?? $"{requestCount} req");
 }

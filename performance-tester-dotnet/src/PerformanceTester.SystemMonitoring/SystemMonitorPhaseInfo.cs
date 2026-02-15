@@ -36,18 +36,15 @@ public sealed record SystemMonitorPhaseInfo(
     /// <summary>
     /// Creates a starting phase info.
     /// </summary>
-    public static SystemMonitorPhaseInfo Starting(SystemMonitorPhase phase, string? message = null) =>
-        new(phase, false, false, 0, message);
+    public static SystemMonitorPhaseInfo Starting(SystemMonitorPhase phase, string? message = null) => new(phase, false, false, 0, message);
 
     /// <summary>
     /// Creates a completed phase info.
     /// </summary>
-    public static SystemMonitorPhaseInfo Completed(SystemMonitorPhase phase, int sampleCount = 0, string? message = null) =>
-        new(phase, true, false, sampleCount, message);
+    public static SystemMonitorPhaseInfo Completed(SystemMonitorPhase phase, int sampleCount = 0, string? message = null) => new(phase, true, false, sampleCount, message);
 
     /// <summary>
     /// Creates a failed phase info.
     /// </summary>
-    public static SystemMonitorPhaseInfo Failed(SystemMonitorPhase phase, int sampleCount = 0, string? message = null) =>
-        new(phase, false, true, sampleCount, message);
+    public static SystemMonitorPhaseInfo Failed(SystemMonitorPhase phase, int sampleCount = 0, string? message = null) => new(phase, false, true, sampleCount, message);
 }

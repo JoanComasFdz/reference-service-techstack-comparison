@@ -67,8 +67,7 @@ internal sealed class DockerClientWrapper : IDisposable
             var containerId = containers[0].ID;
             _containerIdCache[containerName] = containerId;
 
-            _logger.LogDebug("Resolved container {ContainerName} to ID {ContainerId}",
-                containerName, containerId[..12]);
+            _logger.LogDebug("Resolved container {ContainerName} to ID {ContainerId}", containerName, containerId[..12]);
 
             return containerId;
         }

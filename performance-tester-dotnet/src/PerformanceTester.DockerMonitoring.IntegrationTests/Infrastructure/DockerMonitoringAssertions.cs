@@ -34,7 +34,8 @@ public static class DockerMonitoringAssertions
         var monitor = assertingThat.InstanceToAssert;
         var metrics = monitor.GetCollectedMetrics();
 
-        Assert.True(metrics.Count >= expectedMinimum,
+        Assert.True(
+            metrics.Count >= expectedMinimum,
             $"{monitor.ContainerName} expected >= {expectedMinimum} samples, got {metrics.Count}");
 
         return assertingThat;
@@ -48,9 +49,11 @@ public static class DockerMonitoringAssertions
 
         foreach (var metric in metrics)
         {
-            Assert.True(metric.CpuPercent >= 0,
+            Assert.True(
+                metric.CpuPercent >= 0,
                 $"{monitor.ContainerName} CPU% must be >= 0, got {metric.CpuPercent}");
-            Assert.True(metric.CpuPercent <= 1000,
+            Assert.True(
+                metric.CpuPercent <= 1000,
                 $"{monitor.ContainerName} CPU% exceeds reasonable bound, got {metric.CpuPercent}");
         }
 
@@ -65,9 +68,11 @@ public static class DockerMonitoringAssertions
 
         foreach (var metric in metrics)
         {
-            Assert.True(metric.MemoryMB > 0,
+            Assert.True(
+                metric.MemoryMB > 0,
                 $"{monitor.ContainerName} Memory must be > 0 MB, got {metric.MemoryMB}");
-            Assert.True(metric.MemoryMB <= 100_000,
+            Assert.True(
+                metric.MemoryMB <= 100_000,
                 $"{monitor.ContainerName} Memory exceeds reasonable bound, got {metric.MemoryMB} MB");
         }
 

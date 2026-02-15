@@ -8,8 +8,7 @@ public sealed record WarmupApiCallsCount
     public uint Value { get; }
     private WarmupApiCallsCount(uint value) => Value = value;
 
-    public static Result<WarmupApiCallsCount, string> Create(int value) =>
-        value is >= 0 and <= 1000
+    public static Result<WarmupApiCallsCount, string> Create(int value) => value is >= 0 and <= 1000
             ? new Success(new WarmupApiCallsCount((uint)value))
             : new Failure($"Warmup API calls must be between 0 and 1,000 (got: {value})");
 

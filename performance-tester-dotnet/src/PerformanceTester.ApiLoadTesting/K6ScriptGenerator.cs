@@ -45,8 +45,7 @@ export default function() {
     /// <param name="virtualUsers">Number of virtual users.</param>
     /// <param name="maxConsecutiveFailures">Maximum consecutive failures before aborting (0 = disabled).</param>
     /// <returns>k6 script content as string.</returns>
-    public static string GenerateScript(string targetUrl, string duration, int virtualUsers, int maxConsecutiveFailures = 3) =>
-        ScriptTemplate
+    public static string GenerateScript(string targetUrl, string duration, int virtualUsers, int maxConsecutiveFailures = 3) => ScriptTemplate
             .Replace("{{URL}}", targetUrl)
             .Replace("{{DURATION}}", duration)
             .Replace("{{VUS}}", virtualUsers.ToString())

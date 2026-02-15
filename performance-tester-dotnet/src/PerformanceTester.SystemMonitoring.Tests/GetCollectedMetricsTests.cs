@@ -61,8 +61,7 @@ public sealed class GetCollectedMetricsTests
         Assert.Equal(result1.First().ElapsedSeconds, result2.First().ElapsedSeconds);
     }
 
-    private static SystemMetrics CreateMetrics(DateTimeOffset timestamp, double elapsed) =>
-        new(
+    private static SystemMetrics CreateMetrics(DateTimeOffset timestamp, double elapsed) => new(
             Timestamp: timestamp,
             ElapsedSeconds: elapsed,
             CpuPercent: 50.0,

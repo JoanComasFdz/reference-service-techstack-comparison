@@ -88,7 +88,8 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
 
         // Assert - Verify messages appeared in queue
         var queueInfo = await channel.QueueDeclarePassiveAsync(queueName);
-        Assert.True(queueInfo.MessageCount >= eventCount,
+        Assert.True(
+            queueInfo.MessageCount >= eventCount,
             $"Expected at least {eventCount} messages in queue, but found {queueInfo.MessageCount}");
     }
 

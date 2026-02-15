@@ -10,8 +10,7 @@ public record NonEmptyString
     public override string ToString() => Value;
 
     protected static Result<T, string> Create<T>(string value, string displayName, Func<string, T> factory)
-        where T : NonEmptyString =>
-        !string.IsNullOrWhiteSpace(value)
+        where T : NonEmptyString => !string.IsNullOrWhiteSpace(value)
             ? new Result<T, string>.Success(factory(value.Trim()))
             : new Result<T, string>.Failure($"{displayName} cannot be empty");
 }

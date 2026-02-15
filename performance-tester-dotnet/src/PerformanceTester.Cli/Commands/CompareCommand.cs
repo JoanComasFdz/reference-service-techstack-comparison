@@ -73,8 +73,7 @@ public static class CompareCommand
 
             consoleWriter.WriteInfo($"Loaded {testReports.Count} test report(s)");
 
-            var outputPath = await comparisonGenerator.GenerateComparisonReportAsync(
-                folder, testReports, cancellationToken);
+            var outputPath = await comparisonGenerator.GenerateComparisonReportAsync(folder, testReports, cancellationToken);
             consoleWriter.WriteSuccess($"Comparison report saved to: {outputPath}");
 
             return 0;

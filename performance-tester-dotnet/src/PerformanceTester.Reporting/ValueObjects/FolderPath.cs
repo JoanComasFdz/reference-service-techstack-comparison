@@ -10,8 +10,7 @@ public record FolderPath
     public override string ToString() => Value;
 
     protected static Result<T, string> Create<T>(string value, string displayName, Func<string, T> factory)
-        where T : FolderPath =>
-        !string.IsNullOrWhiteSpace(value)
+        where T : FolderPath => !string.IsNullOrWhiteSpace(value)
             ? new Result<T, string>.Success(factory(value.Trim()))
             : new Result<T, string>.Failure($"{displayName} cannot be empty");
 }

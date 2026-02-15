@@ -51,8 +51,12 @@ internal sealed class ApiLoadTestService : IApiLoadTester
             throw new ArgumentException("Max consecutive failures cannot be negative", nameof(maxConsecutiveFailures));
         }
 
-        _logger.LogInformation("=== Starting API load test: {Url}, duration: {Duration}, VUs: {VUs}, maxConsecutiveFailures: {MaxFailures} ===",
-            targetUrl, duration, virtualUsers, maxConsecutiveFailures);
+        _logger.LogInformation(
+            "=== Starting API load test: {Url}, duration: {Duration}, VUs: {VUs}, maxConsecutiveFailures: {MaxFailures} ===",
+            targetUrl,
+            duration,
+            virtualUsers,
+            maxConsecutiveFailures);
 
         // Generate k6 script
         var durationString = K6ScriptGenerator.FormatDuration(duration);
@@ -97,13 +101,15 @@ internal sealed class ApiLoadTestService : IApiLoadTester
 
             if (executionResult.WasAborted)
             {
-                _logger.LogWarning("⚠️ Test aborted: {TotalRequests} requests, {FailedRequests} failed, reason: {AbortReason}",
-                    result.TotalRequests, result.FailedRequests, executionResult.AbortReason);
+                _logger.LogWarning(
+                    "⚠️ Test aborted: {TotalRequests} requests, {FailedRequests} failed, reason: {AbortReason}",
+                    result.TotalRequests,
+                    result.FailedRequests,
+                    executionResult.AbortReason);
             }
             else
             {
-                _logger.LogInformation("✓ Test completed: {TotalRequests} requests, {FailedRequests} failed",
-                    result.TotalRequests, result.FailedRequests);
+                _logger.LogInformation("✓ Test completed: {TotalRequests} requests, {FailedRequests} failed", result.TotalRequests, result.FailedRequests);
             }
 
             return result;

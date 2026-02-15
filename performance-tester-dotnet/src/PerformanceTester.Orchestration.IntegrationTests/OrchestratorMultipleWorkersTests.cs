@@ -66,7 +66,8 @@ public sealed class OrchestratorMultipleWorkersTests(ITestOutputHelper output)
 
             // Assert - With 2 workers at 5s duration, expect at least 100 requests
             // (Conservative: 10 req/s per worker x 2 workers x 5s = 100)
-            Assert.True(report.Results.Phase3Api.TotalRequests >= 100,
+            Assert.True(
+                report.Results.Phase3Api.TotalRequests >= 100,
                 $"Expected at least 100 requests with 2 workers, got {report.Results.Phase3Api.TotalRequests}");
 
             // Assert - 100% success rate
@@ -122,7 +123,8 @@ public sealed class OrchestratorMultipleWorkersTests(ITestOutputHelper output)
 
             // Assert - With 5 workers at 5s duration, expect at least 250 requests
             // (Conservative: 10 req/s per worker x 5 workers x 5s = 250)
-            Assert.True(report.Results.Phase3Api.TotalRequests >= 250,
+            Assert.True(
+                report.Results.Phase3Api.TotalRequests >= 250,
                 $"Expected at least 250 requests with 5 workers, got {report.Results.Phase3Api.TotalRequests}");
 
             Output.WriteLine($"API test with 5 workers completed: {report.Results.Phase3Api.TotalRequests} total requests");

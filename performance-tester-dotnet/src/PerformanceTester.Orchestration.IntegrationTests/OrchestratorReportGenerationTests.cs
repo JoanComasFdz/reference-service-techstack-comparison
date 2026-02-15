@@ -63,7 +63,8 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
             }
 
             // Should have at least 8 files total
-            Assert.True(allFiles.Length >= 8,
+            Assert.True(
+                allFiles.Length >= 8,
                 $"Expected at least 8 report files, found {allFiles.Length}");
 
             // Should have exactly 1 chart PNG file
@@ -73,7 +74,8 @@ public sealed class OrchestratorReportGenerationTests(ITestOutputHelper output)
 
             // Should have at least 7 JSON files
             var jsonFiles = allFiles.Where(f => f.EndsWith(".json")).ToArray();
-            Assert.True(jsonFiles.Length >= 7,
+            Assert.True(
+                jsonFiles.Length >= 7,
                 $"Expected at least 7 JSON files, found {jsonFiles.Length}");
             Output.WriteLine($"JSON files count: {jsonFiles.Length}");
         }

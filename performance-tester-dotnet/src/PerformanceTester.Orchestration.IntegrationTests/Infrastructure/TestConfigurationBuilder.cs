@@ -121,8 +121,7 @@ public class TestConfigurationBuilder
             MaxConsecutiveApiFailures: _maxConsecutiveApiFailures);
     }
 
-    private static T Unwrap<T, TError>(Result<T, TError> result) =>
-        result.Match(
+    private static T Unwrap<T, TError>(Result<T, TError> result) => result.Match(
             success: s => s.Value,
             failure: f => throw new ArgumentException($"Invalid test value: {f.Error}"));
 }

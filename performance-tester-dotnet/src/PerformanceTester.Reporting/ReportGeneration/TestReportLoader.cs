@@ -79,9 +79,13 @@ public static class TestReportLoader
             ApiThroughputSamples = await LoadApiThroughputAsync(
                 $"{basePath}.api-throughput.json", cancellationToken),
             ProcessResourceSamples = await LoadSamplesAsync<ProcessResourceMetricsReport, ProcessResourceSample>(
-                $"{basePath}.resource-metrics.json", r => r.Samples, cancellationToken),
+                $"{basePath}.resource-metrics.json",
+                r => r.Samples,
+                cancellationToken),
             SystemResourceSamples = await LoadSamplesAsync<SystemMetricsReport, SystemResourceSample>(
-                $"{basePath}.system-metrics.json", r => r.Samples, cancellationToken)
+                $"{basePath}.system-metrics.json",
+                r => r.Samples,
+                cancellationToken)
         };
     }
 

@@ -29,8 +29,7 @@ internal static class WindowsMemoryQuery
         CancellationToken cancellationToken = default,
         ILogger? logger = null)
     {
-        var result = await PowerShellExecutor.ExecuteAsync(
-            Command, TimeoutSeconds, cancellationToken, logger);
+        var result = await PowerShellExecutor.ExecuteAsync(Command, TimeoutSeconds, cancellationToken, logger);
 
         if (result is null)
         {
@@ -39,8 +38,7 @@ internal static class WindowsMemoryQuery
 
         if (!result.Success)
         {
-            logger?.LogWarning("Windows memory query failed with exit code {ExitCode}: {Error}",
-                result.ExitCode, result.Error);
+            logger?.LogWarning("Windows memory query failed with exit code {ExitCode}: {Error}", result.ExitCode, result.Error);
             return null;
         }
 

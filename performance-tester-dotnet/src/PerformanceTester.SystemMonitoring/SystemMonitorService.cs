@@ -191,8 +191,7 @@ internal sealed class SystemMonitorService : BackgroundService, ISystemMonitor
                 catch (SystemMonitoringException ex)
                 {
                     // Fatal monitoring error - stop with clear message
-                    _logger.LogError("SYSTEM MONITORING FAILED on {Platform}: {Message}",
-                        ex.Platform, ex.Message);
+                    _logger.LogError("SYSTEM MONITORING FAILED on {Platform}: {Message}", ex.Platform, ex.Message);
                     _logger.LogError("Cannot continue without {MetricType} metrics. Stopping system monitor.", ex.MetricType);
 
                     int sampleCount;

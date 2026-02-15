@@ -327,7 +327,8 @@ public sealed class OrchestratorSchemaValidationTests(ITestOutputHelper output)
             // Assert 1: API throughput samples were collected
             var apiSamples = report.ApiThroughputSamples.ToList();
             Output.WriteLine($"ApiThroughputSamples count: {apiSamples.Count}");
-            Assert.True(apiSamples.Count >= 2,
+            Assert.True(
+                apiSamples.Count >= 2,
                 $"Expected at least 2 API throughput samples, but got {apiSamples.Count}");
 
             // Assert 2: All intervals between samples are positive (time moves forward)

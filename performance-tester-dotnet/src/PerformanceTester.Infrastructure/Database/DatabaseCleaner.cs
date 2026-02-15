@@ -57,8 +57,12 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
             catch (Exception ex) when (attempt < MaxRetries && ex is not OperationCanceledException)
             {
                 lastException = ex;
-                _logger.LogWarning(ex, "⚠️ Attempt {Attempt}/{MaxRetries} failed, retrying in {DelaySeconds}s...",
-                    attempt, MaxRetries, _retryDelay.TotalSeconds);
+                _logger.LogWarning(
+                    ex,
+                    "⚠️ Attempt {Attempt}/{MaxRetries} failed, retrying in {DelaySeconds}s...",
+                    attempt,
+                    MaxRetries,
+                    _retryDelay.TotalSeconds);
                 await Task.Delay(_retryDelay, cancellationToken);
             }
         }
@@ -95,8 +99,7 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
             return;
         }
 
-        _logger.LogDebug("Discovered {TableCount} tables: {Tables}",
-            tables.Count, string.Join(", ", tables));
+        _logger.LogDebug("Discovered {TableCount} tables: {Tables}", tables.Count, string.Join(", ", tables));
 
         // Build TRUNCATE command for all tables with CASCADE
         // Quote identifiers to handle special characters and ensure proper SQL

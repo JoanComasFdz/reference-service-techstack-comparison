@@ -85,8 +85,8 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             message: $"Starting streaming monitor for container {_containerName}"));
 
         _startSignal.TrySetResult();
-        _logger.LogInformation("StartMonitoring called for container {ContainerName}, waiting for first sample...",
-            _containerName);
+        _logger.LogInformation(
+            "StartMonitoring called for container {ContainerName}, waiting for first sample...", _containerName);
 
         // Wait for the first sample to be collected
         await _firstSampleCollected.Task.WaitAsync(cancellationToken);
@@ -95,8 +95,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
     }
 
     /// <inheritdoc />
-    public IReadOnlyCollection<DockerMetrics> GetCollectedMetrics() =>
-        _collectedMetrics
+    public IReadOnlyCollection<DockerMetrics> GetCollectedMetrics() => _collectedMetrics
             .OrderBy(m => m.Timestamp)
             .ToList()
             .AsReadOnly();
@@ -285,8 +284,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
                     break;
                 }
 
-                currentContainerId = await AttemptReconnectionAsync(
-                    ex, currentContainerId, cancellationToken);
+                currentContainerId = await AttemptReconnectionAsync(ex, currentContainerId, cancellationToken);
             }
         }
     }

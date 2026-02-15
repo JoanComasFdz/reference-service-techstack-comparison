@@ -25,8 +25,7 @@ internal static class PowerShellHelper
     /// <exception cref="InvalidOperationException">
     /// Thrown when PowerShell is not available in this environment.
     /// </exception>
-    public static string GetPowerShellPath() =>
-        _cachedPath.Value ?? throw new InvalidOperationException(
+    public static string GetPowerShellPath() => _cachedPath.Value ?? throw new InvalidOperationException(
             "PowerShell is not available in this environment. " +
             "This typically occurs in containerized environments without Windows filesystem access.");
 

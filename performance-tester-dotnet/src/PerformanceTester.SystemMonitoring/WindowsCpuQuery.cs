@@ -24,8 +24,7 @@ internal static class WindowsCpuQuery
         CancellationToken cancellationToken = default,
         ILogger? logger = null)
     {
-        var result = await PowerShellExecutor.ExecuteAsync(
-            Command, TimeoutSeconds, cancellationToken, logger);
+        var result = await PowerShellExecutor.ExecuteAsync(Command, TimeoutSeconds, cancellationToken, logger);
 
         if (result is null)
         {
@@ -34,8 +33,7 @@ internal static class WindowsCpuQuery
 
         if (!result.Success)
         {
-            logger?.LogWarning("Windows CPU query failed with exit code {ExitCode}: {Error}",
-                result.ExitCode, result.Error);
+            logger?.LogWarning("Windows CPU query failed with exit code {ExitCode}: {Error}", result.ExitCode, result.Error);
             return null;
         }
 

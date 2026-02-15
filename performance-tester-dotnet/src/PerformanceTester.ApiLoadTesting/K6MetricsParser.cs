@@ -60,8 +60,7 @@ internal sealed class K6MetricsParser
     /// <summary>
     /// Determines if a metric name is relevant for our analysis.
     /// </summary>
-    private static bool IsRelevantMetric(string metricName) =>
-        metricName switch
+    private static bool IsRelevantMetric(string metricName) => metricName switch
         {
             "http_reqs" => true,
             "http_req_duration" => true,

@@ -760,9 +760,93 @@ var serviceProcessId = setupResult.SuccessValue;
 
 **Not enforced by `.editorconfig`** (no built-in rule). Enforced by convention and code review. Consider adding `StyleCop.Analyzers` (rule `SA1513`) if build-time enforcement is desired.
 
+### 27. All-or-Nothing Parameter Wrapping
+
+Parameters in method calls and declarations must be **all on one line** or **each on its own line**. Never group multiple parameters on a continuation line (partial wrap).
+
+```csharp
+// ✅ Good - all parameters on one line
+var result = await TestReportLoader.LoadFromFolderAsync(folder, cancellationToken);
+
+// ✅ Good - each parameter on its own line
+var result = await SetupPhase.ExecuteAsync(
+    testRunId,
+    clearDatabase,
+    findServiceProcessId,
+    logger);
+
+// ❌ Avoid - partial wrap (multiple params grouped on continuation line)
+var result = await TestReportLoader.LoadFromFolderAsync(
+    folder, cancellationToken);
+
+// ❌ Avoid - partial wrap in logging
+_logger.LogWarning("⚠️ Attempt {Attempt}/{Max} failed, retrying in {Delay}s...",
+    attempt, MaxRetries, _retryDelay.TotalSeconds);
+
+// ✅ Good - logging: all on one line if it fits
+_logger.LogWarning("⚠️ Attempt {Attempt}/{Max} failed", attempt, MaxRetries);
+
+// ✅ Good - logging: each arg on its own line if it doesn't fit
+_logger.LogWarning(
+    "⚠️ Attempt {Attempt}/{Max} failed, retrying in {Delay}s...",
+    attempt,
+    MaxRetries,
+    _retryDelay.TotalSeconds);
+```
+
+**The rule:** If any parameter needs to wrap, **all** parameters wrap — one per line. This makes diffs cleaner (adding a parameter changes one line, not a reformatted group) and makes the call site scannable.
+
+**Applies to:** Method calls, method declarations, constructor calls, delegate invocations, `new()` expressions, attribute parameters.
+
+**Not enforced by `.editorconfig`** (no built-in rule). Enforced by convention and code review.
+
+### 28. Expression Body (`=>`) Stays on the Same Line
+
+When using expression-bodied members or lambda expressions, the expression after `=>` must start on the **same line** as the arrow. Never put a bare `=>` at the end of a line with the expression starting on the next line.
+
+```csharp
+// ✅ Good - expression on same line as =>
+public override string ToString() => Value.ToString();
+
+// ✅ Good - short lambda on same line
+var names = items.Select(x => x.Name);
+
+// ✅ Good - multi-param declaration with each param on its own line, expression on => line
+public static Result<EventCount, string> Create(
+    int value,
+    int maxValue) => value is >= 1 and <= maxValue
+        ? new Success(new EventCount(value))
+        : new Failure($"Invalid (got: {value})");
+
+// ✅ Good - when the expression is complex, open a block body instead
+public static Result<EventCount, string> Create(int value)
+{
+    if (value is < 1 or > 1_000_000)
+    {
+        return new Failure($"Events must be between 1 and 1,000,000 (got: {value})");
+    }
+
+    return new Success(new EventCount(value));
+}
+
+// ❌ Avoid - newline right after =>
+public override string ToString()
+    => Value.ToString();
+
+// ❌ Avoid - bare => at end of line
+public static OrchestratorDeps Build(IServiceProvider services, Config config) =>
+    new(
+        RunSetup: ...,
+        RunProcess: ...);
+```
+
+**Why:** The expression after `=>` is the most important part — it's *what the function does*. Pushing it to the next line hides it. If the expression is too long for one line, switch to a block body `{ }` instead of dangling the arrow.
+
+**Not enforced by `.editorconfig`** (no built-in rule). Enforced by convention and code review.
+
 ---
 
-## 27. Minimize Interface Reach with Dependency Composition
+## 29. Minimize Interface Reach with Dependency Composition
 
 Classes should depend on **pre-composed capabilities**, not on the interfaces or individual operations behind them. Interfaces are a DI registration concern — contain them in a **dependencies class**: a static factory that resolves interfaces and produces bound delegates at the right abstraction level. Consumers receive delegates matching their actual abstraction level.
 
@@ -857,4 +941,6 @@ public class Orchestrator(IDatabase db, IProcessRunner runner, IEventPublisher p
 | Consumer owns defaults | Am I encoding what a consumer needs? Let the consumer decide |
 | Always use braces | Does every `if`/`else`/`for`/`while`/`using` have braces? |
 | Blank line after `}` | Is there a blank line after every closing brace (unless followed by another `}`, `else`, `catch`, `finally`)? |
+| All-or-nothing params | Are parameters all on one line, or each on its own line? Never partial wrap |
+| `=>` same line | Does the expression start on the same line as `=>`? If too long, use block body |
 | Dependency composition | Am I receiving interfaces? Contain them in a dependencies class, expose delegates at the right level |

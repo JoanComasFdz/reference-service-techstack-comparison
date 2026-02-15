@@ -198,7 +198,8 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
             // 6. RabbitMQ metrics JSON
             // 7. PostgreSQL metrics JSON
             // 8. Chart PNG
-            Assert.True(reportFiles.Length >= 8,
+            Assert.True(
+                reportFiles.Length >= 8,
                 $"Expected at least 8 report files, found {reportFiles.Length}");
 
             Output.WriteLine($"✓ Phase 4 (Reporting): Generated {reportFiles.Length} report files");

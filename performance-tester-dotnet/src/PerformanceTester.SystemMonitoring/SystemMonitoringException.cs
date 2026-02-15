@@ -91,8 +91,7 @@ public sealed class SystemMonitoringException : Exception
     /// <summary>
     /// Creates an exception for Windows/WSL2 CPU query failure.
     /// </summary>
-    public static SystemMonitoringException WindowsCpuQueryFailed(bool isWsl2) =>
-        new(
+    public static SystemMonitoringException WindowsCpuQueryFailed(bool isWsl2) => new(
             platform: isWsl2 ? "WSL2" : "Windows",
             metricType: "CPU",
             message: "Failed to query Windows host CPU usage via PowerShell. " +
@@ -102,8 +101,7 @@ public sealed class SystemMonitoringException : Exception
     /// <summary>
     /// Creates an exception for Windows/WSL2 memory query failure.
     /// </summary>
-    public static SystemMonitoringException WindowsMemoryQueryFailed(bool isWsl2) =>
-        new(
+    public static SystemMonitoringException WindowsMemoryQueryFailed(bool isWsl2) => new(
             platform: isWsl2 ? "WSL2" : "Windows",
             metricType: "Memory",
             message: "Failed to query Windows host memory usage via PowerShell. " +
@@ -113,8 +111,7 @@ public sealed class SystemMonitoringException : Exception
     /// <summary>
     /// Creates an exception for Linux /proc/stat CPU read failure.
     /// </summary>
-    public static SystemMonitoringException LinuxCpuReadFailed(Exception? innerException = null) =>
-        new(
+    public static SystemMonitoringException LinuxCpuReadFailed(Exception? innerException = null) => new(
             platform: "Linux",
             metricType: "CPU",
             message: "Failed to read CPU metrics from /proc/stat. " +
@@ -125,8 +122,7 @@ public sealed class SystemMonitoringException : Exception
     /// <summary>
     /// Creates an exception for Linux /proc/meminfo memory read failure.
     /// </summary>
-    public static SystemMonitoringException LinuxMemoryReadFailed(Exception? innerException = null) =>
-        new(
+    public static SystemMonitoringException LinuxMemoryReadFailed(Exception? innerException = null) => new(
             platform: "Linux",
             metricType: "Memory",
             message: "Failed to read memory metrics from /proc/meminfo. " +
