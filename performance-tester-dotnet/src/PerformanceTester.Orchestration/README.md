@@ -17,29 +17,25 @@ The Orchestration slice coordinates all phases of performance testing:
 
 ## API
 
-### TestOrchestrator (Static)
+### TestOrchestrator (Static Module)
 
 ```csharp
 internal static class TestOrchestrator
 {
+    // Delegate definitions (RunSetup, RunWarmup, RunEventTest, etc.)
+
+    public record Dependencies(
+        RunSetup RunSetup, RunWarmup RunWarmup, RunEventTest RunEventTest,
+        RunApiTest RunApiTest, RunTeardown RunTeardown,
+        RunReporting RunReporting, CleanupResources CleanupResources);
+
+    public static Dependencies BuildDependencies(
+        IServiceProvider services, TestConfiguration config,
+        ILogger logger, CancellationToken ct);
+
     public static Task<Result<TestReport, TestRunFailure>> RunTestAsync(
-        OrchestratorDeps deps,
-        TestConfiguration configuration,
-        IProgress<PhaseInfo>? progress,
-        ILogger logger);
-}
-```
-
-### TestOrchestratorDependencies (Static Factory)
-
-```csharp
-internal static class TestOrchestratorDependencies
-{
-    public static OrchestratorDeps Build(
-        IServiceProvider services,
-        TestConfiguration config,
-        ILogger logger,
-        CancellationToken ct);
+        Dependencies deps, TestConfiguration configuration,
+        IProgress<PhaseInfo>? progress, ILogger logger);
 }
 ```
 
@@ -144,8 +140,8 @@ builder.Services.AddOrchestration(
 var host = builder.Build();
 
 // Note: Do NOT call host.StartAsync() - orchestrator manages IHost lifecycle
-// Use TestOrchestratorDependencies.Build() + TestOrchestrator.RunTestAsync()
-var deps = TestOrchestratorDependencies.Build(host.Services, config, logger, ct);
+// Use TestOrchestrator.BuildDependencies() + TestOrchestrator.RunTestAsync()
+var deps = TestOrchestrator.BuildDependencies(host.Services, config, logger, ct);
 var result = await TestOrchestrator.RunTestAsync(deps, config, progress, logger);
 ```
 
@@ -170,7 +166,7 @@ var result = await TestOrchestrator.RunTestAsync(deps, config, progress, logger)
 - `IReportGenerator` - JSON report generation
 - `IChartGenerator` - PNG chart generation
 
-**Note:** `IProcessMonitor` is NOT registered by `AddOrchestration()` because it requires a process ID that's only discovered at runtime. The `TestOrchestratorDependencies` handles process monitoring registration separately after service discovery. The orchestrator itself (`TestOrchestrator`) is a static class — not registered in DI — and receives pre-composed delegates via `OrchestratorDeps`.
+**Note:** `IProcessMonitor` is NOT registered by `AddOrchestration()` because it requires a process ID that's only discovered at runtime. `TestOrchestrator.BuildDependencies()` handles process monitoring registration separately after service discovery. The orchestrator itself (`TestOrchestrator`) is a static class -- not registered in DI -- and receives pre-composed delegates via `TestOrchestrator.Dependencies`.
 
 ## Usage Example
 
@@ -198,7 +194,7 @@ var config = new TestConfiguration(
     ResultsFolder: "./test-results");
 
 // Run test
-var deps = TestOrchestratorDependencies.Build(host.Services, config, logger, cancellationToken);
+var deps = TestOrchestrator.BuildDependencies(host.Services, config, logger, cancellationToken);
 var result = await TestOrchestrator.RunTestAsync(deps, config, progress: null, logger);
 
 result.Match(

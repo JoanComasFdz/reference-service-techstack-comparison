@@ -5,11 +5,11 @@ using PerformanceTester.ApiLoadTesting;
 namespace PerformanceTester.Orchestration;
 
 /// <summary>
-/// Builds the <see cref="RunApiTest"/> delegate from DI-resolved interfaces.
+/// Builds the <see cref="TestOrchestrator.RunApiTest"/> delegate from DI-resolved interfaces.
 /// </summary>
 internal static class ApiTestPhaseDependencies
 {
-    public static RunApiTest Build(
+    public static TestOrchestrator.RunApiTest Build(
         IServiceProvider services,
         TestConfiguration config,
         ILogger logger,

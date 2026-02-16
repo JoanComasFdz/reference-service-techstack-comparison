@@ -11,11 +11,11 @@ using PerformanceTester.SystemMonitoring;
 namespace PerformanceTester.Orchestration;
 
 /// <summary>
-/// Builds the <see cref="RunReporting"/> delegate from DI-resolved interfaces.
+/// Builds the <see cref="TestOrchestrator.RunReporting"/> delegate from DI-resolved interfaces.
 /// </summary>
 internal static class ReportingPhaseDependencies
 {
-    public static RunReporting Build(
+    public static TestOrchestrator.RunReporting Build(
         IServiceProvider services,
         TestConfiguration config,
         ILogger logger,

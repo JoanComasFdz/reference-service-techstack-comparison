@@ -8,11 +8,11 @@ using PerformanceTester.SystemMonitoring;
 namespace PerformanceTester.Orchestration;
 
 /// <summary>
-/// Builds the <see cref="RunEventTest"/> delegate from DI-resolved interfaces.
+/// Builds the <see cref="TestOrchestrator.RunEventTest"/> delegate from DI-resolved interfaces.
 /// </summary>
 internal static class EventTestPhaseDependencies
 {
-    public static RunEventTest Build(
+    public static TestOrchestrator.RunEventTest Build(
         IServiceProvider services,
         PhasesToolbox.TrackEvents trackEvents,
         PhasesToolbox.PublishEvents publishEvents,

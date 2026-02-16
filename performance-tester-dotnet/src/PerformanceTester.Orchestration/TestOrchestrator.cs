@@ -1,7 +1,11 @@
 using JoanComasFdz.Result;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
+using PerformanceTester.EventPublishing;
+using PerformanceTester.Infrastructure;
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
 using Serilog.Context;
@@ -10,13 +14,149 @@ namespace PerformanceTester.Orchestration;
 
 /// <summary>
 /// Orchestrates complete performance test workflow from setup through reporting.
-/// Receives all capabilities as pre-bound phase delegates via <see cref="OrchestratorDeps"/>.
-/// Sequences phases, threads inter-phase data, and frames progress reporting.
+/// Defines phase-level delegates, bundles them into <see cref="Dependencies"/>,
+/// builds them from DI via <see cref="BuildDependencies"/>,
+/// and sequences execution in <see cref="RunTestAsync"/>.
 /// </summary>
 internal static class TestOrchestrator
 {
+    // -- Delegate definitions (what I need) ----------------------------------------
+
+    /// <summary>
+    /// Runs Setup phase: service discovery, infrastructure init, database/queue clearing.
+    /// testRunId is generated at runtime by the orchestrator.
+    /// </summary>
+    public delegate Task<Result<ProcessId, string>> RunSetup(Guid testRunId);
+
+    /// <summary>
+    /// Runs Warmup phase: non-measured warmup events and API calls.
+    /// All parameters (config, logger, CT, internal delegates) are pre-bound.
+    /// </summary>
+    public delegate Task<Result<Unit, string>> RunWarmup();
+
+    /// <summary>
+    /// Runs Event Test phase: concurrent publish/consume with monitoring.
+    /// serviceProcessId comes from Setup output. progress for internal reporting.
+    /// </summary>
+    public delegate Task<Result<EventTestPhase.Output, string>> RunEventTest(ProcessId serviceProcessId, IProgress<PhaseInfo>? progress);
+
+    /// <summary>
+    /// Runs API Load Test phase: k6 load test execution.
+    /// progress for internal reporting.
+    /// </summary>
+    public delegate Task<Result<ApiTestPhase.Output, string>> RunApiTest(IProgress<PhaseInfo>? progress);
+
+    /// <summary>
+    /// Runs Teardown phase: disconnect event publisher, stop monitoring services.
+    /// Pre-bound with the active CancellationToken -- cancellable during normal flow.
+    /// Must complete before reporting can collect metrics.
+    /// </summary>
+    public delegate Task<Result<Unit, string>> RunTeardown();
+
+    /// <summary>
+    /// Best-effort resource cleanup for the finally block.
+    /// Pre-bound with CancellationToken.None -- must complete even after cancellation or failure.
+    /// Runs the same operations as <see cref="RunTeardown"/> but is not cancellable.
+    /// </summary>
+    public delegate Task CleanupResources();
+
+    /// <summary>
+    /// Runs Reporting phase: metrics collection, report and chart generation.
+    /// testResult is assembled at runtime from all phase outputs.
+    /// </summary>
+    public delegate Task<Result<TestReport, string>> RunReporting(TestResult testResult);
+
+    // -- Dependencies record (bundle of what I need) -------------------------------
+
+    /// <summary>
+    /// Phase-level delegates for the test orchestrator.
+    /// Each delegate has its internal plumbing (interfaces, config, CT) pre-bound
+    /// by <see cref="BuildDependencies"/>.
+    /// The orchestrator sequences these and threads inter-phase data.
+    /// </summary>
+    public record Dependencies(
+        RunSetup RunSetup,
+        RunWarmup RunWarmup,
+        RunEventTest RunEventTest,
+        RunApiTest RunApiTest,
+        RunTeardown RunTeardown,
+        RunReporting RunReporting,
+        CleanupResources CleanupResources);
+
+    // -- Factory (how to build what I need from DI) --------------------------------
+
+    /// <summary>
+    /// Builds <see cref="Dependencies"/> by composing per-phase dependency classes.
+    /// Resolves shared interfaces and creates operation-level delegates reused across phases.
+    /// Per-phase interfaces are resolved by each phase's dependency builder.
+    /// </summary>
+    public static Dependencies BuildDependencies(
+        IServiceProvider services,
+        TestConfiguration config,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        // Resolve interfaces needed for shared operation-level delegates
+        var database = services.GetRequiredService<IDatabase>();
+        var rabbitMq = services.GetRequiredService<IRabbitMQ>();
+        var eventPublisher = services.GetRequiredService<IEventPublisher>();
+        var eventConsumer = services.GetRequiredService<IEventConsumer>();
+
+        // Shared operation-level delegates (reused across phases)
+        PhasesToolbox.ClearDatabase clearDatabase = () => database.ClearDatabaseAsync(config.DatabaseName.Value, ct);
+
+        PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
+        {
+            var result = await rabbitMq.ClearAllQueuesAsync(ct);
+            await Task.Delay(TimeSpan.FromMilliseconds(500), ct);
+            return result;
+        };
+
+        PhasesToolbox.PublishEvents publishEvents = (count) => eventPublisher.PublishEventsAsync(count, ct);
+
+        PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, ct);
+
+        var teardown = TeardownPhaseDependencies.Build(services, logger);
+
+        return new Dependencies(
+            RunSetup: BuildRunSetup(services, clearDatabase, clearAllQueues, config, logger, ct),
+            RunWarmup: BuildRunWarmup(trackEvents, publishEvents, clearDatabase, clearAllQueues, config, logger, ct),
+            RunEventTest: EventTestPhaseDependencies.Build(services, trackEvents, publishEvents, config, logger, ct),
+            RunApiTest: ApiTestPhaseDependencies.Build(services, config, logger, ct),
+            RunTeardown: () => teardown(ct),
+            RunReporting: ReportingPhaseDependencies.Build(services, config, logger, ct),
+            CleanupResources: () => teardown(CancellationToken.None));
+    }
+
+    private static RunSetup BuildRunSetup(
+        IServiceProvider services,
+        PhasesToolbox.ClearDatabase clearDatabase,
+        PhasesToolbox.ClearAllQueues clearAllQueues,
+        TestConfiguration config,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var deps = SetupPhase.BuildDependencies(services, clearDatabase, clearAllQueues, config, ct);
+        return (testRunId) => SetupPhase.ExecuteAsync(testRunId, deps, logger);
+    }
+
+    private static RunWarmup BuildRunWarmup(
+        PhasesToolbox.TrackEvents trackEvents,
+        PhasesToolbox.PublishEvents publishEvents,
+        PhasesToolbox.ClearDatabase clearDatabase,
+        PhasesToolbox.ClearAllQueues clearAllQueues,
+        TestConfiguration config,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var deps = WarmupPhase.BuildDependencies(trackEvents, publishEvents, clearDatabase, clearAllQueues);
+        return () => WarmupPhase.ExecuteAsync(config, deps, logger, ct);
+    }
+
+    // -- Execution (what I do with it) ---------------------------------------------
+
     public static async Task<Result<TestReport, TestRunFailure>> RunTestAsync(
-        OrchestratorDeps deps,
+        Dependencies deps,
         TestConfiguration configuration,
         IProgress<PhaseInfo>? progress,
         ILogger logger)
@@ -153,7 +293,7 @@ internal static class TestOrchestrator
         }
         finally
         {
-            // Best-effort cleanup — non-cancellable, must complete even after failure
+            // Best-effort cleanup -- non-cancellable, must complete even after failure
             try { await deps.CleanupResources(); }
             catch (Exception ex) { logger.LogWarning(ex, "Failed during resource cleanup"); }
         }
