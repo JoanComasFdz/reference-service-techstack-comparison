@@ -1,6 +1,7 @@
 using JoanComasFdz.AssertingThat;
 using JoanComasFdz.Result;
 using PerformanceTester.Infrastructure.Database;
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.IntegrationTesting;
 using Xunit;
 
@@ -14,50 +15,29 @@ public static class InfrastructureAssertions
 {
 
     /// <summary>
-    /// Asserts that calling FindServiceProcessIdAsync with the given port throws ArgumentOutOfRangeException.
+    /// Asserts that the delegate finds the current process ID on the specified port.
     /// </summary>
-    public static AssertingThat<IServiceDiscovery> ThrowsArgumentOutOfRangeForInvalidPort(
-        this AssertingThat<IServiceDiscovery> assertingThat,
-        int invalidPort)
-    {
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            async () => await assertingThat.InstanceToAssert.FindServiceProcessIdAsync(
-                invalidPort,
-                TimeSpan.FromSeconds(1)))
-            .Wait();
-        return assertingThat;
-    }
-
-    /// <summary>
-    /// Asserts that FindServiceProcessIdAsync finds the current process ID on the specified port.
-    /// </summary>
-    /// <param name="assertingThat">The AssertingThat wrapper around IServiceDiscovery</param>
-    /// <param name="port">The port to check for a process</param>
-    /// <param name="timeout">Maximum time to wait for process discovery</param>
     public static async Task FindsCurrentProcessOnPort(
-        this AssertingThat<IServiceDiscovery> assertingThat,
-        int port,
+        this AssertingThat<FindServiceProcessId> assertingThat,
+        Port port,
         TimeSpan timeout)
     {
-        var result = await assertingThat.InstanceToAssert.FindServiceProcessIdAsync(port, timeout);
+        var result = await assertingThat.InstanceToAssert(port, timeout);
 
-        var success = Assert.IsType<Result<int, string>.Success>(result);
-        Assert.Equal(Environment.ProcessId, success.Value);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(Environment.ProcessId, result.SuccessValue);
     }
 
     /// <summary>
-    /// Asserts that FindServiceProcessIdAsync returns a failure when no service is running on the port.
+    /// Asserts that the delegate returns a failure when no service is running on the port.
     /// </summary>
-    /// <param name="assertingThat">The AssertingThat wrapper around IServiceDiscovery</param>
-    /// <param name="port">The port to check for a process</param>
-    /// <param name="timeout">Maximum time to wait for process discovery</param>
     public static async Task FindsNoProcessOnPort(
-        this AssertingThat<IServiceDiscovery> assertingThat,
-        int port,
+        this AssertingThat<FindServiceProcessId> assertingThat,
+        Port port,
         TimeSpan timeout)
     {
-        var result = await assertingThat.InstanceToAssert.FindServiceProcessIdAsync(port, timeout);
-        Assert.IsType<Result<int, string>.Failure>(result);
+        var result = await assertingThat.InstanceToAssert(port, timeout);
+        Assert.True(result.IsFailure);
     }
 
     /// <summary>

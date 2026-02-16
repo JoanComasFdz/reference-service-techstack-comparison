@@ -1,5 +1,6 @@
 using JoanComasFdz.AssertingThat;
 using PerformanceTester.Infrastructure.IntegrationTests.Infrastructure;
+using PerformanceTester.Infrastructure.ValueObjects;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -11,40 +12,30 @@ public sealed class ServiceDiscoveryTests(ITestOutputHelper output) : Integratio
     public async Task FindServiceProcessIdAsync_WhenServiceIsRunning_ShouldReturnProcessId()
     {
         // Arrange - Start a TCP listener on an available port
-        var testPort = System.OS.StartProcessOnPort(); // OS assigns available port
+        var testPortNumber = System.OS.StartProcessOnPort(); // OS assigns available port
+        var testPort = Port.FromInt(testPortNumber);
 
         try
         {
             // Act - Should find the current process (listener runs in this test process)
-            await Asserting.That(System.Infrastructure.ServiceDiscovery)
+            await Asserting.That(System.Infrastructure.FindServiceProcessId)
                 .FindsCurrentProcessOnPort(testPort, TimeSpan.FromSeconds(5));
         }
         finally
         {
             // Cleanup
-            System.OS.StopProcessOnPort(testPort);
+            System.OS.StopProcessOnPort(testPortNumber);
         }
     }
 
     [Fact]
-    public async Task FindServiceProcessIdAsync_WhenNoServiceOnPort_ShouldReturnNull()
+    public async Task FindServiceProcessIdAsync_WhenNoServiceOnPort_ShouldReturnFailure()
     {
         // Arrange - port 54321 should be unused
-        const int unusedPort = 54321;
+        var unusedPort = Port.FromInt(54321);
 
         // Act & Assert
-        await Asserting.That(System.Infrastructure.ServiceDiscovery)
+        await Asserting.That(System.Infrastructure.FindServiceProcessId)
             .FindsNoProcessOnPort(unusedPort, TimeSpan.FromSeconds(2));
-    }
-
-    [Fact]
-    public void FindServiceProcessIdAsync_WhenInvalidPort_ShouldThrowArgumentOutOfRangeException()
-    {
-        // Arrange
-        const int invalidPort = 99999;
-
-        // Act & Assert
-        Asserting.That(System.Infrastructure.ServiceDiscovery)
-            .ThrowsArgumentOutOfRangeForInvalidPort(invalidPort);
     }
 }

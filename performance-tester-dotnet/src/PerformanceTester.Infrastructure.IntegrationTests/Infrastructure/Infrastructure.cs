@@ -11,9 +11,9 @@ public sealed class Infrastructure
     private IHost? _host;
 
     /// <summary>
-    /// Service discovery for finding processes on ports.
+    /// Service discovery delegate for finding processes on ports.
     /// </summary>
-    public IServiceDiscovery ServiceDiscovery { get; private set; } = null!;
+    public FindServiceProcessId FindServiceProcessId { get; private set; } = null!;
 
     /// <summary>
     /// Database management for clearing test data.
@@ -49,7 +49,7 @@ public sealed class Infrastructure
 
         _host = builder.Build();
 
-        ServiceDiscovery = _host.Services.GetRequiredService<IServiceDiscovery>();
+        FindServiceProcessId = _host.Services.GetRequiredService<FindServiceProcessId>();
         Database = _host.Services.GetRequiredService<IDatabase>();
         RabbitMQ = _host.Services.GetRequiredService<IRabbitMQ>();
     }
