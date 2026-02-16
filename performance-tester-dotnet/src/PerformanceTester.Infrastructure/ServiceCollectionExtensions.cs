@@ -26,24 +26,45 @@ public static class ServiceCollectionExtensions
         string rabbitMqConnectionString,
         int? rabbitMqManagementPort = null)
     {
-        // Platform detection happens ONCE at startup, not per method call
-        var platform = OSPlatformDetector.GetCurrentPlatform();
+        // Platform detection determines which static finder to use (Guideline 14: delegates for internal wiring)
+        var platformResult = OSPlatformDetector.GetCurrentPlatform();
 
-        switch (platform)
+        // Unsupported platform is a deployment error — the app cannot function without a process finder
+        if (platformResult.IsFailure)
         {
-            case SupportedPlatform.Linux:
-                services.AddSingleton<IProcessFinder, LinuxProcessFinder>();
-                break;
-            case SupportedPlatform.Windows:
-                services.AddSingleton<IProcessFinder, WindowsProcessFinder>();
-                break;
-            default:
-                throw new PlatformNotSupportedException(
-                    $"Platform {platform} is not supported. Only Linux and Windows are supported.");
+            throw new PlatformNotSupportedException(platformResult.FailureError);
         }
 
-        // ServiceDiscovery receives IProcessFinder via constructor injection
-        services.AddSingleton<IServiceDiscovery, ServiceDiscovery>();
+        var platform = platformResult.SuccessValue;
+
+        // No adapter class — the closure IS the implementation (Guideline 12)
+        services.AddSingleton<FindServiceProcessId>(sp =>
+        {
+            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            var discoveryLogger = loggerFactory.CreateLogger(
+                typeof(ServiceDiscovery).FullName!);
+
+            // Dunet Match — exhaustive at compile time, no UnreachableException needed
+            var finderLogger = platform.Match(
+                linux: _ => loggerFactory.CreateLogger(
+                    typeof(LinuxProcessFinder).FullName!),
+                windows: _ => loggerFactory.CreateLogger(
+                    typeof(WindowsProcessFinder).FullName!));
+
+            FindProcessOnPort findProcessOnPort = platform.Match(
+                linux: _ => (FindProcessOnPort)((p, ct) =>
+                    LinuxProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)),
+                windows: _ => (FindProcessOnPort)((p, ct) =>
+                    WindowsProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)));
+
+            return (port, timeout, ct) =>
+                ServiceDiscovery.FindServiceProcessIdAsync(
+                    port,
+                    timeout,
+                    findProcessOnPort,
+                    discoveryLogger,
+                    ct);
+        });
 
         // DatabaseCleaner receives connection string and logger
         services.AddSingleton<IDatabase>(sp =>

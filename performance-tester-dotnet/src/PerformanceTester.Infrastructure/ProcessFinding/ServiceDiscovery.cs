@@ -1,37 +1,32 @@
 using System.Net.NetworkInformation;
 using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Infrastructure.ValueObjects;
 using static JoanComasFdz.Result.Result<int, string>;
 
 namespace PerformanceTester.Infrastructure.ProcessFinding;
 
 /// <summary>
-/// Service for discovering processes listening on network ports.
-/// Uses injected IProcessFinder for platform-specific process discovery.
+/// Service discovery logic for finding processes listening on network ports.
+/// Pure static class with explicit parameters (Guidelines 1, 2).
+/// Accepts <see cref="Port"/> value object — port range is guaranteed valid (Guideline 22).
 /// </summary>
-internal sealed class ServiceDiscovery : IServiceDiscovery
+internal static class ServiceDiscovery
 {
-    private readonly IProcessFinder _processFinder;
-    private readonly ILogger<ServiceDiscovery> _logger;
-
-    public ServiceDiscovery(IProcessFinder processFinder, ILogger<ServiceDiscovery> logger)
-    {
-        _processFinder = processFinder;
-        _logger = logger;
-    }
-
-    /// <inheritdoc />
-    public async Task<Result<int, string>> FindServiceProcessIdAsync(
-        int port,
+    /// <summary>
+    /// Polls for a process listening on the specified port until found or timeout.
+    /// </summary>
+    public static async Task<Result<int, string>> FindServiceProcessIdAsync(
+        Port port,
         TimeSpan timeout,
+        FindProcessOnPort findProcessOnPort,
+        ILogger logger,
         CancellationToken cancellationToken = default)
     {
-        if (port < 1 || port > 65535)
-        {
-            throw new ArgumentOutOfRangeException(nameof(port), port, "Port must be between 1 and 65535");
-        }
-
-        _logger.LogInformation("Searching for service on port {Port} (timeout: {Timeout}s)", port, timeout.TotalSeconds);
+        logger.LogInformation(
+            "Searching for service on port {Port} (timeout: {Timeout}s)",
+            port.Value,
+            timeout.TotalSeconds);
 
         var startTime = DateTime.UtcNow;
         var lastLogTime = DateTime.UtcNow;
@@ -43,11 +38,14 @@ internal sealed class ServiceDiscovery : IServiceDiscovery
             // Check if port is listening before attempting to find process
             if (IsPortListening(port))
             {
-                var processId = await _processFinder.FindProcessOnPortAsync(port, cancellationToken);
-                if (processId.HasValue)
+                var result = await findProcessOnPort(port, cancellationToken);
+                if (result.IsSuccess)
                 {
-                    _logger.LogInformation("✓ Found service on port {Port}: PID {ProcessId}", port, processId.Value);
-                    return new Success(processId.Value);
+                    logger.LogInformation(
+                        "Found service on port {Port}: PID {ProcessId}",
+                        port.Value,
+                        result.SuccessValue);
+                    return result;
                 }
             }
 
@@ -55,21 +53,27 @@ internal sealed class ServiceDiscovery : IServiceDiscovery
             if ((DateTime.UtcNow - lastLogTime).TotalSeconds >= 5)
             {
                 var elapsed = DateTime.UtcNow - startTime;
-                _logger.LogDebug("Still searching for service on port {Port} (elapsed: {Elapsed}s)", port, (int)elapsed.TotalSeconds);
+                logger.LogDebug(
+                    "Still searching for service on port {Port} (elapsed: {Elapsed}s)",
+                    port.Value,
+                    (int)elapsed.TotalSeconds);
                 lastLogTime = DateTime.UtcNow;
             }
 
             await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
         }
 
-        _logger.LogWarning("⚠️ Service not found on port {Port} after {Timeout}s", port, timeout.TotalSeconds);
+        logger.LogWarning(
+            "Service not found on port {Port} after {Timeout}s",
+            port.Value,
+            timeout.TotalSeconds);
         return new Failure($"No service found on port {port} within {timeout}");
     }
 
-    private bool IsPortListening(int port)
+    private static bool IsPortListening(Port port)
     {
         var properties = IPGlobalProperties.GetIPGlobalProperties();
         var listeners = properties.GetActiveTcpListeners();
-        return listeners.Any(l => l.Port == port);
+        return listeners.Any(l => l.Port == port.Value);
     }
 }
