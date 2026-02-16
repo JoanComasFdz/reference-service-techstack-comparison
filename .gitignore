@@ -164,3 +164,6 @@ shell_config_backup_*/
 
 # Windows Zone.Identifier files
 *:Zone.Identifier
+
+# AGTX
+.agtx/
