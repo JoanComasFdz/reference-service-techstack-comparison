@@ -2,6 +2,7 @@ using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
+using PerformanceTester.Orchestration.ValueObjects;
 using Serilog.Context;
 using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, string>;
 
@@ -13,18 +14,11 @@ namespace PerformanceTester.Orchestration;
 internal static class WarmupPhase
 {
     /// <summary>
-    /// Executes warmup HTTP calls to the API endpoint.
-    /// Returns (successCount, failedCount).
-    /// </summary>
-    public delegate Task<(int Success, int Failed)> ExecuteWarmupApiCalls(string apiUrl, uint callCount);
-
-    /// <summary>
     /// Bundles all phase-level and shared delegates needed by <see cref="ExecuteAsync"/>.
     /// </summary>
     public record Dependencies(
         PhasesToolbox.TrackEvents TrackEvents,
         PhasesToolbox.PublishEvents PublishEvents,
-        ExecuteWarmupApiCalls ExecuteWarmupApiCalls,
         PhasesToolbox.ClearDatabase ClearDatabase,
         PhasesToolbox.ClearAllQueues ClearAllQueues);
 
@@ -37,14 +31,11 @@ internal static class WarmupPhase
         PhasesToolbox.TrackEvents trackEvents,
         PhasesToolbox.PublishEvents publishEvents,
         PhasesToolbox.ClearDatabase clearDatabase,
-        PhasesToolbox.ClearAllQueues clearAllQueues,
-        ILogger logger,
-        CancellationToken ct)
+        PhasesToolbox.ClearAllQueues clearAllQueues)
     {
         return new Dependencies(
             TrackEvents: trackEvents,
             PublishEvents: publishEvents,
-            ExecuteWarmupApiCalls: (url, count) => ExecuteWarmupApiCallsAsync(url, count, logger, ct),
             ClearDatabase: clearDatabase,
             ClearAllQueues: clearAllQueues);
     }
@@ -52,7 +43,8 @@ internal static class WarmupPhase
     public static async Task<Result<Unit, string>> ExecuteAsync(
         TestConfiguration config,
         Dependencies deps,
-        ILogger logger)
+        ILogger logger,
+        CancellationToken ct)
     {
         using var _ = LogContext.PushProperty("Phase", "Warmup");
 
@@ -90,8 +82,7 @@ internal static class WarmupPhase
                 "Warmup: Making {Count} HTTP calls to API endpoint",
                 config.WarmupApiCallCount);
 
-            var (successCount, failCount) = await deps.ExecuteWarmupApiCalls(
-                config.ApiUrl, config.WarmupApiCallCount.Value);
+            var (successCount, failCount) = await ExecuteWarmupApiCallsAsync(config.ApiUrl, config.WarmupApiCallCount, logger, ct);
 
             logger.LogInformation(
                 "Warmup: API calls complete - {Success} succeeded, {Failed} failed",
@@ -134,9 +125,9 @@ internal static class WarmupPhase
     /// Executes warmup API calls using a simple HttpClient.
     /// This method can be passed as the <see cref="ExecuteWarmupApiCalls"/> delegate.
     /// </summary>
-    public static async Task<(int Success, int Failed)> ExecuteWarmupApiCallsAsync(
+    private static async Task<(int Success, int Failed)> ExecuteWarmupApiCallsAsync(
         string apiUrl,
-        uint callCount,
+        WarmupApiCallsCount callCount,
         ILogger logger,
         CancellationToken cancellationToken)
     {
@@ -144,7 +135,7 @@ internal static class WarmupPhase
         var successCount = 0;
         var failCount = 0;
 
-        for (uint i = 0; i < callCount; i++)
+        for (uint i = 0; i < callCount.Value; i++)
         {
             try
             {

@@ -72,7 +72,7 @@ internal static class TestOrchestratorDependencies
         ILogger logger,
         CancellationToken ct)
     {
-        var deps = WarmupPhase.BuildDependencies(trackEvents, publishEvents, clearDatabase, clearAllQueues, logger, ct);
-        return () => WarmupPhase.ExecuteAsync(config, deps, logger);
+        var deps = WarmupPhase.BuildDependencies(trackEvents, publishEvents, clearDatabase, clearAllQueues);
+        return () => WarmupPhase.ExecuteAsync(config, deps, logger, ct);
     }
 }
