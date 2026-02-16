@@ -121,7 +121,7 @@ internal static class TestOrchestrator
         return new Dependencies(
             RunSetup: BuildRunSetup(services, clearDatabase, clearAllQueues, config, logger, ct),
             RunWarmup: BuildRunWarmup(trackEvents, publishEvents, clearDatabase, clearAllQueues, config, logger, ct),
-            RunEventTest: EventTestPhaseDependencies.Build(services, trackEvents, publishEvents, config, logger, ct),
+            RunEventTest: BuildRunEventTest(services, trackEvents, publishEvents, config, logger, ct),
             RunApiTest: ApiTestPhaseDependencies.Build(services, config, logger, ct),
             RunTeardown: () => teardown(ct),
             RunReporting: ReportingPhaseDependencies.Build(services, config, logger, ct),
@@ -151,6 +151,18 @@ internal static class TestOrchestrator
     {
         var deps = WarmupPhase.BuildDependencies(trackEvents, publishEvents, clearDatabase, clearAllQueues);
         return () => WarmupPhase.ExecuteAsync(config, deps, logger, ct);
+    }
+
+    private static RunEventTest BuildRunEventTest(
+        IServiceProvider services,
+        PhasesToolbox.TrackEvents trackEvents,
+        PhasesToolbox.PublishEvents publishEvents,
+        TestConfiguration config,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var deps = EventTestPhase.BuildDependencies(services, trackEvents, publishEvents, config, ct);
+        return (serviceProcessId, progress) => EventTestPhase.ExecuteAsync(serviceProcessId, deps, progress, logger);
     }
 
     // -- Execution (what I do with it) ---------------------------------------------

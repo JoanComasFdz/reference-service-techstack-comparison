@@ -1,9 +1,13 @@
 using System.Diagnostics;
 using JoanComasFdz.Result;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.ValueObjects;
+using PerformanceTester.ProcessMonitoring;
+using PerformanceTester.SystemMonitoring;
 using Serilog.Context;
 using static JoanComasFdz.Result.Result<PerformanceTester.Orchestration.EventTestPhase.Output, string>;
 
@@ -45,17 +49,50 @@ internal static class EventTestPhase
         DateTime StartTime,
         DateTime EndTime);
 
-    public static async Task<Result<Output, string>> ExecuteAsync(
-        TestConfiguration config,
-        ProcessId serviceProcessId,
-        int systemCpuCount,
-        bool systemIsWsl2,
-        ClearSamples clearSamples,
-        StartProcessMonitoring startProcessMonitoring,
-        StartSystemMonitoring startSystemMonitoring,
-        StartDockerMonitoring startDockerMonitoring,
+    /// <summary>
+    /// Bundles all phase-level and shared delegates needed by <see cref="ExecuteAsync"/>.
+    /// </summary>
+    public record Dependencies(
+        TestConfiguration Config,
+        int SystemCpuCount,
+        bool SystemIsWsl2,
+        ClearSamples ClearSamples,
+        StartProcessMonitoring StartProcessMonitoring,
+        StartSystemMonitoring StartSystemMonitoring,
+        StartDockerMonitoring StartDockerMonitoring,
+        PhasesToolbox.TrackEvents TrackEvents,
+        PhasesToolbox.PublishEvents PublishEvents);
+
+    /// <summary>
+    /// Resolves DI services and composes phase-level delegates into a <see cref="Dependencies"/> bundle.
+    /// </summary>
+    public static Dependencies BuildDependencies(
+        IServiceProvider services,
         PhasesToolbox.TrackEvents trackEvents,
         PhasesToolbox.PublishEvents publishEvents,
+        TestConfiguration config,
+        CancellationToken ct)
+    {
+        var systemMonitor = services.GetRequiredService<ISystemMonitor>();
+        var metricsCollector = services.GetRequiredService<IMetricsCollector>();
+        var processMonitor = services.GetRequiredService<IProcessMonitor>();
+        var dockerMonitors = services.GetRequiredService<IEnumerable<IDockerMonitor>>();
+
+        return new Dependencies(
+            Config: config,
+            SystemCpuCount: systemMonitor.CpuCount,
+            SystemIsWsl2: systemMonitor.IsWsl2,
+            ClearSamples: metricsCollector.ClearSamples,
+            StartProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid, cancellationToken: ct),
+            StartSystemMonitoring: () => systemMonitor.StartMonitoringAsync(cancellationToken: ct),
+            StartDockerMonitoring: () => Task.WhenAll(dockerMonitors.Select(m => m.StartMonitoringAsync(cancellationToken: ct))),
+            TrackEvents: trackEvents,
+            PublishEvents: publishEvents);
+    }
+
+    public static async Task<Result<Output, string>> ExecuteAsync(
+        ProcessId serviceProcessId,
+        Dependencies deps,
         IProgress<PhaseInfo>? progress,
         ILogger logger)
     {
@@ -65,29 +102,30 @@ internal static class EventTestPhase
         {
             logger.LogInformation(
                 "Starting event throughput test with {Count} events",
-                config.EventCount);
+                deps.Config.EventCount);
 
             // Clear any warmup samples before starting the measured test
-            clearSamples();
+            deps.ClearSamples();
             logger.LogDebug("Cleared warmup throughput samples");
 
             // Start monitoring just before the measured test begins
             // This ensures chart data starts at the same time as the test phases
             logger.LogInformation("Starting process monitoring for PID {ProcessId}...", serviceProcessId);
-            await startProcessMonitoring(serviceProcessId.Value);
+            await deps.StartProcessMonitoring(serviceProcessId.Value);
             logger.LogInformation("Process monitoring started");
 
-            logger.LogInformation("Starting system-wide monitoring (CPU: {CpuCount} cores, WSL2: {IsWsl2})...",
-                systemCpuCount,
-                systemIsWsl2);
-            await startSystemMonitoring();
+            logger.LogInformation(
+                "Starting system-wide monitoring (CPU: {CpuCount} cores, WSL2: {IsWsl2})...",
+                deps.SystemCpuCount,
+                deps.SystemIsWsl2);
+            await deps.StartSystemMonitoring();
             logger.LogInformation("System monitoring started");
 
             logger.LogInformation("Starting Docker container monitors...");
-            await startDockerMonitoring();
+            await deps.StartDockerMonitoring();
             logger.LogInformation("Docker container monitors started (first samples collected)");
 
-            var consumerProgress = CreateConsumerProgressCallback(progress, config.EventCount.Value);
+            var consumerProgress = CreateConsumerProgressCallback(progress, deps.Config.EventCount.Value);
 
             // Capture startTime immediately before launching concurrent publisher/consumer
             // to minimize gap between monitoring start and measurement start
@@ -95,12 +133,12 @@ internal static class EventTestPhase
             var stopwatch = Stopwatch.StartNew();
 
             // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
-            var consumerTask = trackEvents(
-                config.EventCount.Value,
-                config.InactivityTimeout.Value,
+            var consumerTask = deps.TrackEvents(
+                deps.Config.EventCount.Value,
+                deps.Config.InactivityTimeout.Value,
                 consumerProgress);
 
-            var publisherTask = publishEvents(config.EventCount.Value);
+            var publisherTask = deps.PublishEvents(deps.Config.EventCount.Value);
 
             // Wait for both to complete
             await Task.WhenAll(consumerTask, publisherTask);
@@ -110,11 +148,11 @@ internal static class EventTestPhase
             var endTime = DateTime.UtcNow;
 
             var totalDuration = stopwatch.Elapsed;
-            var eventThroughput = config.EventCount.Value / totalDuration.TotalSeconds;
+            var eventThroughput = deps.Config.EventCount.Value / totalDuration.TotalSeconds;
 
             logger.LogInformation(
                 "Event throughput test complete: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
-                config.EventCount,
+                deps.Config.EventCount,
                 totalDuration.TotalSeconds,
                 eventThroughput);
 
