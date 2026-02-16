@@ -20,7 +20,7 @@ internal static class SetupPhaseDependencies
         ILogger logger,
         CancellationToken ct)
     {
-        var discoverService = services.GetRequiredService<FindServiceProcessId>();
+        var findServiceProcessId = services.GetRequiredService<FindServiceProcessId>();
         var hostLifetime = services.GetRequiredService<IHostApplicationLifetime>();
         var host = services.GetRequiredService<IHost>();
         var dockerMonitors = services.GetRequiredService<IEnumerable<IDockerMonitor>>();
@@ -28,7 +28,7 @@ internal static class SetupPhaseDependencies
 
         return (testRunId) => SetupPhase.ExecuteAsync(
             testRunId,
-            findServiceProcessId: () => discoverService(config.ServicePort, TimeSpan.FromSeconds(30), ct),
+            findServiceProcessId: () => findServiceProcessId(config.ServicePort, TimeSpan.FromSeconds(30), ct),
             isMonitoringStarted: () => hostLifetime.ApplicationStarted.IsCancellationRequested,
             startMonitoring: () => host.StartAsync(ct),
             warmupDockerApi: () => Task.WhenAll(dockerMonitors.Select(m => m.WarmupAsync(ct))),
