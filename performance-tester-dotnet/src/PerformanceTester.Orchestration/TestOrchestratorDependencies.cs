@@ -9,7 +9,7 @@ namespace PerformanceTester.Orchestration;
 /// <summary>
 /// Builds <see cref="OrchestratorDeps"/> by composing per-phase dependency classes.
 /// Resolves shared interfaces and creates operation-level delegates reused across phases.
-/// Per-phase interfaces are resolved by each <c>XyzPhaseDependencies.Build()</c>.
+/// Per-phase interfaces are resolved by each phase's dependency builder.
 /// </summary>
 internal static class TestOrchestratorDependencies
 {
@@ -42,12 +42,24 @@ internal static class TestOrchestratorDependencies
         var teardown = TeardownPhaseDependencies.Build(services, logger);
 
         return new OrchestratorDeps(
-            RunSetup: SetupPhaseDependencies.Build(services, clearDatabase, clearAllQueues, config, logger, ct),
+            RunSetup: BuildRunSetup(services, clearDatabase, clearAllQueues, config, logger, ct),
             RunWarmup: WarmupPhaseDependencies.Build(trackEvents, publishEvents, clearDatabase, clearAllQueues, config, logger, ct),
             RunEventTest: EventTestPhaseDependencies.Build(services, trackEvents, publishEvents, config, logger, ct),
             RunApiTest: ApiTestPhaseDependencies.Build(services, config, logger, ct),
             RunTeardown: () => teardown(ct),
             RunReporting: ReportingPhaseDependencies.Build(services, config, logger, ct),
             CleanupResources: () => teardown(CancellationToken.None));
+    }
+
+    private static RunSetup BuildRunSetup(
+        IServiceProvider services,
+        PhasesToolbox.ClearDatabase clearDatabase,
+        PhasesToolbox.ClearAllQueues clearAllQueues,
+        TestConfiguration config,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var deps = SetupPhase.BuildDependencies(services, clearDatabase, clearAllQueues, config, ct);
+        return (testRunId) => SetupPhase.ExecuteAsync(testRunId, deps, logger);
     }
 }

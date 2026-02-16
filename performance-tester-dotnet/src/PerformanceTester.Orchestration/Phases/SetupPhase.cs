@@ -1,5 +1,9 @@
 using JoanComasFdz.Result;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.DockerMonitoring;
+using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
 using Serilog.Context;
 using static JoanComasFdz.Result.Result<int, string>;
@@ -38,15 +42,47 @@ internal static class SetupPhase
     /// </summary>
     public delegate Task ConnectEventPublisher();
 
-    public static async Task<Result<int, string>> ExecuteAsync(
-        Guid testRunId,
-        FindServiceProcessId findServiceProcessId,
-        IsMonitoringStarted isMonitoringStarted,
-        StartMonitoring startMonitoring,
-        WarmupDockerApi warmupDockerApi,
+    /// <summary>
+    /// Bundles all phase-level and shared delegates needed by <see cref="ExecuteAsync"/>.
+    /// </summary>
+    public record Dependencies(
+        FindServiceProcessId FindServiceProcessId,
+        IsMonitoringStarted IsMonitoringStarted,
+        StartMonitoring StartMonitoring,
+        WarmupDockerApi WarmupDockerApi,
+        PhasesToolbox.ClearDatabase ClearDatabase,
+        PhasesToolbox.ClearAllQueues ClearAllQueues,
+        ConnectEventPublisher ConnectEventPublisher);
+
+    /// <summary>
+    /// Resolves DI services and composes phase-level delegates into a <see cref="Dependencies"/> bundle.
+    /// </summary>
+    public static Dependencies BuildDependencies(
+        IServiceProvider services,
         PhasesToolbox.ClearDatabase clearDatabase,
         PhasesToolbox.ClearAllQueues clearAllQueues,
-        ConnectEventPublisher connectEventPublisher,
+        TestConfiguration config,
+        CancellationToken ct)
+    {
+        var findServiceProcessId = services.GetRequiredService<PerformanceTester.Infrastructure.FindServiceProcessId>();
+        var hostLifetime = services.GetRequiredService<IHostApplicationLifetime>();
+        var host = services.GetRequiredService<IHost>();
+        var dockerMonitors = services.GetRequiredService<IEnumerable<IDockerMonitor>>();
+        var eventPublisher = services.GetRequiredService<IEventPublisher>();
+
+        return new Dependencies(
+            FindServiceProcessId: () => findServiceProcessId(config.ServicePort, TimeSpan.FromSeconds(30), ct),
+            IsMonitoringStarted: () => hostLifetime.ApplicationStarted.IsCancellationRequested,
+            StartMonitoring: () => host.StartAsync(ct),
+            WarmupDockerApi: () => Task.WhenAll(dockerMonitors.Select(m => m.WarmupAsync(ct))),
+            ClearDatabase: clearDatabase,
+            ClearAllQueues: clearAllQueues,
+            ConnectEventPublisher: () => eventPublisher.ConnectAsync(ct));
+    }
+
+    public static async Task<Result<int, string>> ExecuteAsync(
+        Guid testRunId,
+        Dependencies deps,
         ILogger logger)
     {
         using var _ = LogContext.PushProperty("TestRunId", testRunId);
@@ -56,7 +92,7 @@ internal static class SetupPhase
 
         // Step 1: Find service process
         logger.LogInformation("Discovering service process...");
-        var pidResult = await findServiceProcessId();
+        var pidResult = await deps.FindServiceProcessId();
         if (pidResult.IsFailure)
         {
             return new Failure(pidResult.FailureError);
@@ -66,25 +102,25 @@ internal static class SetupPhase
         logger.LogInformation("Service discovered: PID {ProcessId}", serviceProcessId);
 
         // Step 2: Start monitoring services
-        if (isMonitoringStarted())
+        if (deps.IsMonitoringStarted())
         {
             logger.LogInformation("Host already started, monitoring services are running");
         }
         else
         {
             logger.LogInformation("Starting monitoring services...");
-            await startMonitoring();
+            await deps.StartMonitoring();
             logger.LogInformation("All monitoring services started");
         }
 
         // Step 3: Warm up Docker API
         logger.LogInformation("Warming up Docker API...");
-        await warmupDockerApi();
+        await deps.WarmupDockerApi();
         logger.LogInformation("Docker API warmup complete");
 
         // Step 4: Clear database
         logger.LogInformation("Clearing database...");
-        var dbResult = await clearDatabase();
+        var dbResult = await deps.ClearDatabase();
         if (dbResult.IsFailure)
         {
             var errorMessage = dbResult.FailureError.Match(
@@ -93,11 +129,12 @@ internal static class SetupPhase
                 retriesExhausted: e => $"All {e.Attempts} retry attempts exhausted: {e.Last.Message}");
             return new Failure($"Failed to clear database: {errorMessage}");
         }
+
         logger.LogInformation("Database cleared");
 
         // Step 5: Clear RabbitMQ queues
         logger.LogInformation("Clearing RabbitMQ queues...");
-        var queuesResult = await clearAllQueues();
+        var queuesResult = await deps.ClearAllQueues();
         if (queuesResult.IsFailure)
         {
             return new Failure($"Failed to clear RabbitMQ queues: {queuesResult.FailureError}");
@@ -107,7 +144,7 @@ internal static class SetupPhase
 
         // Step 6: Connect event publisher
         logger.LogInformation("Connecting to RabbitMQ event publisher...");
-        await connectEventPublisher();
+        await deps.ConnectEventPublisher();
         logger.LogInformation("RabbitMQ event publisher connected");
 
         logger.LogInformation("Setup phase complete");
