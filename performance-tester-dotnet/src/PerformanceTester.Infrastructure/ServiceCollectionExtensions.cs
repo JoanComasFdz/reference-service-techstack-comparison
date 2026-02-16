@@ -46,16 +46,12 @@ public static class ServiceCollectionExtensions
 
             // Dunet Match — exhaustive at compile time, no UnreachableException needed
             var finderLogger = platform.Match(
-                linux: _ => loggerFactory.CreateLogger(
-                    typeof(LinuxProcessFinder).FullName!),
-                windows: _ => loggerFactory.CreateLogger(
-                    typeof(WindowsProcessFinder).FullName!));
+                linux: _ => loggerFactory.CreateLogger(typeof(LinuxProcessFinder).FullName!),
+                windows: _ => loggerFactory.CreateLogger(typeof(WindowsProcessFinder).FullName!));
 
-            FindProcessOnPort findProcessOnPort = platform.Match(
-                linux: _ => (FindProcessOnPort)((p, ct) =>
-                    LinuxProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)),
-                windows: _ => (FindProcessOnPort)((p, ct) =>
-                    WindowsProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)));
+            var findProcessOnPort = platform.Match(
+                linux: _ => (FindProcessOnPort)((p, ct) => LinuxProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)),
+                windows: _ => (FindProcessOnPort)((p, ct) => WindowsProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)));
 
             return (port, timeout, ct) =>
                 ServiceDiscovery.FindServiceProcessIdAsync(
@@ -67,8 +63,9 @@ public static class ServiceCollectionExtensions
         });
 
         // DatabaseCleaner receives connection string and logger
-        services.AddSingleton<IDatabase>(sp =>
-            new DatabaseCleaner(postgresConnectionString, sp.GetRequiredService<ILogger<DatabaseCleaner>>()));
+        services.AddSingleton<IDatabase>(sp => new DatabaseCleaner(
+            postgresConnectionString,
+            sp.GetRequiredService<ILogger<DatabaseCleaner>>()));
 
         // RabbitMqCleaner receives connection string, logger, and optional management port
         services.AddSingleton<IRabbitMQ>(sp =>
