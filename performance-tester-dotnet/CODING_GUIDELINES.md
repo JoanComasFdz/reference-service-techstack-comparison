@@ -907,6 +907,76 @@ public class Orchestrator(IDatabase db, IProcessRunner runner, IEventPublisher p
 - Inside the dependencies class itself (it must see interfaces to compose them)
 - Leaf classes that genuinely work at the operation level (the phases themselves)
 
+### 30. Static Class as Module (Co-located Dependencies)
+
+A static class can serve as an **FP-style module** — owning its delegate definitions, a `Dependencies` record that bundles them, a factory to build them, and the execution method. This mirrors FP companion modules (e.g., F# allows a type and module to share the same name). In C#, the static class **is** the module — no separate builder class needed.
+
+This improves discoverability, especially for delegates where IDE Ctrl+Click navigation doesn't work. Everything reads top-to-bottom: **what I need → how to bundle it → how to build it → what I do with it**.
+
+```csharp
+// ✅ Good - self-contained module: types → bundle → factory → execution
+internal static class SetupPhase
+{
+    // 1. Delegate definitions (what I need)
+    public delegate Task<Result<int, string>> FindServiceProcessId();
+    public delegate bool IsMonitoringStarted();
+    public delegate Task StartMonitoring();
+    public delegate Task WarmupDockerApi();
+    public delegate Task ConnectEventPublisher();
+
+    // 2. Dependencies record (bundle of what I need)
+    public record Dependencies(
+        FindServiceProcessId FindServiceProcessId,
+        IsMonitoringStarted IsMonitoringStarted,
+        StartMonitoring StartMonitoring,
+        WarmupDockerApi WarmupDockerApi,
+        PhasesToolbox.ClearDatabase ClearDatabase,
+        PhasesToolbox.ClearAllQueues ClearAllQueues,
+        ConnectEventPublisher ConnectEventPublisher);
+
+    // 3. Factory (how to build what I need from DI)
+    public static Dependencies BuildDependencies(
+        IServiceProvider services,
+        PhasesToolbox.ClearDatabase clearDatabase,
+        PhasesToolbox.ClearAllQueues clearAllQueues,
+        TestConfiguration config,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var findServiceProcessId = services.GetRequiredService<FindServiceProcessId>();
+        // ... resolve and compose ...
+        return new Dependencies(...);
+    }
+
+    // 4. Execution (what I do with it)
+    public static async Task<Result<int, string>> ExecuteAsync(
+        Guid testRunId,
+        Dependencies deps,
+        ILogger logger)
+    {
+        var pidResult = await deps.FindServiceProcessId();
+        // ...
+    }
+}
+
+// ❌ Avoid - separate file/class just for building dependencies
+internal static class SetupPhaseDependencies
+{
+    public static RunSetup Build(IServiceProvider services, ...) { ... }
+}
+```
+
+**Why:** In FP languages, a module contains both its types and its functions — there's no separate "builder" concept. C# static classes serve the same role. Co-locating definitions, bundling, construction, and execution gives a top-to-bottom reading flow and eliminates file-hopping.
+
+**When to use:**
+- A static method has many delegate parameters (4+) that are always passed together
+- The delegates are only used by this one consumer
+- IDE navigation for delegates is important (no Ctrl+Click on delegate types)
+
+**When NOT to use:**
+- The factory needs to be called from multiple unrelated sites (keep it separate)
+- The dependencies are shared across multiple consumers (use `PhasesToolbox` instead)
+
 ---
 
 ## Summary
@@ -944,3 +1014,4 @@ public class Orchestrator(IDatabase db, IProcessRunner runner, IEventPublisher p
 | All-or-nothing params | Are parameters all on one line, or each on its own line? Never partial wrap |
 | `=>` same line | Does the expression start on the same line as `=>`? If too long, use block body |
 | Dependency composition | Am I receiving interfaces? Contain them in a dependencies class, expose delegates at the right level |
+| Static class as module | Can I co-locate delegates, bundle record, factory, and execution in one static class? |
