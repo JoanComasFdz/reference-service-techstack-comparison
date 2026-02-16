@@ -3,6 +3,7 @@ using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
+using PerformanceTester.Infrastructure.ValueObjects;
 using Serilog.Context;
 using static JoanComasFdz.Result.Result<PerformanceTester.Orchestration.EventTestPhase.Output, string>;
 
@@ -46,7 +47,7 @@ internal static class EventTestPhase
 
     public static async Task<Result<Output, string>> ExecuteAsync(
         TestConfiguration config,
-        int serviceProcessId,
+        ProcessId serviceProcessId,
         int systemCpuCount,
         bool systemIsWsl2,
         ClearSamples clearSamples,
@@ -73,7 +74,7 @@ internal static class EventTestPhase
             // Start monitoring just before the measured test begins
             // This ensures chart data starts at the same time as the test phases
             logger.LogInformation("Starting process monitoring for PID {ProcessId}...", serviceProcessId);
-            await startProcessMonitoring(serviceProcessId);
+            await startProcessMonitoring(serviceProcessId.Value);
             logger.LogInformation("Process monitoring started");
 
             logger.LogInformation("Starting system-wide monitoring (CPU: {CpuCount} cores, WSL2: {IsWsl2})...",

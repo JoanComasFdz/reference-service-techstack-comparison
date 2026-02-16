@@ -1,4 +1,5 @@
 using JoanComasFdz.Result;
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.Reporting;
 
 namespace PerformanceTester.Orchestration;
@@ -7,7 +8,7 @@ namespace PerformanceTester.Orchestration;
 /// Runs Setup phase: service discovery, infrastructure init, database/queue clearing.
 /// testRunId is generated at runtime by the orchestrator.
 /// </summary>
-internal delegate Task<Result<int, string>> RunSetup(Guid testRunId);
+internal delegate Task<Result<ProcessId, string>> RunSetup(Guid testRunId);
 
 /// <summary>
 /// Runs Warmup phase: non-measured warmup events and API calls.
@@ -19,7 +20,7 @@ internal delegate Task<Result<Unit, string>> RunWarmup();
 /// Runs Event Test phase: concurrent publish/consume with monitoring.
 /// serviceProcessId comes from Setup output. progress for internal reporting.
 /// </summary>
-internal delegate Task<Result<EventTestPhase.Output, string>> RunEventTest(int serviceProcessId, IProgress<PhaseInfo>? progress);
+internal delegate Task<Result<EventTestPhase.Output, string>> RunEventTest(ProcessId serviceProcessId, IProgress<PhaseInfo>? progress);
 
 /// <summary>
 /// Runs API Load Test phase: k6 load test execution.

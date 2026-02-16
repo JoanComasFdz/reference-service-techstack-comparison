@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.ValueObjects;
-using static JoanComasFdz.Result.Result<int, string>;
+using static JoanComasFdz.Result.Result<PerformanceTester.Infrastructure.ValueObjects.ProcessId, string>;
 
 namespace PerformanceTester.Infrastructure.ProcessFinding;
 
@@ -16,7 +16,7 @@ internal static partial class LinuxProcessFinder
     /// <summary>
     /// Finds the process ID listening on the specified port using Linux tools.
     /// </summary>
-    public static async Task<Result<int, string>> FindProcessOnPortAsync(
+    public static async Task<Result<ProcessId, string>> FindProcessOnPortAsync(
         Port port,
         ILogger logger,
         CancellationToken cancellationToken)
@@ -25,14 +25,14 @@ internal static partial class LinuxProcessFinder
         var pid = await TryFindWithLsofAsync(port, logger, cancellationToken);
         if (pid.HasValue)
         {
-            return new Success(pid.Value);
+            return new Success(ProcessId.FromInt(pid.Value));
         }
 
         // Fallback to ss (available in most Linux distributions)
         pid = await TryFindWithSsAsync(port, logger, cancellationToken);
         if (pid.HasValue)
         {
-            return new Success(pid.Value);
+            return new Success(ProcessId.FromInt(pid.Value));
         }
 
         return new Failure($"No process found listening on port {port}");

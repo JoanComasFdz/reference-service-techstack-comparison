@@ -2,7 +2,7 @@ using System.Net.NetworkInformation;
 using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.ValueObjects;
-using static JoanComasFdz.Result.Result<int, string>;
+using static JoanComasFdz.Result.Result<PerformanceTester.Infrastructure.ValueObjects.ProcessId, string>;
 
 namespace PerformanceTester.Infrastructure.ProcessFinding;
 
@@ -16,7 +16,7 @@ internal static class ServiceDiscovery
     /// <summary>
     /// Polls for a process listening on the specified port until found or timeout.
     /// </summary>
-    public static async Task<Result<int, string>> FindServiceProcessIdAsync(
+    public static async Task<Result<ProcessId, string>> FindServiceProcessIdAsync(
         Port port,
         TimeSpan timeout,
         FindProcessOnPort findProcessOnPort,

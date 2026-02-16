@@ -2,7 +2,7 @@ using System.Diagnostics;
 using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.ValueObjects;
-using static JoanComasFdz.Result.Result<int, string>;
+using static JoanComasFdz.Result.Result<PerformanceTester.Infrastructure.ValueObjects.ProcessId, string>;
 
 namespace PerformanceTester.Infrastructure.ProcessFinding;
 
@@ -14,7 +14,7 @@ internal static class WindowsProcessFinder
     /// <summary>
     /// Finds the process ID listening on the specified port using PowerShell.
     /// </summary>
-    public static async Task<Result<int, string>> FindProcessOnPortAsync(
+    public static async Task<Result<ProcessId, string>> FindProcessOnPortAsync(
         Port port,
         ILogger logger,
         CancellationToken cancellationToken)
@@ -43,7 +43,7 @@ internal static class WindowsProcessFinder
             {
                 if (int.TryParse(output.Trim(), out var pid))
                 {
-                    return new Success(pid);
+                    return new Success(ProcessId.FromInt(pid));
                 }
             }
 

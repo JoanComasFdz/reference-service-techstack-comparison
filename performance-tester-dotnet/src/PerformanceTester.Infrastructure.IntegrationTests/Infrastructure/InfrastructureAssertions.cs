@@ -25,7 +25,7 @@ public static class InfrastructureAssertions
         var result = await assertingThat.InstanceToAssert(port, timeout);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(Environment.ProcessId, result.SuccessValue);
+        Assert.Equal(Environment.ProcessId, result.SuccessValue.Value);
     }
 
     /// <summary>

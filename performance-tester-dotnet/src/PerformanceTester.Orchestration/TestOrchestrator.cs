@@ -106,7 +106,7 @@ internal static class TestOrchestrator
                 TestStartTime = testStartTime,
                 TestEndTime = testEndTime,
                 Configuration = configuration,
-                ServiceProcessId = serviceProcessId,
+                ServiceProcessId = serviceProcessId.Value,
                 ServiceProcessName = "service",
                 WarmupStartTime = warmupStartTime,
                 WarmupEndTime = warmupEndTime,

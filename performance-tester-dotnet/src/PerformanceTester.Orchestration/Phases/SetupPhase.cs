@@ -5,8 +5,9 @@ using Microsoft.Extensions.Logging;
 using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
+using PerformanceTester.Infrastructure.ValueObjects;
 using Serilog.Context;
-using static JoanComasFdz.Result.Result<int, string>;
+using static JoanComasFdz.Result.Result<PerformanceTester.Infrastructure.ValueObjects.ProcessId, string>;
 
 namespace PerformanceTester.Orchestration;
 
@@ -17,9 +18,9 @@ internal static class SetupPhase
 {
     /// <summary>
     /// Discovers the service process ID listening on the target port.
-    /// Returns the PID on success, or an error message on failure.
+    /// Returns the ProcessId on success, or an error message on failure.
     /// </summary>
-    public delegate Task<Result<int, string>> FindServiceProcessId();
+    public delegate Task<Result<ProcessId, string>> FindServiceProcessId();
 
     /// <summary>
     /// Returns true if monitoring services (BackgroundServices) are already running.
@@ -80,7 +81,7 @@ internal static class SetupPhase
             ConnectEventPublisher: () => eventPublisher.ConnectAsync(ct));
     }
 
-    public static async Task<Result<int, string>> ExecuteAsync(
+    public static async Task<Result<ProcessId, string>> ExecuteAsync(
         Guid testRunId,
         Dependencies deps,
         ILogger logger)
