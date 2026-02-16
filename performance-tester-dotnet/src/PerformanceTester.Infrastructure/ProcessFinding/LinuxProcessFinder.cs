@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Infrastructure.ValueObjects;
+using static JoanComasFdz.Result.Result<int, string>;
 
 namespace PerformanceTester.Infrastructure.ProcessFinding;
 
@@ -8,30 +11,37 @@ namespace PerformanceTester.Infrastructure.ProcessFinding;
 /// Linux-specific process finder using lsof or ss command.
 /// Tries lsof first, falls back to ss if lsof is not available.
 /// </summary>
-internal sealed partial class LinuxProcessFinder : IProcessFinder
+internal static partial class LinuxProcessFinder
 {
-    private readonly ILogger<LinuxProcessFinder> _logger;
-
-    public LinuxProcessFinder(ILogger<LinuxProcessFinder> logger)
-    {
-        _logger = logger;
-    }
-
-    /// <inheritdoc />
-    public async Task<int?> FindProcessOnPortAsync(int port, CancellationToken cancellationToken)
+    /// <summary>
+    /// Finds the process ID listening on the specified port using Linux tools.
+    /// </summary>
+    public static async Task<Result<int, string>> FindProcessOnPortAsync(
+        Port port,
+        ILogger logger,
+        CancellationToken cancellationToken)
     {
         // Try lsof first (most reliable)
-        var pid = await TryFindWithLsofAsync(port, cancellationToken);
+        var pid = await TryFindWithLsofAsync(port, logger, cancellationToken);
         if (pid.HasValue)
         {
-            return pid;
+            return new Success(pid.Value);
         }
 
         // Fallback to ss (available in most Linux distributions)
-        return await TryFindWithSsAsync(port, cancellationToken);
+        pid = await TryFindWithSsAsync(port, logger, cancellationToken);
+        if (pid.HasValue)
+        {
+            return new Success(pid.Value);
+        }
+
+        return new Failure($"No process found listening on port {port}");
     }
 
-    private async Task<int?> TryFindWithLsofAsync(int port, CancellationToken cancellationToken)
+    private static async Task<int?> TryFindWithLsofAsync(
+        Port port,
+        ILogger logger,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -41,7 +51,7 @@ internal sealed partial class LinuxProcessFinder : IProcessFinder
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "lsof",
-                    Arguments = $"-ti :{port}",
+                    Arguments = $"-ti :{port.Value}",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -66,12 +76,15 @@ internal sealed partial class LinuxProcessFinder : IProcessFinder
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "lsof command failed for port {Port} (may not be installed)", port);
+            logger.LogDebug(ex, "lsof command failed for port {Port} (may not be installed)", port.Value);
             return null;
         }
     }
 
-    private async Task<int?> TryFindWithSsAsync(int port, CancellationToken cancellationToken)
+    private static async Task<int?> TryFindWithSsAsync(
+        Port port,
+        ILogger logger,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -81,7 +94,7 @@ internal sealed partial class LinuxProcessFinder : IProcessFinder
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "ss",
-                    Arguments = $"-tlnp sport = :{port}",
+                    Arguments = $"-tlnp sport = :{port.Value}",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -108,7 +121,7 @@ internal sealed partial class LinuxProcessFinder : IProcessFinder
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "ss command failed for port {Port}", port);
+            logger.LogDebug(ex, "ss command failed for port {Port}", port.Value);
             return null;
         }
     }
