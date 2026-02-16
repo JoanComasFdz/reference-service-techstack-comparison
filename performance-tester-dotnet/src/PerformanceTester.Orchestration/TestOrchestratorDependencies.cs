@@ -43,7 +43,7 @@ internal static class TestOrchestratorDependencies
 
         return new OrchestratorDeps(
             RunSetup: BuildRunSetup(services, clearDatabase, clearAllQueues, config, logger, ct),
-            RunWarmup: WarmupPhaseDependencies.Build(trackEvents, publishEvents, clearDatabase, clearAllQueues, config, logger, ct),
+            RunWarmup: BuildRunWarmup(trackEvents, publishEvents, clearDatabase, clearAllQueues, config, logger, ct),
             RunEventTest: EventTestPhaseDependencies.Build(services, trackEvents, publishEvents, config, logger, ct),
             RunApiTest: ApiTestPhaseDependencies.Build(services, config, logger, ct),
             RunTeardown: () => teardown(ct),
@@ -61,5 +61,18 @@ internal static class TestOrchestratorDependencies
     {
         var deps = SetupPhase.BuildDependencies(services, clearDatabase, clearAllQueues, config, ct);
         return (testRunId) => SetupPhase.ExecuteAsync(testRunId, deps, logger);
+    }
+
+    private static RunWarmup BuildRunWarmup(
+        PhasesToolbox.TrackEvents trackEvents,
+        PhasesToolbox.PublishEvents publishEvents,
+        PhasesToolbox.ClearDatabase clearDatabase,
+        PhasesToolbox.ClearAllQueues clearAllQueues,
+        TestConfiguration config,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var deps = WarmupPhase.BuildDependencies(trackEvents, publishEvents, clearDatabase, clearAllQueues, logger, ct);
+        return () => WarmupPhase.ExecuteAsync(config, deps, logger);
     }
 }

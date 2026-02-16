@@ -18,13 +18,40 @@ internal static class WarmupPhase
     /// </summary>
     public delegate Task<(int Success, int Failed)> ExecuteWarmupApiCalls(string apiUrl, uint callCount);
 
-    public static async Task<Result<Unit, string>> ExecuteAsync(
-        TestConfiguration config,
+    /// <summary>
+    /// Bundles all phase-level and shared delegates needed by <see cref="ExecuteAsync"/>.
+    /// </summary>
+    public record Dependencies(
+        PhasesToolbox.TrackEvents TrackEvents,
+        PhasesToolbox.PublishEvents PublishEvents,
+        ExecuteWarmupApiCalls ExecuteWarmupApiCalls,
+        PhasesToolbox.ClearDatabase ClearDatabase,
+        PhasesToolbox.ClearAllQueues ClearAllQueues);
+
+    /// <summary>
+    /// Composes phase-level delegates into a <see cref="Dependencies"/> bundle.
+    /// Takes <paramref name="logger"/> because the <see cref="ExecuteWarmupApiCalls"/>
+    /// closure captures it for HTTP call logging.
+    /// </summary>
+    public static Dependencies BuildDependencies(
         PhasesToolbox.TrackEvents trackEvents,
         PhasesToolbox.PublishEvents publishEvents,
-        ExecuteWarmupApiCalls executeWarmupApiCalls,
         PhasesToolbox.ClearDatabase clearDatabase,
         PhasesToolbox.ClearAllQueues clearAllQueues,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        return new Dependencies(
+            TrackEvents: trackEvents,
+            PublishEvents: publishEvents,
+            ExecuteWarmupApiCalls: (url, count) => ExecuteWarmupApiCallsAsync(url, count, logger, ct),
+            ClearDatabase: clearDatabase,
+            ClearAllQueues: clearAllQueues);
+    }
+
+    public static async Task<Result<Unit, string>> ExecuteAsync(
+        TestConfiguration config,
+        Dependencies deps,
         ILogger logger)
     {
         using var _ = LogContext.PushProperty("Phase", "Warmup");
@@ -39,13 +66,13 @@ internal static class WarmupPhase
                 config.WarmupInactivityTimeout.Value.TotalSeconds);
 
             // Start consumer tracking (no progress reporting — warmup is a quick non-measured step)
-            var consumerTask = trackEvents(
+            var consumerTask = deps.TrackEvents(
                 config.WarmupEventCount.Value,
                 config.WarmupInactivityTimeout.Value,
                 progress: null);
 
             // Publish warmup events
-            var publishMetrics = await publishEvents(config.WarmupEventCount.Value);
+            var publishMetrics = await deps.PublishEvents(config.WarmupEventCount.Value);
 
             logger.LogInformation(
                 "Warmup: Published {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
@@ -63,7 +90,7 @@ internal static class WarmupPhase
                 "Warmup: Making {Count} HTTP calls to API endpoint",
                 config.WarmupApiCallCount);
 
-            var (successCount, failCount) = await executeWarmupApiCalls(
+            var (successCount, failCount) = await deps.ExecuteWarmupApiCalls(
                 config.ApiUrl, config.WarmupApiCallCount.Value);
 
             logger.LogInformation(
@@ -73,7 +100,7 @@ internal static class WarmupPhase
 
             // Clear database and queues again
             logger.LogInformation("Warmup: Clearing database and queues before measured test");
-            var dbResult = await clearDatabase();
+            var dbResult = await deps.ClearDatabase();
             if (dbResult.IsFailure)
             {
                 var errorMessage = dbResult.FailureError.Match(
@@ -83,7 +110,7 @@ internal static class WarmupPhase
                 return new Failure($"Failed to clear database '{config.DatabaseName}' during warmup: {errorMessage}");
             }
 
-            var queuesResult = await clearAllQueues();
+            var queuesResult = await deps.ClearAllQueues();
             if (queuesResult.IsFailure)
             {
                 return new Failure($"Failed to clear RabbitMQ queues during warmup: {queuesResult.FailureError}");
