@@ -1,5 +1,6 @@
 using JoanComasFdz.Result;
 using Microsoft.Extensions.Configuration;
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.Orchestration.ValueObjects;
 
 namespace PerformanceTester.Cli.Configuration;
