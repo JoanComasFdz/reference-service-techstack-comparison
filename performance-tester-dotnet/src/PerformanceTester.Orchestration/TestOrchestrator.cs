@@ -36,9 +36,9 @@ internal static class TestOrchestrator
 
     /// <summary>
     /// Runs Event Test phase: concurrent publish/consume with monitoring.
-    /// serviceProcessId comes from Setup output. progress for internal reporting.
+    /// serviceProcessId comes from Setup output.
     /// </summary>
-    public delegate Task<Result<EventTestPhase.Output, string>> RunEventTest(ProcessId serviceProcessId, IProgress<PhaseInfo>? progress);
+    public delegate Task<Result<EventTestPhase.Output, string>> RunEventTest(ProcessId serviceProcessId);
 
     /// <summary>
     /// Runs API Load Test phase: k6 load test execution.
@@ -162,8 +162,8 @@ internal static class TestOrchestrator
         ILogger logger,
         CancellationToken ct)
     {
-        var deps = EventTestPhase.BuildDependencies(services, trackEvents, publishEvents, config, ct);
-        return (serviceProcessId, progress) => EventTestPhase.ExecuteAsync(serviceProcessId, deps, progress, logger);
+        var deps = EventTestPhase.BuildDependencies(services, trackEvents, publishEvents, config, progress, ct);
+        return (serviceProcessId) => EventTestPhase.ExecuteAsync(serviceProcessId, deps, logger);
     }
 
     private static RunApiTest BuildRunApiTest(
@@ -241,7 +241,7 @@ internal static class TestOrchestrator
 
             // Phase 1: Event Throughput Test (CONCURRENT publish/consume)
             progress?.Report(PhaseInfo.Starting(TestPhase.EventTest, $"Starting event test with {configuration.EventCount} events"));
-            var eventTestResult = await deps.RunEventTest(serviceProcessId, progress);
+            var eventTestResult = await deps.RunEventTest(serviceProcessId);
             if (eventTestResult.IsFailure)
             {
                 return Fail(TestPhase.EventTest, eventTestResult.FailureError);

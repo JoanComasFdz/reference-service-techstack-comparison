@@ -61,7 +61,8 @@ internal static class EventTestPhase
         StartSystemMonitoring StartSystemMonitoring,
         StartDockerMonitoring StartDockerMonitoring,
         PhasesToolbox.TrackEvents TrackEvents,
-        PhasesToolbox.PublishEvents PublishEvents);
+        PhasesToolbox.PublishEvents PublishEvents,
+        IProgress<ConsumerPhaseInfo>? ConsumerProgress);
 
     /// <summary>
     /// Resolves DI services and composes phase-level delegates into a <see cref="Dependencies"/> bundle.
@@ -71,6 +72,7 @@ internal static class EventTestPhase
         PhasesToolbox.TrackEvents trackEvents,
         PhasesToolbox.PublishEvents publishEvents,
         TestConfiguration config,
+        IProgress<PhaseInfo>? progress,
         CancellationToken ct)
     {
         var systemMonitor = services.GetRequiredService<ISystemMonitor>();
@@ -87,13 +89,13 @@ internal static class EventTestPhase
             StartSystemMonitoring: () => systemMonitor.StartMonitoringAsync(cancellationToken: ct),
             StartDockerMonitoring: () => Task.WhenAll(dockerMonitors.Select(m => m.StartMonitoringAsync(cancellationToken: ct))),
             TrackEvents: trackEvents,
-            PublishEvents: publishEvents);
+            PublishEvents: publishEvents,
+            ConsumerProgress: CreateConsumerProgressCallback(progress, config.EventCount.Value));
     }
 
     public static async Task<Result<Output, string>> ExecuteAsync(
         ProcessId serviceProcessId,
         Dependencies deps,
-        IProgress<PhaseInfo>? progress,
         ILogger logger)
     {
         using var _ = LogContext.PushProperty("Phase", "EventTest");
@@ -125,8 +127,6 @@ internal static class EventTestPhase
             await deps.StartDockerMonitoring();
             logger.LogInformation("Docker container monitors started (first samples collected)");
 
-            var consumerProgress = CreateConsumerProgressCallback(progress, deps.Config.EventCount.Value);
-
             // Capture startTime immediately before launching concurrent publisher/consumer
             // to minimize gap between monitoring start and measurement start
             var startTime = DateTime.UtcNow;
@@ -136,7 +136,7 @@ internal static class EventTestPhase
             var consumerTask = deps.TrackEvents(
                 deps.Config.EventCount.Value,
                 deps.Config.InactivityTimeout.Value,
-                consumerProgress);
+                deps.ConsumerProgress);
 
             var publisherTask = deps.PublishEvents(deps.Config.EventCount.Value);
 
