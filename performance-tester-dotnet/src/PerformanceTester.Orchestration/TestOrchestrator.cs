@@ -1,6 +1,7 @@
 using JoanComasFdz.Result;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.ApiLoadTesting;
 using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
@@ -65,6 +66,9 @@ internal static class TestOrchestrator
     /// </summary>
     public delegate Task<Result<TestReport, string>> RunReporting(TestResult testResult);
 
+
+    public delegate Task<Unit> ReportOrchestrationProgress(PhaseInfo phaseInfo);
+
     // -- Dependencies record (bundle of what I need) -------------------------------
 
     /// <summary>
@@ -80,7 +84,9 @@ internal static class TestOrchestrator
         RunApiTest RunApiTest,
         RunTeardown RunTeardown,
         RunReporting RunReporting,
-        CleanupResources CleanupResources);
+        CleanupResources CleanupResources,
+        ReportOrchestrationProgress ReportProgress
+        );
 
     // -- Factory (how to build what I need from DI) --------------------------------
 
@@ -116,7 +122,11 @@ internal static class TestOrchestrator
 
         PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, ct);
 
-        var teardownDeps = TeardownPhase.BuildDependencies(services);
+        var teardownDeps = TeardownPhase.BuildDependencies(services, ct);
+
+        var reportProgres = progress is null
+            ? (_) => Task.FromResult(Unit.Value)
+            : (ReportOrchestrationProgress)(phaseInfo => { progress.Report(phaseInfo); return Task.FromResult(Unit.Value); });
 
         return new Dependencies(
             RunSetup: BuildRunSetup(services, clearDatabase, clearAllQueues, config, logger, ct),
@@ -125,7 +135,9 @@ internal static class TestOrchestrator
             RunApiTest: BuildRunApiTest(services, config, progress, logger, ct),
             RunTeardown: () => TeardownPhase.ExecuteAsync(teardownDeps, ct, logger),
             RunReporting: BuildRunReporting(services, config, logger, ct),
-            CleanupResources: () => TeardownPhase.ExecuteAsync(teardownDeps, CancellationToken.None, logger));
+            CleanupResources: () => TeardownPhase.ExecuteAsync(teardownDeps, CancellationToken.None, logger),
+            ReportProgress: (phaseInfo) => reportProgres(phaseInfo)
+            );
     }
 
     private static RunSetup BuildRunSetup(
@@ -192,7 +204,6 @@ internal static class TestOrchestrator
     public static async Task<Result<TestReport, TestRunFailure>> RunTestAsync(
         Dependencies deps,
         TestConfiguration configuration,
-        IProgress<PhaseInfo>? progress,
         ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(configuration);
@@ -210,14 +221,14 @@ internal static class TestOrchestrator
         TestRunFailure Fail(TestPhase phase, string message)
         {
             logger.LogError("Performance test run {TestRunId} failed in {Phase}: {Message}", testRunId, phase, message);
-            progress?.Report(PhaseInfo.Failed(phase, message));
+            deps.ReportProgress(PhaseInfo.Failed(phase, message));
             return new TestRunFailure(phase, message);
         }
 
         try
         {
             // Phase 0: Setup
-            progress?.Report(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
+            await deps.ReportProgress(PhaseInfo.Starting(TestPhase.Setup, "Starting service discovery and infrastructure setup"));
             var setupResult = await deps.RunSetup(testRunId);
             if (setupResult.IsFailure)
             {
@@ -225,10 +236,10 @@ internal static class TestOrchestrator
             }
 
             var serviceProcessId = setupResult.SuccessValue;
-            progress?.Report(PhaseInfo.Completed(TestPhase.Setup, $"Setup complete, service PID: {serviceProcessId}"));
+            await deps.ReportProgress(PhaseInfo.Completed(TestPhase.Setup, $"Setup complete, service PID: {serviceProcessId}"));
 
             // Phase 0.5: Warmup
-            progress?.Report(PhaseInfo.Starting(TestPhase.Warmup, $"Starting warmup with {configuration.WarmupEventCount} events"));
+            await deps.ReportProgress(PhaseInfo.Starting(TestPhase.Warmup, $"Starting warmup with {configuration.WarmupEventCount} events"));
             var warmupStartTime = DateTime.UtcNow;
             var warmupResult = await deps.RunWarmup();
             if (warmupResult.IsFailure)
@@ -237,10 +248,10 @@ internal static class TestOrchestrator
             }
 
             var warmupEndTime = DateTime.UtcNow;
-            progress?.Report(PhaseInfo.Completed(TestPhase.Warmup, "Warmup complete"));
+            await deps.ReportProgress(PhaseInfo.Completed(TestPhase.Warmup, "Warmup complete"));
 
             // Phase 1: Event Throughput Test (CONCURRENT publish/consume)
-            progress?.Report(PhaseInfo.Starting(TestPhase.EventTest, $"Starting event test with {configuration.EventCount} events"));
+            await deps.ReportProgress(PhaseInfo.Starting(TestPhase.EventTest, $"Starting event test with {configuration.EventCount} events"));
             var eventTestResult = await deps.RunEventTest(serviceProcessId);
             if (eventTestResult.IsFailure)
             {
@@ -251,10 +262,10 @@ internal static class TestOrchestrator
             var publishMetrics = eventTestOutput.PublishMetrics;
             var eventTestStartTime = eventTestOutput.StartTime;
             var eventTestEndTime = eventTestOutput.EndTime;
-            progress?.Report(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));
+            await deps.ReportProgress(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));
 
             // Phase 2: API Load Test
-            progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDuration.Value.TotalSeconds}s"));
+            await deps.ReportProgress(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDuration.Value.TotalSeconds}s"));
             var apiTestResult = await deps.RunApiTest();
             if (apiTestResult.IsFailure)
             {
@@ -269,7 +280,7 @@ internal static class TestOrchestrator
             var apiPhaseResult = apiResult.WasAborted
                 ? PhaseInfo.Failed(TestPhase.ApiTest, apiResult.AbortReason ?? "API test aborted")
                 : PhaseInfo.Completed(TestPhase.ApiTest, $"API test complete: {apiResult.RequestsPerSecond:F2} req/s");
-            progress?.Report(apiPhaseResult);
+            await deps.ReportProgress(apiPhaseResult);
 
             var testEndTime = DateTime.UtcNow;
 
@@ -298,17 +309,17 @@ internal static class TestOrchestrator
             };
 
             // Phase: Teardown (cancellable during normal flow)
-            progress?.Report(PhaseInfo.Starting(TestPhase.Teardown, "Disconnecting publisher and stopping monitors"));
+            await deps.ReportProgress(PhaseInfo.Starting(TestPhase.Teardown, "Disconnecting publisher and stopping monitors"));
             var teardownResult = await deps.RunTeardown();
             if (teardownResult.IsFailure)
             {
                 return Fail(TestPhase.Teardown, teardownResult.FailureError);
             }
 
-            progress?.Report(PhaseInfo.Completed(TestPhase.Teardown, "Teardown complete"));
+            await deps.ReportProgress(PhaseInfo.Completed(TestPhase.Teardown, "Teardown complete"));
 
             // Phase 3: Reporting (collects metrics, generates reports)
-            progress?.Report(PhaseInfo.Starting(TestPhase.Reporting, "Starting metrics collection and report generation"));
+            await deps.ReportProgress(PhaseInfo.Starting(TestPhase.Reporting, "Starting metrics collection and report generation"));
             var reportingResult = await deps.RunReporting(testResult);
             if (reportingResult.IsFailure)
             {
@@ -316,7 +327,7 @@ internal static class TestOrchestrator
             }
 
             var testReport = reportingResult.SuccessValue;
-            progress?.Report(PhaseInfo.Completed(TestPhase.Reporting, "Report generation complete"));
+            await deps.ReportProgress(PhaseInfo.Completed(TestPhase.Reporting, "Report generation complete"));
 
             logger.LogInformation(
                 "Performance test run {TestRunId} completed successfully in {Duration:F2}s",

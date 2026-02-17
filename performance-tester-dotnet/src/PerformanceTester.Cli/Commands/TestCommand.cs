@@ -170,7 +170,7 @@ public static class TestCommand
                 config.ApiDuration);
 
             var deps = TestOrchestrator.BuildDependencies(services, config, progressAdapter, logger, cancellationToken);
-            var result = await TestOrchestrator.RunTestAsync(deps, config, progressAdapter, logger);
+            var result = await TestOrchestrator.RunTestAsync(deps, config, logger);
 
             return result.Match(
                 success: s =>

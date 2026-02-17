@@ -81,7 +81,7 @@ public sealed class Orchestration : IDisposable
         }
 
         var deps = TestOrchestrator.BuildDependencies(_host.Services, config, progress, Logger, cancellationToken);
-        return TestOrchestrator.RunTestAsync(deps, config, progress, Logger);
+        return TestOrchestrator.RunTestAsync(deps, config, Logger);
     }
 
     /// <summary>

@@ -37,7 +37,7 @@ internal static class TeardownPhase
 
     // -- Factory (how to build what I need from DI) --------------------------------
 
-    public static Dependencies BuildDependencies(IServiceProvider services)
+    public static Dependencies BuildDependencies(IServiceProvider services, CancellationToken ct)
     {
         var eventPublisher = services.GetRequiredService<IEventPublisher>();
         var host = services.GetRequiredService<IHost>();
@@ -51,7 +51,7 @@ internal static class TeardownPhase
 
     public static async Task<Result<Unit, string>> ExecuteAsync(
         Dependencies deps,
-        CancellationToken ct,
+        CancellationToken ct, // Teardown can be done via normal operation (with cancellation) or as part of a forced cleanup after cancellation (requireing a different CT, normally none)
         ILogger logger)
     {
         using var _ = LogContext.PushProperty("Phase", "Teardown");
