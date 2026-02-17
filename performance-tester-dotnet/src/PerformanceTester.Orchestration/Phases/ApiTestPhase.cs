@@ -42,7 +42,8 @@ internal static class ApiTestPhase
     /// </summary>
     public record Dependencies(
         TestConfiguration Config,
-        StartApiLoadTest StartApiLoadTest);
+        StartApiLoadTest StartApiLoadTest,
+        ReportApiLoadProgress ReportProgress);
 
     // -- Factory (how to build what I need from DI) --------------------------------
 
@@ -52,20 +53,25 @@ internal static class ApiTestPhase
     public static Dependencies BuildDependencies(
         IServiceProvider services,
         TestConfiguration config,
+        IProgress<PhaseInfo>? progress,
         CancellationToken ct)
     {
         var apiLoadTester = services.GetRequiredService<IApiLoadTester>();
 
+        ReportApiLoadProgress reportProgress = progress is null
+            ? (_) => { }
+            : (info) => progress.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
+
         return new Dependencies(
             Config: config,
-            StartApiLoadTest: (url, duration, vus, apiProgress, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, ct));
+            StartApiLoadTest: (url, duration, vus, apiProgress, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, ct),
+            ReportProgress: reportProgress);
     }
 
     // -- Execution (what I do with it) --------------------------------------------
 
     public static async Task<Result<Output, string>> ExecuteAsync(
         Dependencies deps,
-        IProgress<PhaseInfo>? progress,
         ILogger logger)
     {
         using var _ = LogContext.PushProperty("Phase", "ApiTest");
@@ -79,15 +85,11 @@ internal static class ApiTestPhase
 
             var startTime = DateTime.UtcNow;
 
-            ReportApiLoadProgress apiProgress = progress is null
-                ? (_) => { }
-            : (info) => progress.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
-
             var result = await deps.StartApiLoadTest(
                 deps.Config.ApiUrl,
                 deps.Config.ApiDuration.Value,
                 deps.Config.ApiWorkers.Value,
-                apiProgress,
+                deps.ReportProgress,
                 deps.Config.MaxConsecutiveApiFailures,
                 deps.Config.ResultsFolder.Value
                 );

@@ -42,9 +42,8 @@ internal static class TestOrchestrator
 
     /// <summary>
     /// Runs API Load Test phase: k6 load test execution.
-    /// progress for internal reporting.
     /// </summary>
-    public delegate Task<Result<ApiTestPhase.Output, string>> RunApiTest(IProgress<PhaseInfo>? progress);
+    public delegate Task<Result<ApiTestPhase.Output, string>> RunApiTest();
 
     /// <summary>
     /// Runs Teardown phase: disconnect event publisher, stop monitoring services.
@@ -174,8 +173,8 @@ internal static class TestOrchestrator
         ILogger logger,
         CancellationToken ct)
     {
-        var deps = ApiTestPhase.BuildDependencies(services, config, ct);
-        return (progress) => ApiTestPhase.ExecuteAsync(deps, progress, logger);
+        var deps = ApiTestPhase.BuildDependencies(services, config, progress, ct);
+        return () => ApiTestPhase.ExecuteAsync(deps, logger);
     }
 
     private static RunReporting BuildRunReporting(
@@ -256,7 +255,7 @@ internal static class TestOrchestrator
 
             // Phase 2: API Load Test
             progress?.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDuration.Value.TotalSeconds}s"));
-            var apiTestResult = await deps.RunApiTest(progress);
+            var apiTestResult = await deps.RunApiTest();
             if (apiTestResult.IsFailure)
             {
                 return Fail(TestPhase.ApiTest, apiTestResult.FailureError);
