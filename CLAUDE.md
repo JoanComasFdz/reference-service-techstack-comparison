@@ -35,8 +35,7 @@ This is a comprehensive performance comparison of **11 identical microservice im
 └── rust/                  # Rust + Actix-web + SeaORM (port 8100)
 
 /performance-tester-dotnet/ # Load testing and comparison tools (.NET)
-├── src/PerformanceTester.Cli/  # Main CLI application
-├── src/PerformanceTester.Core/ # Core testing logic
+├── src/                        # 25 projects (CLI, orchestration, slices, tests)
 └── test-results/               # Test output and reports
 
 /scripts/                  # All automation scripts

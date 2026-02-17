@@ -69,36 +69,46 @@ This project follows **Vertical Slice Architecture** rather than traditional lay
 ### Solution Structure
 
 ```
-PerformanceTester.sln (14 projects)
+PerformanceTester.sln (25 projects)
+│
+├── Shared Libraries
+│   ├── JoanComasFdz.Result/                      # Result<T> discriminated union (dunet)
+│   └── PerformanceTester.Common/                  # Cross-platform utilities (netstandard2.0)
 │
 ├── Foundation Layer
-│   ├── PerformanceTester.Common/                 # Cross-platform utilities (OS detection)
-│   ├── PerformanceTester.IntegrationTesting/     # Container lifecycle management
+│   ├── PerformanceTester.IntegrationTesting/      # Container lifecycle management
 │   └── PerformanceTester.IntegrationTesting.Tests/
 │
-├── Phase 1: Infrastructure (COMPLETE ✅)
-│   ├── PerformanceTester.Infrastructure/         # Service discovery, DB, RabbitMQ mgmt
+├── Phase 1: Infrastructure
+│   ├── PerformanceTester.Infrastructure/          # Service discovery, DB, RabbitMQ mgmt
 │   └── PerformanceTester.Infrastructure.IntegrationTests/
 │
-├── Phase 2: Data Collection Slices (COMPLETE ✅)
-│   ├── PerformanceTester.EventPublishing/        # CloudEvents to RabbitMQ
+├── Phase 2: Data Collection Slices
+│   ├── PerformanceTester.EventPublishing/         # CloudEvents to RabbitMQ
 │   ├── PerformanceTester.EventPublishing.IntegrationTests/
-│   ├── PerformanceTester.EventConsuming/         # RabbitMQ consumer with inactivity timeout
+│   ├── PerformanceTester.EventConsuming/          # RabbitMQ consumer with inactivity timeout
 │   ├── PerformanceTester.EventConsuming.IntegrationTests/
-│   ├── PerformanceTester.ProcessMonitoring/      # CPU, memory, threads monitoring
+│   ├── PerformanceTester.ProcessMonitoring/       # CPU, memory, threads monitoring
 │   ├── PerformanceTester.ProcessMonitoring.IntegrationTests/
-│   ├── PerformanceTester.DockerMonitoring/       # Docker container stats
+│   ├── PerformanceTester.DockerMonitoring/        # Docker container stats
 │   ├── PerformanceTester.DockerMonitoring.IntegrationTests/
-│   ├── PerformanceTester.ApiLoadTesting/         # k6 integration
+│   ├── PerformanceTester.SystemMonitoring/        # System-wide CPU, memory, disk monitoring
+│   ├── PerformanceTester.SystemMonitoring.IntegrationTests/
+│   ├── PerformanceTester.SystemMonitoring.Tests/
+│   ├── PerformanceTester.ApiLoadTesting/          # k6 integration
 │   └── PerformanceTester.ApiLoadTesting.IntegrationTests/
 │
-├── Phase 3: Reporting (COMPLETE ✅)
-│   ├── PerformanceTester.Reporting/              # JSON reports, PNG charts, comparisons
+├── Phase 3: Reporting
+│   ├── PerformanceTester.Reporting/               # JSON reports, PNG charts, comparisons
 │   └── PerformanceTester.Reporting.IntegrationTests/
 │
-└── Phase 4: Orchestration (COMPLETE ✅)
-    ├── PerformanceTester.Orchestration/          # Test workflow coordination
-    └── PerformanceTester.Orchestration.IntegrationTests/
+├── Phase 4: Orchestration
+│   ├── PerformanceTester.Orchestration/           # Test workflow coordination
+│   └── PerformanceTester.Orchestration.IntegrationTests/
+│
+└── Phase 5: CLI
+    ├── PerformanceTester.Cli/                     # Command-line interface (test + compare)
+    └── PerformanceTester.Cli.Tests/
 ```
 
 ### Project Dependencies
@@ -108,18 +118,19 @@ Phase 0: IntegrationTesting + Common (foundation)
     ↓
 Phase 1: Infrastructure (service discovery, DB, RabbitMQ utilities)
     ↓
-Phase 2: [6 Independent Slices - All COMPLETE]
+Phase 2: [6 Independent Slices]
     ├─ EventPublishing (owns CloudEvent)
     ├─ EventConsuming (owns ThroughputSample)
     ├─ ProcessMonitoring (owns ProcessMetrics)
     ├─ DockerMonitoring (owns DockerMetrics)
+    ├─ SystemMonitoring (owns SystemMetrics)
     └─ ApiLoadTesting (owns K6Result)
     ↓
 Phase 3: Reporting (aggregates data from all slices)
     ↓
 Phase 4: Orchestration (coordinates all slices)
     ↓
-Phase 5: CLI (NOT STARTED - entry point)
+Phase 5: CLI (entry point)
 ```
 
 **Key Insight:** All production projects are independent (no project-to-project dependencies). Only test projects depend on `IntegrationTesting` for shared infrastructure.
@@ -268,13 +279,14 @@ var metrics = await publisher.PublishEventsAsync(count: 1000);
 **Workflow Phases:**
 1. Setup → 2. Warmup → 3. Publish → 4. Consume → 5. API Load → 6. Reporting
 
-### 📋 Phase 5: CLI (NOT STARTED)
+### ✅ Phase 5: CLI (COMPLETE)
 
-**Remaining work:**
-- `PerformanceTester.Cli` - Command-line interface entry point
+**Deliverables:**
+- `PerformanceTester.Cli` - Command-line interface with `test` and `compare` commands
 - System.CommandLine for argument parsing
-- Serilog for structured logging
+- Serilog for structured logging with progress-aware console sink
 - Host builder wiring all services together
+- `PerformanceTester.Cli.Tests` - Unit tests for CLI components
 
 ## Common Development Tasks
 
@@ -948,11 +960,12 @@ docker-compose -f scripts/infrastructure/docker-compose.yml up -d
 
 **Parent Project:** Tests 11 identical microservices across different languages/frameworks to compare performance.
 
-**This Project:** Provides .NET-specific tooling for:
-1. **Integration testing infrastructure** - Shared across all .NET test projects
-2. **Service discovery and management** - Find and manage running services
-3. **Event publishing utilities** - CloudEvents-compliant RabbitMQ publishing
-4. **Future:** Complete performance testing suite (rewriting Python tools in .NET)
+**This Project:** Complete .NET performance testing suite (replaces Python tools):
+1. **CLI** - `test` command (single service) and `compare` command (cross-service comparison)
+2. **Orchestration** - 7-phase test workflow (setup, warmup, publish, consume, API load, reporting, teardown)
+3. **Data collection slices** - Event publishing/consuming, process/Docker/system monitoring, API load testing
+4. **Reporting** - JSON reports, PNG chart visualization (ScottPlot), Markdown comparison reports
+5. **Integration testing infrastructure** - Shared Testcontainers lifecycle management
 
 **Why Separate?**
 - Parent CLAUDE.md focuses on 11-language comparison
@@ -978,26 +991,15 @@ docker-compose -f scripts/infrastructure/docker-compose.yml up -d
 
 ### Design Documentation (docs/)
 
-**Comprehensive Phase Plans** (~270KB total):
-
 1. **[01.TESTING_STRATEGY.md](docs/01.TESTING_STRATEGY.md)** - Integration-first testing philosophy
 2. **[02.INTEGRATION_TEST_DESIGN.md](docs/02.INTEGRATION_TEST_DESIGN.md)** - Test patterns and best practices
 3. **[03.DOTNET_REWRITE_PLAN.md](docs/03.DOTNET_REWRITE_PLAN.md)** - Complete rewrite plan, architectural decisions
 4. **[04.IMPLEMENTATION_ORDER_VSA.md](docs/04.IMPLEMENTATION_ORDER_VSA.md)** - Phase-by-phase implementation order
 
-**Detailed Phase Plans** (docs/plans/):
-
-5. **[05.PHASE_0_INTEGRATION_TESTING_DESIGN.md](docs/plans/05.PHASE_0_INTEGRATION_TESTING_DESIGN.md)** (38KB) - ContainerManager, IntegrationTestBase design
-6. **[06.PHASE_1_INFRASTRUCTURE_PLAN.md](docs/plans/06.PHASE_1_INFRASTRUCTURE_PLAN.md)** (74KB) - ServiceDiscovery, Database, RabbitMQ implementation
-7. **[07.PHASE_2_EVENTPUBLISHING_PLAN.md](docs/plans/07.PHASE_2_EVENTPUBLISHING_PLAN.md)** (43KB) - CloudEvents publishing implementation
-8. **[08.PHASE_2_EVENTCONSUMING_PLAN.md](docs/plans/08.PHASE_2_EVENTCONSUMING_PLAN.md)** (64KB) - Event consuming with inactivity timeout and throughput tracking
-
 ### Project-Specific Documentation
 
 - **[README.md](README.md)** - Quick overview, build/test commands
-- **[CODING_GUIDELINES.md](CODING_GUIDELINES.md)** - Functional architecture principles and patterns
-- **[src/PerformanceTester.Infrastructure/README.md](src/PerformanceTester.Infrastructure/README.md)** - Infrastructure slice documentation
-- **[src/PerformanceTester.EventPublishing/README.md](src/PerformanceTester.EventPublishing/README.md)** - EventPublishing slice documentation
+- **[CODING_GUIDELINES.md](CODING_GUIDELINES.md)** - Functional architecture principles and patterns (30 guidelines)
 
 ### External Resources
 
@@ -1068,6 +1070,6 @@ docker-compose -f scripts/infrastructure/docker-compose.yml up -d
 
 ---
 
-**Last Updated:** 2025-01-20
-**Status:** Phases 0-4 COMPLETE; Phase 5 (CLI) remaining
+**Last Updated:** 2026-02-17
+**Status:** All phases COMPLETE (Phases 0-5)
 **Target Framework:** .NET 9.0

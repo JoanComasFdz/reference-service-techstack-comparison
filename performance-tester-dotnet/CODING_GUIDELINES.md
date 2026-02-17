@@ -367,6 +367,42 @@ public static TimeSpan Parse(string duration)
 
 **Choosing `TFailure`:** Use a typed discriminated union (e.g., `DurationParseError`) when the caller needs to distinguish between different failure reasons. Use `string` when a human-readable message is sufficient.
 
+**Result variant selection:**
+
+| | Simple failure (`string`) | Typed failure (`TFailure`) |
+|--|--|--|
+| **Has value** | `Result<TValue>` | `Result<TValue, TFailure>` |
+| **Void** | `Result<Unit>` | `Result<Unit, TFailure>` |
+
+**Naming failure union types:** Use `{MethodAction}Error` — the name describes what failed, not where. Each variant carries contextual data. Define the union alongside the method that returns it.
+
+```csharp
+// ✅ Good - name describes the failed action, variants carry context
+[Union]
+public partial record ParseLineError
+{
+    public partial record EmptyInput;
+    public partial record InvalidJson(string RawLine);
+    public partial record IrrelevantMetric(string MetricName);
+}
+
+[Union]
+public partial record ClearDatabaseError
+{
+    public partial record EmptyName;
+    public partial record DatabaseNotFound(string Name);
+    public partial record RetriesExhausted(int Attempts, Exception Last);
+}
+
+// ❌ Avoid - generic name, no context in variants
+[Union]
+public partial record AppError
+{
+    public partial record ValidationFailed;
+    public partial record NotFound;
+}
+```
+
 ### 16. Use `using static` to Shorten Result Construction
 
 Producer methods that return `Result<TSuccess, TFailure>` should add a `using static` directive to avoid repeating the full generic type on every `new Success(...)` / `new Failure(...)`.
