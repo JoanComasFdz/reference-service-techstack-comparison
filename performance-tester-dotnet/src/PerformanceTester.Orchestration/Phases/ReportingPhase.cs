@@ -1,9 +1,11 @@
 using JoanComasFdz.Result;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
+using PerformanceTester.Reporting.ChartGeneration;
 using PerformanceTester.Reporting.ReportGeneration;
 using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.SystemMonitoring;
@@ -59,17 +61,54 @@ internal static class ReportingPhase
     /// </summary>
     public delegate Task<string> GenerateChart(ResultsOutputFolder outputFolder, TestReport testReport, ILogger logger);
 
+    // -- Dependencies record (bundle of what I need) -------------------------------
+
+    public record Dependencies(
+        TestConfiguration Config,
+        GetThroughputSamples GetThroughputSamples,
+        GetProcessMetrics GetProcessMetrics,
+        GetSystemMetrics GetSystemMetrics,
+        GetRabbitMqMetrics GetRabbitMqMetrics,
+        GetPostgresMetrics GetPostgresMetrics,
+        GetSystemInfo GetSystemInfo,
+        GenerateReport GenerateReport,
+        GenerateChart GenerateChart);
+
+    // -- Factory (how to build what I need from DI) --------------------------------
+
+    public static Dependencies BuildDependencies(
+        IServiceProvider services,
+        TestConfiguration config,
+        CancellationToken ct)
+    {
+        var metricsCollector = services.GetRequiredService<IMetricsCollector>();
+        var processMonitor = services.GetRequiredService<IProcessMonitor>();
+        var systemMonitor = services.GetRequiredService<ISystemMonitor>();
+        var dockerMonitors = services.GetRequiredService<IEnumerable<IDockerMonitor>>();
+        var systemInfoDetector = services.GetRequiredService<ISystemInfoDetector>();
+        var reportGenerator = services.GetRequiredService<ReportGenerator>();
+
+        return new Dependencies(
+            Config: config,
+            GetThroughputSamples: metricsCollector.GetThroughputSamples,
+            GetProcessMetrics: processMonitor.GetCollectedMetrics,
+            GetSystemMetrics: systemMonitor.GetCollectedMetrics,
+            GetRabbitMqMetrics: () => dockerMonitors
+                .Single(m => m.ContainerName == config.RabbitMqContainerName.Value)
+                .GetCollectedMetrics(),
+            GetPostgresMetrics: () => dockerMonitors
+                .Single(m => m.ContainerName == config.PostgresContainerName.Value)
+                .GetCollectedMetrics(),
+            GetSystemInfo: () => systemInfoDetector.GetSystemInfoAsync(ct),
+            GenerateReport: (folder, report) => reportGenerator.GenerateReportAsync(folder, report, ct),
+            GenerateChart: (folder, report, log) => ChartGenerator.GenerateChartAsync(folder, report, log, ct));
+    }
+
+    // -- Execution (what I do with it) ---------------------------------------------
+
     public static async Task<Result<TestReport, string>> ExecuteAsync(
         TestResult testResult,
-        TestConfiguration config,
-        GetThroughputSamples getThroughputSamples,
-        GetProcessMetrics getProcessMetrics,
-        GetSystemMetrics getSystemMetrics,
-        GetRabbitMqMetrics getRabbitMqMetrics,
-        GetPostgresMetrics getPostgresMetrics,
-        GetSystemInfo getSystemInfo,
-        GenerateReport generateReport,
-        GenerateChart generateChart,
+        Dependencies deps,
         ILogger logger)
     {
         using var _ = LogContext.PushProperty("Phase", "Reporting");
@@ -81,11 +120,11 @@ internal static class ReportingPhase
             // Step 1: Collect all metrics from monitors
             logger.LogInformation("Collecting metrics from monitors...");
 
-            var throughputSamples = getThroughputSamples();
-            var processMetrics = getProcessMetrics();
-            var systemMetrics = getSystemMetrics();
-            var rabbitMqMetrics = getRabbitMqMetrics();
-            var postgresMetrics = getPostgresMetrics();
+            var throughputSamples = deps.GetThroughputSamples();
+            var processMetrics = deps.GetProcessMetrics();
+            var systemMetrics = deps.GetSystemMetrics();
+            var rabbitMqMetrics = deps.GetRabbitMqMetrics();
+            var postgresMetrics = deps.GetPostgresMetrics();
 
             logger.LogInformation(
                 "Metrics collected: {Throughput} throughput samples, " +
@@ -98,14 +137,14 @@ internal static class ReportingPhase
                 postgresMetrics.Count);
 
             // Step 4: Get system information (cached)
-            var systemInfo = await getSystemInfo();
+            var systemInfo = await deps.GetSystemInfo();
 
             // Step 5: Build TestReport
             logger.LogInformation("Building test report...");
 
             var testReport = TestReportBuilder.Build(
                 testResult,
-                config,
+                deps.Config,
                 throughputSamples,
                 processMetrics,
                 systemMetrics,
@@ -114,16 +153,16 @@ internal static class ReportingPhase
                 systemInfo);
 
             // Step 6: Generate JSON reports
-            logger.LogInformation("Generating JSON reports to {Folder}", config.ResultsFolder);
+            logger.LogInformation("Generating JSON reports to {Folder}", deps.Config.ResultsFolder);
 
-            await generateReport(config.ResultsFolder, testReport);
+            await deps.GenerateReport(deps.Config.ResultsFolder, testReport);
 
             logger.LogInformation("JSON reports generated");
 
             // Step 7: Generate chart
-            logger.LogInformation("Generating chart to {Folder}", config.ResultsFolder);
+            logger.LogInformation("Generating chart to {Folder}", deps.Config.ResultsFolder);
 
-            var chartPath = await generateChart(config.ResultsFolder, testReport, logger);
+            var chartPath = await deps.GenerateChart(deps.Config.ResultsFolder, testReport, logger);
 
             logger.LogInformation("Metrics chart saved to: {Path}", chartPath);
 

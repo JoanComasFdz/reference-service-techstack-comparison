@@ -124,7 +124,7 @@ internal static class TestOrchestrator
             RunEventTest: BuildRunEventTest(services, trackEvents, publishEvents, config, logger, ct),
             RunApiTest: BuildRunApiTest(services, config, logger, ct),
             RunTeardown: () => TeardownPhase.ExecuteAsync(teardownDeps, ct, logger),
-            RunReporting: ReportingPhaseDependencies.Build(services, config, logger, ct),
+            RunReporting: BuildRunReporting(services, config, logger, ct),
             CleanupResources: () => TeardownPhase.ExecuteAsync(teardownDeps, CancellationToken.None, logger));
     }
 
@@ -173,6 +173,16 @@ internal static class TestOrchestrator
     {
         var deps = ApiTestPhase.BuildDependencies(services, config, ct);
         return (progress) => ApiTestPhase.ExecuteAsync(deps, progress, logger);
+    }
+
+    private static RunReporting BuildRunReporting(
+        IServiceProvider services,
+        TestConfiguration config,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var deps = ReportingPhase.BuildDependencies(services, config, ct);
+        return (testResult) => ReportingPhase.ExecuteAsync(testResult, deps, logger);
     }
 
     // -- Execution (what I do with it) ---------------------------------------------
