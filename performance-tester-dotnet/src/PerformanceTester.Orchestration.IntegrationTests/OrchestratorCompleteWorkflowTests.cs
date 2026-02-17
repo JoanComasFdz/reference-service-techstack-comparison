@@ -56,7 +56,7 @@ public sealed class OrchestratorCompleteWorkflowTests(ITestOutputHelper output)
             // ACT
             // ====================================================================
 
-            var result = await System.Orchestration.RunTestAsync(config, progress: phaseAwaiter);
+            var result = await System.Orchestration.RunTestAsync(config, progress: phaseAwaiter.Report);
             Assert.True(result.IsSuccess, $"Expected success but got failure: {(result.IsFailure ? result.FailureError.Message : "")}");
             var report = result.SuccessValue;
 

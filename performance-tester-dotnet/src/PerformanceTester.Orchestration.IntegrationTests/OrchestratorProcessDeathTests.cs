@@ -209,7 +209,7 @@ public sealed class OrchestratorProcessDeathTests(ITestOutputHelper output)
             // Start the test with progress reporting
             var testTask = Task.Run(async () =>
             {
-                return await System.Orchestration.RunTestAsync(config, progress: phaseAwaiter);
+                return await System.Orchestration.RunTestAsync(config, progress: phaseAwaiter.Report);
             });
 
             // DETERMINISTIC: Wait for API phase to actually start

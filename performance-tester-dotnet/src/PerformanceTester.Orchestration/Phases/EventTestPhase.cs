@@ -61,7 +61,7 @@ internal static class EventTestPhase
         StartDockerMonitoring StartDockerMonitoring,
         PhasesToolbox.TrackEvents TrackEvents,
         PhasesToolbox.PublishEvents PublishEvents,
-        IProgress<ConsumerPhaseInfo>? ConsumerProgress);
+        IProgress<ConsumerPhaseInfo> ConsumerProgress);
 
     /// <summary>
     /// Resolves DI services and composes phase-level delegates into a <see cref="Dependencies"/> bundle.
@@ -71,7 +71,7 @@ internal static class EventTestPhase
         PhasesToolbox.TrackEvents trackEvents,
         PhasesToolbox.PublishEvents publishEvents,
         TestConfiguration config,
-        IProgress<PhaseInfo>? progress,
+        ReportPhaseProgress reportProgress,
         CancellationToken ct)
     {
         var systemMonitor = services.GetRequiredService<ISystemMonitor>();
@@ -88,7 +88,7 @@ internal static class EventTestPhase
             StartDockerMonitoring: () => Task.WhenAll(dockerMonitors.Select(m => m.StartMonitoringAsync(cancellationToken: ct))),
             TrackEvents: trackEvents,
             PublishEvents: publishEvents,
-            ConsumerProgress: CreateConsumerProgressCallback(progress, config.EventCount.Value));
+            ConsumerProgress: CreateConsumerProgressCallback(reportProgress, config.EventCount.Value));
     }
 
     public static async Task<Result<Output, string>> ExecuteAsync(
@@ -172,21 +172,15 @@ internal static class EventTestPhase
 
     /// <summary>
     /// Creates a progress callback that adapts ConsumerPhaseInfo to PhaseInfo with throttling.
-    /// Returns null if the parent progress is null.
     /// </summary>
     // CA1859: recommends returning SynchronousProgress<T> (concrete type) instead of IProgress<T>
     // for devirtualization. No benefit here — the return value is immediately passed to TrackEvents,
     // whose parameter type is IProgress<ConsumerPhaseInfo>?, so the interface dispatch remains.
 #pragma warning disable CA1859
-    private static IProgress<ConsumerPhaseInfo>? CreateConsumerProgressCallback(
-        IProgress<PhaseInfo>? progress,
+    private static IProgress<ConsumerPhaseInfo> CreateConsumerProgressCallback(
+        ReportPhaseProgress reportProgress,
         int totalEventCount)
     {
-        if (progress == null)
-        {
-            return null;
-        }
-
         // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
         // Throttle by time (200ms) to avoid excessive updates while staying responsive
         // Use lock for thread safety (RabbitMQ events can arrive concurrently)
@@ -199,7 +193,7 @@ internal static class EventTestPhase
             // When target reached, clear the progress bar immediately (before log appears)
             if (info.Phase == ConsumerPhase.TargetReached)
             {
-                progress.Report(PhaseInfo.Completed(TestPhase.EventTest, "Complete"));
+                reportProgress(PhaseInfo.Completed(TestPhase.EventTest, "Complete"));
                 return;
             }
 
@@ -215,7 +209,7 @@ internal static class EventTestPhase
                         lastProgressTime = now;
                         var count = info.EventCount.Value;
                         // Report via PhaseInfo - adapter converts to TestProgress
-                        progress.Report(PhaseInfo.Starting(
+                        reportProgress(PhaseInfo.Starting(
                             TestPhase.EventTest,
                             $"Processing: {count}/{totalEventCount} events"));
                     }

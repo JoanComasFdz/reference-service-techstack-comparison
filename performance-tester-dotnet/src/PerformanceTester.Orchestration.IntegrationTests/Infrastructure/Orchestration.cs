@@ -70,9 +70,11 @@ public sealed class Orchestration : IDisposable
     /// Builds phase delegates and runs the full test orchestration.
     /// Wraps TestOrchestrator.BuildDependencies() + TestOrchestrator.RunTestAsync().
     /// </summary>
+    private static readonly ReportPhaseProgress NoOpProgress = static (_) => { };
+
     public Task<Result<TestReport, TestRunFailure>> RunTestAsync(
         TestConfiguration config,
-        IProgress<PhaseInfo>? progress = null,
+        ReportPhaseProgress? progress = null,
         CancellationToken cancellationToken = default)
     {
         if (_host == null)
@@ -80,7 +82,7 @@ public sealed class Orchestration : IDisposable
             throw new InvalidOperationException("Host not initialized");
         }
 
-        var deps = TestOrchestrator.BuildDependencies(_host.Services, config, progress, Logger, cancellationToken);
+        var deps = TestOrchestrator.BuildDependencies(_host.Services, config, progress ?? NoOpProgress, Logger, cancellationToken);
         return TestOrchestrator.RunTestAsync(deps, config, Logger);
     }
 

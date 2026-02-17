@@ -13,9 +13,9 @@ public class PhaseAwaiterTests
         var waitTask = awaiter.WaitForPhaseStartAsync(TestPhase.ApiTest);
 
         // Act
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Starting(TestPhase.Setup));
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Completed(TestPhase.Setup));
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Starting(TestPhase.ApiTest));
+        awaiter.Report(PhaseInfo.Starting(TestPhase.Setup));
+        awaiter.Report(PhaseInfo.Completed(TestPhase.Setup));
+        awaiter.Report(PhaseInfo.Starting(TestPhase.ApiTest));
 
         // Assert
         await waitTask; // Should complete without timeout
@@ -27,7 +27,7 @@ public class PhaseAwaiterTests
     {
         // Arrange
         var awaiter = new PhaseAwaiter();
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Starting(TestPhase.ApiTest));
+        awaiter.Report(PhaseInfo.Starting(TestPhase.ApiTest));
 
         // Act & Assert - Should return immediately, not wait
         await awaiter.WaitForPhaseStartAsync(TestPhase.ApiTest, timeout: TimeSpan.FromMilliseconds(100));
@@ -49,10 +49,10 @@ public class PhaseAwaiterTests
     {
         // Arrange
         var awaiter = new PhaseAwaiter();
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Starting(TestPhase.Setup));
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Completed(TestPhase.Setup));
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Starting(TestPhase.Warmup));
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Completed(TestPhase.Warmup));
+        awaiter.Report(PhaseInfo.Starting(TestPhase.Setup));
+        awaiter.Report(PhaseInfo.Completed(TestPhase.Setup));
+        awaiter.Report(PhaseInfo.Starting(TestPhase.Warmup));
+        awaiter.Report(PhaseInfo.Completed(TestPhase.Warmup));
 
         // Act & Assert - Should not throw
         awaiter.AssertPhasesReceivedInOrder(
@@ -67,7 +67,7 @@ public class PhaseAwaiterTests
     {
         // Arrange
         var awaiter = new PhaseAwaiter();
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Starting(TestPhase.Setup));
+        awaiter.Report(PhaseInfo.Starting(TestPhase.Setup));
         // Missing Setup Completed
 
         // Act & Assert
@@ -87,11 +87,11 @@ public class PhaseAwaiterTests
         var waitTask = awaiter.WaitForPhaseCompleteAsync(TestPhase.EventTest);
 
         // Act
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Starting(TestPhase.EventTest));
+        awaiter.Report(PhaseInfo.Starting(TestPhase.EventTest));
         // Starting should not complete the wait
         Assert.False(waitTask.IsCompleted);
 
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Completed(TestPhase.EventTest));
+        awaiter.Report(PhaseInfo.Completed(TestPhase.EventTest));
 
         // Assert
         await waitTask; // Should complete now
@@ -107,7 +107,7 @@ public class PhaseAwaiterTests
         var waitTask2 = awaiter.WaitForPhaseStartAsync(TestPhase.ApiTest);
 
         // Act
-        ((IProgress<PhaseInfo>)awaiter).Report(PhaseInfo.Starting(TestPhase.ApiTest));
+        awaiter.Report(PhaseInfo.Starting(TestPhase.ApiTest));
 
         // Assert - Both should complete
         await Task.WhenAll(waitTask1, waitTask2);

@@ -8,7 +8,7 @@ namespace PerformanceTester.Cli.Output;
 /// Instance class - has mutable tracking state (CODING_GUIDELINES: Static Classes for Pure Logic - this has state).
 /// Uses PhaseInfoConverter for pure conversions (CODING_GUIDELINES: Toolbox Pattern).
 /// </summary>
-public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
+public sealed class OrchestratorProgressAdapter
 {
     private readonly ProgressReporter _progressReporter;
     private readonly EventCount _totalEventCount;
@@ -16,9 +16,7 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
 
     // Mutable tracking state
     private int _currentEventCount;
-    private DateTime _apiStartTime;
     private int _apiRequestCount;
-    private bool _apiTrackingStarted;
 
     public OrchestratorProgressAdapter(
         ProgressReporter progressReporter,
@@ -90,63 +88,14 @@ public sealed class OrchestratorProgressAdapter : IProgress<PhaseInfo>
                     totalSeconds: parsed.Value.Total,
                     requestCount: parsed.Value.Requests);
             }
-
-            // Don't show progress until API tracking has started (k6 is running)
-            if (!_apiTrackingStarted)
-            {
-                return PhaseInfoConverter.CreateApiProgress(
-                    status,
-                    elapsedSeconds: 0,
-                    totalSeconds: _apiDuration.Value.TotalSeconds,
-                    requestCount: 0,
-                    message: message);
-            }
         }
 
         // Fallback to stored values
         return PhaseInfoConverter.CreateApiProgress(
             status,
-            elapsedSeconds: status == PhaseStatus.Completed
-                ? _apiDuration.Value.TotalSeconds
-                : (DateTime.UtcNow - _apiStartTime).TotalSeconds,
+            elapsedSeconds: status == PhaseStatus.Completed ? _apiDuration.Value.TotalSeconds : 0,
             totalSeconds: _apiDuration.Value.TotalSeconds,
             requestCount: _apiRequestCount,
             message: message);
-    }
-
-    /// <summary>
-    /// Updates event count. Called from consumer progress callback.
-    /// </summary>
-    public void UpdateEventCount(int count)
-    {
-        _currentEventCount = count;
-        _progressReporter.ReportProgress(PhaseInfoConverter.CreateEventProgress(
-            PhaseStatus.InProgress,
-            currentEvents: count,
-            totalEvents: _totalEventCount.Value));
-    }
-
-    /// <summary>
-    /// Starts API tracking. Called when API test phase begins.
-    /// </summary>
-    public void StartApiTracking()
-    {
-        _apiStartTime = DateTime.UtcNow;
-        _apiRequestCount = 0;
-        _apiTrackingStarted = true;
-    }
-
-    /// <summary>
-    /// Updates API progress. Called from k6 progress callback.
-    /// </summary>
-    public void UpdateApiProgress(int requestCount)
-    {
-        _apiRequestCount = requestCount;
-        var elapsed = (DateTime.UtcNow - _apiStartTime).TotalSeconds;
-        _progressReporter.ReportProgress(PhaseInfoConverter.CreateApiProgress(
-            PhaseStatus.InProgress,
-            elapsedSeconds: elapsed,
-            totalSeconds: _apiDuration.Value.TotalSeconds,
-            requestCount: requestCount));
     }
 }

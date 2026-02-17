@@ -59,7 +59,6 @@ public enum PhaseState
 
 /// <summary>
 /// Information about a phase transition in the test workflow.
-/// Used with IProgress&lt;PhaseInfo&gt; to notify observers of phase changes.
 /// </summary>
 /// <param name="Phase">The phase that is transitioning.</param>
 /// <param name="State">The state of the transition (Starting, Completed, Failed).</param>
@@ -94,3 +93,9 @@ public readonly record struct PhaseInfo(
     public static PhaseInfo Failed(TestPhase phase, string? message = null)
         => new(phase, PhaseState.Failed, message, DateTimeOffset.UtcNow);
 }
+
+/// <summary>
+/// Reports a phase transition to the progress display.
+/// Non-nullable: callers that have no observer pass a no-op lambda.
+/// </summary>
+public delegate void ReportPhaseProgress(PhaseInfo phaseInfo);

@@ -6,7 +6,7 @@ namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 /// Helper class for tests to await specific phase transitions.
 /// Wraps IProgress&lt;PhaseInfo&gt; and provides TaskCompletionSource-based waiting.
 /// </summary>
-public sealed class PhaseAwaiter : IProgress<PhaseInfo>
+public sealed class PhaseAwaiter
 {
     private readonly Dictionary<(TestPhase Phase, PhaseState State), TaskCompletionSource> _awaiters = new();
     private readonly List<PhaseInfo> _receivedPhases = new();
@@ -82,10 +82,9 @@ public sealed class PhaseAwaiter : IProgress<PhaseInfo>
     }
 
     /// <summary>
-    /// Called by TestOrchestrator via progress?.Report(). Explicit interface implementation
-    /// hides this from PhaseAwaiter's public API - callers use WaitForPhaseAsync() instead.
+    /// Called by TestOrchestrator via the ReportPhaseProgress delegate.
     /// </summary>
-    void IProgress<PhaseInfo>.Report(PhaseInfo value)
+    public void Report(PhaseInfo value)
     {
         lock (_lock)
         {

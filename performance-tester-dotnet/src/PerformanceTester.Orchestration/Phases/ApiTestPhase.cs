@@ -48,17 +48,16 @@ internal static class ApiTestPhase
     /// </summary>
     public static Dependencies BuildDependencies(
         IServiceProvider services,
-        IProgress<PhaseInfo>? progress,
+        ReportPhaseProgress reportProgress,
         CancellationToken ct)
     {
         var apiLoadTester = services.GetRequiredService<IApiLoadTester>();
 
-        ReportApiLoadProgress reportProgress = progress is null
-            ? (_) => { }
-            : (info) => progress.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
+        ReportApiLoadProgress reportApiProgress = (info) =>
+            reportProgress(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
 
         return new Dependencies(
-            StartApiLoadTest: (url, duration, vus, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, reportProgress, maxFail, dir, ct)
+            StartApiLoadTest: (url, duration, vus, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, reportApiProgress, maxFail, dir, ct)
             );
     }
 
