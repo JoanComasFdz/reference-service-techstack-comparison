@@ -173,8 +173,8 @@ internal static class TestOrchestrator
         ILogger logger,
         CancellationToken ct)
     {
-        var deps = ApiTestPhase.BuildDependencies(services, config, progress, ct);
-        return () => ApiTestPhase.ExecuteAsync(deps, logger);
+        var deps = ApiTestPhase.BuildDependencies(services, progress, ct);
+        return () => ApiTestPhase.ExecuteAsync(config, deps, logger);
     }
 
     private static RunReporting BuildRunReporting(

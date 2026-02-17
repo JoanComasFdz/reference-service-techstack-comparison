@@ -41,7 +41,6 @@ internal static class ApiTestPhase
     /// Pre-bound dependencies for the API test phase.
     /// </summary>
     public record Dependencies(
-        TestConfiguration Config,
         StartApiLoadTest StartApiLoadTest,
         ReportApiLoadProgress ReportProgress);
 
@@ -52,7 +51,6 @@ internal static class ApiTestPhase
     /// </summary>
     public static Dependencies BuildDependencies(
         IServiceProvider services,
-        TestConfiguration config,
         IProgress<PhaseInfo>? progress,
         CancellationToken ct)
     {
@@ -63,7 +61,6 @@ internal static class ApiTestPhase
             : (info) => progress.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
 
         return new Dependencies(
-            Config: config,
             StartApiLoadTest: (url, duration, vus, apiProgress, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, ct),
             ReportProgress: reportProgress);
     }
@@ -71,6 +68,7 @@ internal static class ApiTestPhase
     // -- Execution (what I do with it) --------------------------------------------
 
     public static async Task<Result<Output, string>> ExecuteAsync(
+        TestConfiguration config,
         Dependencies deps,
         ILogger logger)
     {
@@ -80,18 +78,18 @@ internal static class ApiTestPhase
         {
             logger.LogInformation(
                 "Starting API load test for {Duration}s with {Workers} worker(s)",
-                deps.Config.ApiDuration.Value.TotalSeconds,
-                deps.Config.ApiWorkers);
+                config.ApiDuration.Value.TotalSeconds,
+                config.ApiWorkers);
 
             var startTime = DateTime.UtcNow;
 
             var result = await deps.StartApiLoadTest(
-                deps.Config.ApiUrl,
-                deps.Config.ApiDuration.Value,
-                deps.Config.ApiWorkers.Value,
+                config.ApiUrl,
+                config.ApiDuration.Value,
+                config.ApiWorkers.Value,
                 deps.ReportProgress,
-                deps.Config.MaxConsecutiveApiFailures,
-                deps.Config.ResultsFolder.Value
+                config.MaxConsecutiveApiFailures,
+                config.ResultsFolder.Value
                 );
 
             var endTime = DateTime.UtcNow;
