@@ -1,4 +1,5 @@
 using JoanComasFdz.Result;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.ApiLoadTesting;
 using Serilog.Context;
@@ -11,6 +12,8 @@ namespace PerformanceTester.Orchestration;
 /// </summary>
 internal static class ApiTestPhase
 {
+    // -- Delegate definitions (what I need) ----------------------------------------
+
     /// <summary>
     /// Executes an HTTP API load test using k6 and returns aggregated results.
     /// </summary>
@@ -22,6 +25,8 @@ internal static class ApiTestPhase
         int maxConsecutiveFailures,
         string? scriptDirectory);
 
+    // -- Output (what I produce) --------------------------------------------------
+
     /// <summary>
     /// Success output of the API test phase.
     /// </summary>
@@ -30,9 +35,36 @@ internal static class ApiTestPhase
         DateTime StartTime,
         DateTime EndTime);
 
-    public static async Task<Result<Output, string>> ExecuteAsync(
+    // -- Dependencies record (bundle of what I need) ------------------------------
+
+    /// <summary>
+    /// Pre-bound dependencies for the API test phase.
+    /// </summary>
+    public record Dependencies(
+        TestConfiguration Config,
+        StartApiLoadTest StartApiLoadTest);
+
+    // -- Factory (how to build what I need from DI) --------------------------------
+
+    /// <summary>
+    /// Resolves DI services and composes phase-level delegates into a <see cref="Dependencies"/> bundle.
+    /// </summary>
+    public static Dependencies BuildDependencies(
+        IServiceProvider services,
         TestConfiguration config,
-        StartApiLoadTest startApiLoadTest,
+        CancellationToken ct)
+    {
+        var apiLoadTester = services.GetRequiredService<IApiLoadTester>();
+
+        return new Dependencies(
+            Config: config,
+            StartApiLoadTest: (url, duration, vus, apiProgress, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, ct));
+    }
+
+    // -- Execution (what I do with it) --------------------------------------------
+
+    public static async Task<Result<Output, string>> ExecuteAsync(
+        Dependencies deps,
         IProgress<PhaseInfo>? progress,
         ILogger logger)
     {
@@ -42,8 +74,8 @@ internal static class ApiTestPhase
         {
             logger.LogInformation(
                 "Starting API load test for {Duration}s with {Workers} worker(s)",
-                config.ApiDuration.Value.TotalSeconds,
-                config.ApiWorkers);
+                deps.Config.ApiDuration.Value.TotalSeconds,
+                deps.Config.ApiWorkers);
 
             var startTime = DateTime.UtcNow;
 
@@ -51,13 +83,13 @@ internal static class ApiTestPhase
                 ? (_) => { }
             : (info) => progress.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
 
-            var result = await startApiLoadTest(
-                config.ApiUrl,
-                config.ApiDuration.Value,
-                config.ApiWorkers.Value,
+            var result = await deps.StartApiLoadTest(
+                deps.Config.ApiUrl,
+                deps.Config.ApiDuration.Value,
+                deps.Config.ApiWorkers.Value,
                 apiProgress,
-                config.MaxConsecutiveApiFailures,
-                config.ResultsFolder.Value
+                deps.Config.MaxConsecutiveApiFailures,
+                deps.Config.ResultsFolder.Value
                 );
 
             var endTime = DateTime.UtcNow;
