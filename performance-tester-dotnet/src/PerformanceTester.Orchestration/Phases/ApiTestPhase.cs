@@ -21,7 +21,6 @@ internal static class ApiTestPhase
         string targetUrl,
         TimeSpan duration,
         int virtualUsers,
-        ReportApiLoadProgress progress,
         int maxConsecutiveFailures,
         string? scriptDirectory);
 
@@ -40,9 +39,7 @@ internal static class ApiTestPhase
     /// <summary>
     /// Pre-bound dependencies for the API test phase.
     /// </summary>
-    public record Dependencies(
-        StartApiLoadTest StartApiLoadTest,
-        ReportApiLoadProgress ReportProgress);
+    public record Dependencies(StartApiLoadTest StartApiLoadTest);
 
     // -- Factory (how to build what I need from DI) --------------------------------
 
@@ -61,8 +58,8 @@ internal static class ApiTestPhase
             : (info) => progress.Report(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
 
         return new Dependencies(
-            StartApiLoadTest: (url, duration, vus, apiProgress, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, apiProgress, maxFail, dir, ct),
-            ReportProgress: reportProgress);
+            StartApiLoadTest: (url, duration, vus, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, reportProgress, maxFail, dir, ct)
+            );
     }
 
     // -- Execution (what I do with it) --------------------------------------------
@@ -87,7 +84,6 @@ internal static class ApiTestPhase
                 config.ApiUrl,
                 config.ApiDuration.Value,
                 config.ApiWorkers.Value,
-                deps.ReportProgress,
                 config.MaxConsecutiveApiFailures,
                 config.ResultsFolder.Value
                 );
