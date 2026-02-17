@@ -64,7 +64,6 @@ internal static class ReportingPhase
     // -- Dependencies record (bundle of what I need) -------------------------------
 
     public record Dependencies(
-        TestConfiguration Config,
         GetThroughputSamples GetThroughputSamples,
         GetProcessMetrics GetProcessMetrics,
         GetSystemMetrics GetSystemMetrics,
@@ -89,7 +88,6 @@ internal static class ReportingPhase
         var reportGenerator = services.GetRequiredService<ReportGenerator>();
 
         return new Dependencies(
-            Config: config,
             GetThroughputSamples: metricsCollector.GetThroughputSamples,
             GetProcessMetrics: processMonitor.GetCollectedMetrics,
             GetSystemMetrics: systemMonitor.GetCollectedMetrics,
@@ -108,6 +106,7 @@ internal static class ReportingPhase
 
     public static async Task<Result<TestReport, string>> ExecuteAsync(
         TestResult testResult,
+        TestConfiguration config,
         Dependencies deps,
         ILogger logger)
     {
@@ -144,7 +143,7 @@ internal static class ReportingPhase
 
             var testReport = TestReportBuilder.Build(
                 testResult,
-                deps.Config,
+                config,
                 throughputSamples,
                 processMetrics,
                 systemMetrics,
@@ -153,16 +152,16 @@ internal static class ReportingPhase
                 systemInfo);
 
             // Step 6: Generate JSON reports
-            logger.LogInformation("Generating JSON reports to {Folder}", deps.Config.ResultsFolder);
+            logger.LogInformation("Generating JSON reports to {Folder}", config.ResultsFolder);
 
-            await deps.GenerateReport(deps.Config.ResultsFolder, testReport);
+            await deps.GenerateReport(config.ResultsFolder, testReport);
 
             logger.LogInformation("JSON reports generated");
 
             // Step 7: Generate chart
-            logger.LogInformation("Generating chart to {Folder}", deps.Config.ResultsFolder);
+            logger.LogInformation("Generating chart to {Folder}", config.ResultsFolder);
 
-            var chartPath = await deps.GenerateChart(deps.Config.ResultsFolder, testReport, logger);
+            var chartPath = await deps.GenerateChart(config.ResultsFolder, testReport, logger);
 
             logger.LogInformation("Metrics chart saved to: {Path}", chartPath);
 

@@ -184,7 +184,7 @@ internal static class TestOrchestrator
         CancellationToken ct)
     {
         var deps = ReportingPhase.BuildDependencies(services, config, ct);
-        return (testResult) => ReportingPhase.ExecuteAsync(testResult, deps, logger);
+        return (testResult) => ReportingPhase.ExecuteAsync(testResult, config, deps, logger);
     }
 
     // -- Execution (what I do with it) ---------------------------------------------
