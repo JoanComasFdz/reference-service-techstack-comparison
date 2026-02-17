@@ -53,7 +53,6 @@ internal static class EventTestPhase
     /// Bundles all phase-level and shared delegates needed by <see cref="ExecuteAsync"/>.
     /// </summary>
     public record Dependencies(
-        TestConfiguration Config,
         int SystemCpuCount,
         bool SystemIsWsl2,
         ClearSamples ClearSamples,
@@ -81,7 +80,6 @@ internal static class EventTestPhase
         var dockerMonitors = services.GetRequiredService<IEnumerable<IDockerMonitor>>();
 
         return new Dependencies(
-            Config: config,
             SystemCpuCount: systemMonitor.CpuCount,
             SystemIsWsl2: systemMonitor.IsWsl2,
             ClearSamples: metricsCollector.ClearSamples,
@@ -95,6 +93,7 @@ internal static class EventTestPhase
 
     public static async Task<Result<Output, string>> ExecuteAsync(
         ProcessId serviceProcessId,
+        TestConfiguration config,
         Dependencies deps,
         ILogger logger)
     {
@@ -104,7 +103,7 @@ internal static class EventTestPhase
         {
             logger.LogInformation(
                 "Starting event throughput test with {Count} events",
-                deps.Config.EventCount);
+                config.EventCount);
 
             // Clear any warmup samples before starting the measured test
             deps.ClearSamples();
@@ -134,11 +133,11 @@ internal static class EventTestPhase
 
             // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
             var consumerTask = deps.TrackEvents(
-                deps.Config.EventCount.Value,
-                deps.Config.InactivityTimeout.Value,
+                config.EventCount.Value,
+                config.InactivityTimeout.Value,
                 deps.ConsumerProgress);
 
-            var publisherTask = deps.PublishEvents(deps.Config.EventCount.Value);
+            var publisherTask = deps.PublishEvents(config.EventCount.Value);
 
             // Wait for both to complete
             await Task.WhenAll(consumerTask, publisherTask);
@@ -148,11 +147,11 @@ internal static class EventTestPhase
             var endTime = DateTime.UtcNow;
 
             var totalDuration = stopwatch.Elapsed;
-            var eventThroughput = deps.Config.EventCount.Value / totalDuration.TotalSeconds;
+            var eventThroughput = config.EventCount.Value / totalDuration.TotalSeconds;
 
             logger.LogInformation(
                 "Event throughput test complete: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
-                deps.Config.EventCount,
+                config.EventCount,
                 totalDuration.TotalSeconds,
                 eventThroughput);
 

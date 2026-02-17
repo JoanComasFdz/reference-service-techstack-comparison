@@ -163,7 +163,7 @@ internal static class TestOrchestrator
         CancellationToken ct)
     {
         var deps = EventTestPhase.BuildDependencies(services, trackEvents, publishEvents, config, progress, ct);
-        return (serviceProcessId) => EventTestPhase.ExecuteAsync(serviceProcessId, deps, logger);
+        return (serviceProcessId) => EventTestPhase.ExecuteAsync(serviceProcessId, config, deps, logger);
     }
 
     private static RunApiTest BuildRunApiTest(
