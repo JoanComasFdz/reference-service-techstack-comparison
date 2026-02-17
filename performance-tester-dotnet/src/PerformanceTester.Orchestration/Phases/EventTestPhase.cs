@@ -175,6 +175,10 @@ internal static class EventTestPhase
     /// Creates a progress callback that adapts ConsumerPhaseInfo to PhaseInfo with throttling.
     /// Returns null if the parent progress is null.
     /// </summary>
+    // CA1859: recommends returning SynchronousProgress<T> (concrete type) instead of IProgress<T>
+    // for devirtualization. No benefit here — the return value is immediately passed to TrackEvents,
+    // whose parameter type is IProgress<ConsumerPhaseInfo>?, so the interface dispatch remains.
+#pragma warning disable CA1859
     private static IProgress<ConsumerPhaseInfo>? CreateConsumerProgressCallback(
         IProgress<PhaseInfo>? progress,
         int totalEventCount)
