@@ -80,7 +80,7 @@ public sealed class Orchestration : IDisposable
             throw new InvalidOperationException("Host not initialized");
         }
 
-        var deps = TestOrchestrator.BuildDependencies(_host.Services, config, Logger, cancellationToken);
+        var deps = TestOrchestrator.BuildDependencies(_host.Services, config, progress, Logger, cancellationToken);
         return TestOrchestrator.RunTestAsync(deps, config, progress, Logger);
     }
 

@@ -93,6 +93,7 @@ internal static class TestOrchestrator
     public static Dependencies BuildDependencies(
         IServiceProvider services,
         TestConfiguration config,
+        IProgress<PhaseInfo>? progress,
         ILogger logger,
         CancellationToken ct)
     {
@@ -121,8 +122,8 @@ internal static class TestOrchestrator
         return new Dependencies(
             RunSetup: BuildRunSetup(services, clearDatabase, clearAllQueues, config, logger, ct),
             RunWarmup: BuildRunWarmup(trackEvents, publishEvents, clearDatabase, clearAllQueues, config, logger, ct),
-            RunEventTest: BuildRunEventTest(services, trackEvents, publishEvents, config, logger, ct),
-            RunApiTest: BuildRunApiTest(services, config, logger, ct),
+            RunEventTest: BuildRunEventTest(services, trackEvents, publishEvents, config, progress, logger, ct),
+            RunApiTest: BuildRunApiTest(services, config, progress, logger, ct),
             RunTeardown: () => TeardownPhase.ExecuteAsync(teardownDeps, ct, logger),
             RunReporting: BuildRunReporting(services, config, logger, ct),
             CleanupResources: () => TeardownPhase.ExecuteAsync(teardownDeps, CancellationToken.None, logger));
@@ -158,6 +159,7 @@ internal static class TestOrchestrator
         PhasesToolbox.TrackEvents trackEvents,
         PhasesToolbox.PublishEvents publishEvents,
         TestConfiguration config,
+        IProgress<PhaseInfo>? progress,
         ILogger logger,
         CancellationToken ct)
     {
@@ -168,6 +170,7 @@ internal static class TestOrchestrator
     private static RunApiTest BuildRunApiTest(
         IServiceProvider services,
         TestConfiguration config,
+        IProgress<PhaseInfo>? progress,
         ILogger logger,
         CancellationToken ct)
     {
