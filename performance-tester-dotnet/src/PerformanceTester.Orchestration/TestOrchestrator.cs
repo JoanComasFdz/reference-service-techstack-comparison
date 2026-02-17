@@ -116,16 +116,16 @@ internal static class TestOrchestrator
 
         PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, ct);
 
-        var teardown = TeardownPhaseDependencies.Build(services, logger);
+        var teardownDeps = TeardownPhase.BuildDependencies(services);
 
         return new Dependencies(
             RunSetup: BuildRunSetup(services, clearDatabase, clearAllQueues, config, logger, ct),
             RunWarmup: BuildRunWarmup(trackEvents, publishEvents, clearDatabase, clearAllQueues, config, logger, ct),
             RunEventTest: BuildRunEventTest(services, trackEvents, publishEvents, config, logger, ct),
             RunApiTest: BuildRunApiTest(services, config, logger, ct),
-            RunTeardown: () => teardown(ct),
+            RunTeardown: () => TeardownPhase.ExecuteAsync(teardownDeps, ct, logger),
             RunReporting: ReportingPhaseDependencies.Build(services, config, logger, ct),
-            CleanupResources: () => teardown(CancellationToken.None));
+            CleanupResources: () => TeardownPhase.ExecuteAsync(teardownDeps, CancellationToken.None, logger));
     }
 
     private static RunSetup BuildRunSetup(

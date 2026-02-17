@@ -1,5 +1,8 @@
 using JoanComasFdz.Result;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.EventPublishing;
 using Serilog.Context;
 using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, string>;
 
@@ -14,19 +17,41 @@ namespace PerformanceTester.Orchestration;
 /// </summary>
 internal static class TeardownPhase
 {
+    // -- Delegate definitions (what I need) ----------------------------------------
+
     /// <summary>
     /// Disconnects the RabbitMQ event publisher connection.
     /// </summary>
-    public delegate Task DisconnectEventPublisher();
+    public delegate Task DisconnectEventPublisher(CancellationToken ct);
 
     /// <summary>
     /// Stops all monitoring BackgroundServices (process, system, Docker).
     /// </summary>
-    public delegate Task StopMonitoring();
+    public delegate Task StopMonitoring(CancellationToken ct);
+
+    // -- Dependencies record (bundle of what I need) -------------------------------
+
+    public record Dependencies(
+        DisconnectEventPublisher DisconnectEventPublisher,
+        StopMonitoring StopMonitoring);
+
+    // -- Factory (how to build what I need from DI) --------------------------------
+
+    public static Dependencies BuildDependencies(IServiceProvider services)
+    {
+        var eventPublisher = services.GetRequiredService<IEventPublisher>();
+        var host = services.GetRequiredService<IHost>();
+
+        return new Dependencies(
+            DisconnectEventPublisher: (ct) => eventPublisher.DisconnectAsync(ct),
+            StopMonitoring: (ct) => host.StopAsync(ct));
+    }
+
+    // -- Execution (what I do with it) ---------------------------------------------
 
     public static async Task<Result<Unit, string>> ExecuteAsync(
-        DisconnectEventPublisher disconnectEventPublisher,
-        StopMonitoring stopMonitoring,
+        Dependencies deps,
+        CancellationToken ct,
         ILogger logger)
     {
         using var _ = LogContext.PushProperty("Phase", "Teardown");
@@ -39,7 +64,7 @@ internal static class TeardownPhase
         logger.LogInformation("Disconnecting from RabbitMQ event publisher...");
         try
         {
-            await disconnectEventPublisher();
+            await deps.DisconnectEventPublisher(ct);
             logger.LogInformation("RabbitMQ event publisher disconnected");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -52,7 +77,7 @@ internal static class TeardownPhase
         logger.LogInformation("Stopping monitoring services...");
         try
         {
-            await stopMonitoring();
+            await deps.StopMonitoring(ct);
             logger.LogInformation("All monitoring services stopped");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
