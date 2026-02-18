@@ -62,10 +62,14 @@ public static class ServiceCollectionExtensions
                     ct);
         });
 
-        // DatabaseCleaner receives connection string and logger
-        services.AddSingleton<IDatabase>(sp => new DatabaseCleaner(
-            postgresConnectionString,
-            sp.GetRequiredService<ILogger<DatabaseCleaner>>()));
+        // DatabaseCleaner receives connection string and logger (Guideline 12: delegate for single operation)
+        services.AddSingleton<ClearDatabase>(sp =>
+        {
+            var cleaner = new DatabaseCleaner(
+                postgresConnectionString,
+                sp.GetRequiredService<ILogger<DatabaseCleaner>>());
+            return cleaner.ClearDatabaseAsync;
+        });
 
         // RabbitMqCleaner receives connection string, logger, and optional management port
         services.AddSingleton<IRabbitMQ>(sp =>

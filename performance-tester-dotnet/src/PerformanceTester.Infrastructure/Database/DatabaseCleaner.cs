@@ -9,14 +9,16 @@ namespace PerformanceTester.Infrastructure.Database;
 /// Service for clearing PostgreSQL databases during performance testing.
 /// Discovers tables dynamically and truncates with CASCADE.
 /// </summary>
-internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseCleaner> logger) : IDatabase
+internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseCleaner> logger)
 {
     private readonly string _baseConnectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     private readonly ILogger<DatabaseCleaner> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private const int MaxRetries = 2;
     private readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(2);
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Clears all data from the specified database by truncating all tables.
+    /// </summary>
     public async Task<Result<Unit, ClearDatabaseError>> ClearDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(databaseName))
