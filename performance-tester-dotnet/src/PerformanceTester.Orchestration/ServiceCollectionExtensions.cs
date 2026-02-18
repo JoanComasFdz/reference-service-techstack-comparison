@@ -5,6 +5,7 @@ using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure;
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
 using PerformanceTester.SystemMonitoring;
@@ -23,8 +24,8 @@ public static class ServiceCollectionExtensions
     /// <param name="services">Service collection</param>
     /// <param name="postgresConnectionString">PostgreSQL connection string</param>
     /// <param name="rabbitMqConnectionString">RabbitMQ connection string</param>
-    /// <param name="rabbitMqContainerName">RabbitMQ container name for monitoring (default: "performancetest-rabbitmq")</param>
-    /// <param name="postgresContainerName">PostgreSQL container name for monitoring (default: "performancetest-postgres")</param>
+    /// <param name="rabbitMqContainerName">RabbitMQ container name for monitoring.</param>
+    /// <param name="postgresContainerName">PostgreSQL container name for monitoring.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <remarks>
     /// <para>
@@ -45,8 +46,8 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         string postgresConnectionString,
         string rabbitMqConnectionString,
-        string rabbitMqContainerName = "performancetest-rabbitmq",
-        string postgresContainerName = "performancetest-postgres")
+        NonEmptyString rabbitMqContainerName,
+        NonEmptyString postgresContainerName)
     {
         // Phase 1: Infrastructure
         services.AddInfrastructure(
@@ -57,10 +58,8 @@ public static class ServiceCollectionExtensions
         services.AddEventPublishing(rabbitMqConnectionString);
         services.AddEventConsuming(rabbitMqConnectionString);
 
-        // Docker monitoring - register monitors for RabbitMQ and PostgreSQL
-        // Orchestrator receives all monitors via IEnumerable<IDockerMonitor>
-        services.AddDockerMonitoring(rabbitMqContainerName);
-        services.AddDockerMonitoring(postgresContainerName);
+        // Docker monitoring - register monitors and expose named delegates
+        services.AddDockerMonitoring(rabbitMqContainerName, postgresContainerName);
 
         services.AddApiLoadTesting();
 
