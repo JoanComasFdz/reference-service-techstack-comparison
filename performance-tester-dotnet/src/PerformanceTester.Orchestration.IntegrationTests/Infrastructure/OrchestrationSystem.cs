@@ -1,6 +1,6 @@
 using Npgsql;
 using PerformanceTester.IntegrationTesting;
-using PerformanceTester.Orchestration.ValueObjects;
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using Xunit.Abstractions;
 
 namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;

@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.EventConsuming;
-using PerformanceTester.Infrastructure.ValueObjects;
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.IntegrationTesting.Logging;
 using PerformanceTester.Reporting;
 using Xunit.Abstractions;
@@ -27,8 +27,8 @@ public sealed class Orchestration : IDisposable
     public Orchestration(
         string postgresConnectionString,
         string rabbitMqConnectionString,
-        NonEmptyString rabbitMqContainerName,
-        NonEmptyString postgresContainerName,
+        RabbitMqContainerName rabbitMqContainerName,
+        PostgresContainerName postgresContainerName,
         ITestOutputHelper? output)
     {
         output?.WriteLine("[ORCH] Creating Orchestration IHost...");
