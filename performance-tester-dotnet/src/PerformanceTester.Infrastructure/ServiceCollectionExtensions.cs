@@ -75,7 +75,7 @@ public static class ServiceCollectionExtensions
 
         // RabbitMqCleaner receives connection string, logger, and optional management port
         // No adapter class — the method reference IS the registration (Guideline 12)
-        services.AddSingleton<RabbitMQ.ClearAllQueues>(sp =>
+        services.AddSingleton<ClearAllQueues>(sp =>
         {
             var cleaner = new RabbitMqCleaner(
                 rabbitMqConnectionString,

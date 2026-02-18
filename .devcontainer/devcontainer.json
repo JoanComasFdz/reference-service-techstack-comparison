@@ -40,7 +40,9 @@
             "path": "zsh"
           }
         },
-        "scm.defaultViewMode": "tree"
+        "scm.defaultViewMode": "tree",
+        "git.autorefresh": true,
+        "git.pollInterval": 3000
       }
     }
   },

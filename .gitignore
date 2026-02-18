@@ -167,3 +167,6 @@ shell_config_backup_*/
 
 # AGTX
 .agtx/
+
+# Git worktrees
+.worktrees/
