@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.Infrastructure.ValueObjects;
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.IntegrationTesting.Logging;
 using SystemBase = PerformanceTester.IntegrationTesting.System;
 
@@ -15,8 +15,8 @@ public sealed class DockerMonitoringSystem : SystemBase
 {
     private IHost? _host;
 
-    public static readonly NonEmptyString PostgresName = new TestContainerName("performance-tester-postgres");
-    public static readonly NonEmptyString RabbitMqName = new TestContainerName("performance-tester-rabbitmq");
+    public static readonly PostgresContainerName PostgresName = PostgresContainerName.FromString("performance-tester-postgres");
+    public static readonly RabbitMqContainerName RabbitMqName = RabbitMqContainerName.FromString("performance-tester-rabbitmq");
 
     public WarmupDockerMonitors WarmupDockerMonitors { get; private set; } = null!;
     public StartDockerMonitoring StartDockerMonitoring { get; private set; } = null!;
@@ -37,7 +37,7 @@ public sealed class DockerMonitoringSystem : SystemBase
             builder.Logging.AddXunitOutput(base.Output);
         }
 
-        builder.Services.AddDockerMonitoring(PostgresName, RabbitMqName);
+        builder.Services.AddDockerMonitoring(RabbitMqName, PostgresName);
 
         builder.Services.Configure<HostOptions>(options =>
         {

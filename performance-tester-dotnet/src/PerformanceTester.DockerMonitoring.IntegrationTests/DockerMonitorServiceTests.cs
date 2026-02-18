@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PerformanceTester.DockerMonitoring;
 using PerformanceTester.DockerMonitoring.IntegrationTests.Infrastructure;
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 using Xunit.Abstractions;
 
@@ -96,10 +97,11 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     {
         // Arrange - add monitoring for non-existent container
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
-        var nonexistentName = new TestContainerName("nonexistent-container");
+        var nonexistentRmq = RabbitMqContainerName.FromString("nonexistent-container");
+        var nonexistentPg = PostgresContainerName.FromString("nonexistent-container-pg");
 
         var builder = Host.CreateApplicationBuilder();
-        builder.Services.AddDockerMonitoring(nonexistentName);
+        builder.Services.AddDockerMonitoring(nonexistentRmq, nonexistentPg);
         var host = builder.Build();
 
         var startDockerMonitoring = host.Services.GetRequiredService<StartDockerMonitoring>();
@@ -121,7 +123,7 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         phaseAwaiter.AssertPhaseReceived(
             "nonexistent-container",
             DockerMonitorPhase.StreamFailed);
-        Asserting.That(getDockerMetrics).HasNotCollectedMetricsFor(nonexistentName);
+        Asserting.That(getDockerMetrics).HasNotCollectedMetricsFor(nonexistentRmq);
     }
 
     [Fact]
