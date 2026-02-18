@@ -44,7 +44,6 @@ public static class ServiceCollectionExtensions
             var discoveryLogger = loggerFactory.CreateLogger(
                 typeof(ServiceDiscovery).FullName!);
 
-            // Dunet Match — exhaustive at compile time, no UnreachableException needed
             var finderLogger = platform.Match(
                 linux: _ => loggerFactory.CreateLogger(typeof(LinuxProcessFinder).FullName!),
                 windows: _ => loggerFactory.CreateLogger(typeof(WindowsProcessFinder).FullName!));
@@ -53,22 +52,25 @@ public static class ServiceCollectionExtensions
                 linux: _ => (FindProcessOnPort)((p, ct) => LinuxProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)),
                 windows: _ => (FindProcessOnPort)((p, ct) => WindowsProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)));
 
-            return (port, timeout, ct) =>
-                ServiceDiscovery.FindServiceProcessIdAsync(
-                    port,
-                    timeout,
-                    findProcessOnPort,
-                    discoveryLogger,
-                    ct);
+            return (port, timeout, ct) => ServiceDiscovery.FindServiceProcessIdAsync(
+                port,
+                timeout,
+                findProcessOnPort,
+                discoveryLogger,
+                ct);
         });
 
-        // DatabaseCleaner receives connection string and logger (Guideline 12: delegate for single operation)
+        // No adapter class — the closure IS the implementation (Guidelines 1, 2, 12)
         services.AddSingleton<ClearDatabase>(sp =>
         {
-            var cleaner = new DatabaseCleaner(
-                postgresConnectionString,
-                sp.GetRequiredService<ILogger<DatabaseCleaner>>());
-            return cleaner.ClearDatabaseAsync;
+            var logger = sp.GetRequiredService<ILoggerFactory>()
+                .CreateLogger(typeof(DatabaseCleaner).FullName!);
+            return (databaseName, ct) =>
+                DatabaseCleaner.ClearDatabaseAsync(
+                    databaseName,
+                    postgresConnectionString,
+                    logger,
+                    ct);
         });
 
         // RabbitMqCleaner receives connection string, logger, and optional management port

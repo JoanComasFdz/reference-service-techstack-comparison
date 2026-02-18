@@ -2,6 +2,7 @@ using JoanComasFdz.AssertingThat;
 using JoanComasFdz.Result;
 using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.IntegrationTests.Infrastructure;
+using PerformanceTester.Infrastructure.ValueObjects;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -21,7 +22,7 @@ public sealed class DatabaseCleanerTests(ITestOutputHelper output) : Integration
         await Asserting.That(System.PostgreSQL).DatabaseTableHasRows(testDbName, "test_table");
 
         // Act
-        var result = await System.Infrastructure.ClearDatabase(testDbName);
+        var result = await System.Infrastructure.ClearDatabase(DatabaseName.FromString(testDbName));
 
         // Assert
         Assert.IsType<Result<Unit, ClearDatabaseError>.Success>(result);
@@ -40,7 +41,7 @@ public sealed class DatabaseCleanerTests(ITestOutputHelper output) : Integration
         await System.PostgreSQL.CreateTestDatabaseAsync(testDbName);
 
         // Act
-        var result = await System.Infrastructure.ClearDatabase(testDbName);
+        var result = await System.Infrastructure.ClearDatabase(DatabaseName.FromString(testDbName));
 
         // Assert
         Assert.IsType<Result<Unit, ClearDatabaseError>.Success>(result);
@@ -56,13 +57,6 @@ public sealed class DatabaseCleanerTests(ITestOutputHelper output) : Integration
         const string nonExistentDb = "database_that_does_not_exist_12345";
 
         // Act & Assert
-        await Asserting.That(System.Infrastructure.ClearDatabase).ClearDatabaseAsyncReturnsDatabaseNotFound(nonExistentDb);
-    }
-
-    [Fact]
-    public async Task ClearDatabaseAsync_WhenDatabaseNameIsNull_ShouldReturnEmptyName()
-    {
-        // Act & Assert
-        await Asserting.That(System.Infrastructure.ClearDatabase).ClearDatabaseAsyncReturnsEmptyNameForNullDatabaseName();
+        await Asserting.That(System.Infrastructure.ClearDatabase).ClearDatabaseAsyncReturnsDatabaseNotFound(DatabaseName.FromString(nonExistentDb));
     }
 }

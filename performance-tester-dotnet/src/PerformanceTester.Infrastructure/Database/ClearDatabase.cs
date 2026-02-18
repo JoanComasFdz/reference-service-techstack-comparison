@@ -1,4 +1,5 @@
 using JoanComasFdz.Result;
+using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.Infrastructure.Database;
 
@@ -7,5 +8,5 @@ namespace PerformanceTester.Infrastructure.Database;
 /// Returns Unit on success, or a <see cref="ClearDatabaseError"/> describing the failure.
 /// </summary>
 public delegate Task<Result<Unit, ClearDatabaseError>> ClearDatabase(
-    string databaseName,
+    DatabaseName databaseName,
     CancellationToken cancellationToken = default);

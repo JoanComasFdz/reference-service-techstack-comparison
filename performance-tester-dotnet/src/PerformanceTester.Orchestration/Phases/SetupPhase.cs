@@ -125,7 +125,6 @@ internal static class SetupPhase
         if (dbResult.IsFailure)
         {
             var errorMessage = dbResult.FailureError.Match(
-                emptyName: _ => "Database name was empty",
                 databaseNotFound: e => $"Database '{e.Name}' not found",
                 retriesExhausted: e => $"All {e.Attempts} retry attempts exhausted: {e.Last.Message}");
             return new Failure($"Failed to clear database: {errorMessage}");

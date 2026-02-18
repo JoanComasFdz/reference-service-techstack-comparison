@@ -1,36 +1,36 @@
 using JoanComasFdz.Result;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using PerformanceTester.Infrastructure.ValueObjects;
 using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, PerformanceTester.Infrastructure.Database.ClearDatabaseError>;
 
 namespace PerformanceTester.Infrastructure.Database;
 
 /// <summary>
-/// Service for clearing PostgreSQL databases during performance testing.
+/// Pure functions for clearing PostgreSQL databases during performance testing.
 /// Discovers tables dynamically and truncates with CASCADE.
+/// Static class with explicit parameters (Guidelines 1, 2).
 /// </summary>
-internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseCleaner> logger)
+internal static class DatabaseCleaner
 {
-    private readonly string _baseConnectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
-    private readonly ILogger<DatabaseCleaner> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private const int MaxRetries = 2;
-    private readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// Clears all data from the specified database by truncating all tables.
+    /// Accepts <see cref="DatabaseName"/> value object — name is guaranteed non-empty (Guideline 18).
     /// </summary>
-    public async Task<Result<Unit, ClearDatabaseError>> ClearDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
+    public static async Task<Result<Unit, ClearDatabaseError>> ClearDatabaseAsync(
+        DatabaseName databaseName,
+        string connectionString,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(databaseName))
-        {
-            return new Failure(new ClearDatabaseError.EmptyName());
-        }
-
-        _logger.LogInformation("=== Clearing database: {DatabaseName} ===", databaseName);
+        logger.LogInformation("=== Clearing database: {DatabaseName} ===", databaseName);
 
         // Verify database exists before retrying
         cancellationToken.ThrowIfCancellationRequested();
-        if (!await DatabaseExistsAsync(databaseName, cancellationToken))
+        if (!await DatabaseExistsAsync(databaseName.Value, connectionString, cancellationToken))
         {
             return new Failure(new ClearDatabaseError.DatabaseNotFound(databaseName));
         }
@@ -44,28 +44,28 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // Get connection string for target database
-                var dbConnectionString = new NpgsqlConnectionStringBuilder(_baseConnectionString)
+                var dbConnectionString = new NpgsqlConnectionStringBuilder(connectionString)
                 {
-                    Database = databaseName
+                    Database = databaseName.Value
                 }.ConnectionString;
 
                 // Discover and truncate all tables
-                await TruncateAllTablesAsync(dbConnectionString, cancellationToken);
+                await TruncateAllTablesAsync(dbConnectionString, logger, cancellationToken);
 
-                _logger.LogInformation("✓ Database {DatabaseName} cleared successfully", databaseName);
+                logger.LogInformation("✓ Database {DatabaseName} cleared successfully", databaseName);
 
                 return new Success(Unit.Value);
             }
             catch (Exception ex) when (attempt < MaxRetries && ex is not OperationCanceledException)
             {
                 lastException = ex;
-                _logger.LogWarning(
+                logger.LogWarning(
                     ex,
                     "⚠️ Attempt {Attempt}/{MaxRetries} failed, retrying in {DelaySeconds}s...",
                     attempt,
                     MaxRetries,
-                    _retryDelay.TotalSeconds);
-                await Task.Delay(_retryDelay, cancellationToken);
+                    RetryDelay.TotalSeconds);
+                await Task.Delay(RetryDelay, cancellationToken);
             }
         }
 
@@ -73,9 +73,12 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
             new ClearDatabaseError.RetriesExhausted(MaxRetries, lastException!));
     }
 
-    private async Task<bool> DatabaseExistsAsync(string databaseName, CancellationToken cancellationToken)
+    private static async Task<bool> DatabaseExistsAsync(
+        string databaseName,
+        string connectionString,
+        CancellationToken cancellationToken)
     {
-        await using var conn = new NpgsqlConnection(_baseConnectionString);
+        await using var conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
@@ -87,7 +90,10 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
         return result != null;
     }
 
-    private async Task TruncateAllTablesAsync(string connectionString, CancellationToken cancellationToken)
+    private static async Task TruncateAllTablesAsync(
+        string connectionString,
+        ILogger logger,
+        CancellationToken cancellationToken)
     {
         await using var conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync(cancellationToken);
@@ -97,25 +103,27 @@ internal sealed class DatabaseCleaner(string connectionString, ILogger<DatabaseC
 
         if (tables.Count == 0)
         {
-            _logger.LogDebug("No tables found (normal for empty database)");
+            logger.LogDebug("No tables found (normal for empty database)");
             return;
         }
 
-        _logger.LogDebug("Discovered {TableCount} tables: {Tables}", tables.Count, string.Join(", ", tables));
+        logger.LogDebug("Discovered {TableCount} tables: {Tables}", tables.Count, string.Join(", ", tables));
 
         // Build TRUNCATE command for all tables with CASCADE
         // Quote identifiers to handle special characters and ensure proper SQL
         var quotedTables = tables.Select(t => $"\"{t}\"");
         var truncateCommand = $"TRUNCATE TABLE {string.Join(", ", quotedTables)} CASCADE";
 
-        _logger.LogDebug("Executing TRUNCATE command: {TruncateCommand}", truncateCommand);
+        logger.LogDebug("Executing TRUNCATE command: {TruncateCommand}", truncateCommand);
         await using var cmd = new NpgsqlCommand(truncateCommand, conn);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
 
-        _logger.LogDebug("Truncated {TableCount} tables", tables.Count);
+        logger.LogDebug("Truncated {TableCount} tables", tables.Count);
     }
 
-    private static async Task<List<string>> DiscoverTablesAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
+    private static async Task<List<string>> DiscoverTablesAsync(
+        NpgsqlConnection conn,
+        CancellationToken cancellationToken)
     {
         var tables = new List<string>();
 

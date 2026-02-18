@@ -45,25 +45,13 @@ public static class InfrastructureAssertions
     /// </summary>
     public static async Task ClearDatabaseAsyncReturnsDatabaseNotFound(
         this AssertingThat<ClearDatabase> assertingThat,
-        string databaseName)
+        DatabaseName databaseName)
     {
         var result = await assertingThat.InstanceToAssert(databaseName);
 
         var failure = Assert.IsType<Result<Unit, ClearDatabaseError>.Failure>(result);
         var error = Assert.IsType<ClearDatabaseError.DatabaseNotFound>(failure.Error);
         Assert.Equal(databaseName, error.Name);
-    }
-
-    /// <summary>
-    /// Asserts that calling ClearDatabase with null returns EmptyName failure.
-    /// </summary>
-    public static async Task ClearDatabaseAsyncReturnsEmptyNameForNullDatabaseName(
-        this AssertingThat<ClearDatabase> assertingThat)
-    {
-        var result = await assertingThat.InstanceToAssert(null!);
-
-        var failure = Assert.IsType<Result<Unit, ClearDatabaseError>.Failure>(result);
-        Assert.IsType<ClearDatabaseError.EmptyName>(failure.Error);
     }
 
     /// <summary>

@@ -107,7 +107,7 @@ internal static class TestOrchestrator
         var eventConsumer = services.GetRequiredService<IEventConsumer>();
 
         // Shared operation-level delegates (reused across phases)
-        PhasesToolbox.ClearDatabase clearDatabase = () => clearDatabaseAsync(config.DatabaseName.Value, ct);
+        PhasesToolbox.ClearDatabase clearDatabase = () => clearDatabaseAsync(config.DatabaseName, ct);
 
         PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
         {
