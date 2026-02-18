@@ -39,7 +39,7 @@ internal static class EventTestPhase
     /// Starts all Docker container monitors.
     /// Returns when first samples have been collected from all containers.
     /// </summary>
-    public delegate Task StartDockerMonitoring();
+    public delegate Task StartDockerMonitoring(ReportDockerMonitorProgress reportProgress);
 
     /// <summary>
     /// Success output of the event test phase.
@@ -77,7 +77,7 @@ internal static class EventTestPhase
         var systemMonitor = services.GetRequiredService<ISystemMonitor>();
         var metricsCollector = services.GetRequiredService<IMetricsCollector>();
         var processMonitor = services.GetRequiredService<IProcessMonitor>();
-        var dockerMonitors = services.GetRequiredService<IEnumerable<IDockerMonitor>>();
+        var startDockerMonitoring = services.GetRequiredService<DockerMonitoring.StartDockerMonitoring>();
 
         return new Dependencies(
             SystemCpuCount: systemMonitor.CpuCount,
@@ -85,7 +85,7 @@ internal static class EventTestPhase
             ClearSamples: metricsCollector.ClearSamples,
             StartProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid, cancellationToken: ct),
             StartSystemMonitoring: () => systemMonitor.StartMonitoringAsync(cancellationToken: ct),
-            StartDockerMonitoring: () => Task.WhenAll(dockerMonitors.Select(m => m.StartMonitoringAsync(cancellationToken: ct))),
+            StartDockerMonitoring: (progress) => startDockerMonitoring(progress, ct),
             TrackEvents: trackEvents,
             PublishEvents: publishEvents,
             ConsumerProgress: CreateConsumerProgressCallback(reportProgress, config.EventCount.Value));
@@ -123,7 +123,7 @@ internal static class EventTestPhase
             logger.LogInformation("System monitoring started");
 
             logger.LogInformation("Starting Docker container monitors...");
-            await deps.StartDockerMonitoring();
+            await deps.StartDockerMonitoring(_ => { });
             logger.LogInformation("Docker container monitors started (first samples collected)");
 
             // Capture startTime immediately before launching concurrent publisher/consumer

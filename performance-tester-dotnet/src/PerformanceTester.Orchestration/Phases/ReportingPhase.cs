@@ -83,7 +83,7 @@ internal static class ReportingPhase
         var metricsCollector = services.GetRequiredService<IMetricsCollector>();
         var processMonitor = services.GetRequiredService<IProcessMonitor>();
         var systemMonitor = services.GetRequiredService<ISystemMonitor>();
-        var dockerMonitors = services.GetRequiredService<IEnumerable<IDockerMonitor>>();
+        var getDockerMetrics = services.GetRequiredService<GetDockerMetrics>();
         var systemInfoDetector = services.GetRequiredService<ISystemInfoDetector>();
         var reportGenerator = services.GetRequiredService<ReportGenerator>();
 
@@ -91,12 +91,8 @@ internal static class ReportingPhase
             GetThroughputSamples: metricsCollector.GetThroughputSamples,
             GetProcessMetrics: processMonitor.GetCollectedMetrics,
             GetSystemMetrics: systemMonitor.GetCollectedMetrics,
-            GetRabbitMqMetrics: () => dockerMonitors
-                .Single(m => m.ContainerName == config.RabbitMqContainerName.Value)
-                .GetCollectedMetrics(),
-            GetPostgresMetrics: () => dockerMonitors
-                .Single(m => m.ContainerName == config.PostgresContainerName.Value)
-                .GetCollectedMetrics(),
+            GetRabbitMqMetrics: () => getDockerMetrics(config.RabbitMqContainerName),
+            GetPostgresMetrics: () => getDockerMetrics(config.PostgresContainerName),
             GetSystemInfo: () => systemInfoDetector.GetSystemInfoAsync(ct),
             GenerateReport: (folder, report) => reportGenerator.GenerateReportAsync(folder, report, ct),
             GenerateChart: (folder, report, log) => ChartGenerator.GenerateChartAsync(folder, report, log, ct));

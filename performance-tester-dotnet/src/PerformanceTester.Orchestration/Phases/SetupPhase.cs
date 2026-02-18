@@ -68,14 +68,14 @@ internal static class SetupPhase
         var findServiceProcessId = services.GetRequiredService<PerformanceTester.Infrastructure.FindServiceProcessId>();
         var hostLifetime = services.GetRequiredService<IHostApplicationLifetime>();
         var host = services.GetRequiredService<IHost>();
-        var dockerMonitors = services.GetRequiredService<IEnumerable<IDockerMonitor>>();
+        var warmupDockerMonitors = services.GetRequiredService<WarmupDockerMonitors>();
         var eventPublisher = services.GetRequiredService<IEventPublisher>();
 
         return new Dependencies(
             FindServiceProcessId: () => findServiceProcessId(config.ServicePort, TimeSpan.FromSeconds(30), ct),
             IsMonitoringStarted: () => hostLifetime.ApplicationStarted.IsCancellationRequested,
             StartMonitoring: () => host.StartAsync(ct),
-            WarmupDockerApi: () => Task.WhenAll(dockerMonitors.Select(m => m.WarmupAsync(ct))),
+            WarmupDockerApi: () => warmupDockerMonitors(ct),
             ClearDatabase: clearDatabase,
             ClearAllQueues: clearAllQueues,
             ConnectEventPublisher: () => eventPublisher.ConnectAsync(ct));
