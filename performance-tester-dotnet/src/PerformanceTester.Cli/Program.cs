@@ -107,8 +107,8 @@ public partial class Program
                 services.AddOrchestration(
                     postgresConnectionString: appConfig.PostgresConnectionString,
                     rabbitMqConnectionString: appConfig.RabbitMqConnectionString,
-                    rabbitMqContainerName: appConfig.RabbitMqContainerName.Value,
-                    postgresContainerName: appConfig.PostgresContainerName.Value);
+                    rabbitMqContainerName: appConfig.RabbitMqContainerName,
+                    postgresContainerName: appConfig.PostgresContainerName);
 
                 // Register CLI-specific services
                 services.AddSingleton<ConsoleWriter>();

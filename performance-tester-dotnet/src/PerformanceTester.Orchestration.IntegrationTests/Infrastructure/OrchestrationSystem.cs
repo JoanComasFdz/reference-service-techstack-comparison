@@ -1,5 +1,6 @@
 using Npgsql;
 using PerformanceTester.IntegrationTesting;
+using PerformanceTester.Orchestration.ValueObjects;
 using Xunit.Abstractions;
 
 namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
@@ -51,8 +52,8 @@ public sealed class OrchestrationSystem : IntegrationTesting.VhostIsolatedSystem
         this.Orchestration = new Orchestration(
             postgresConnectionString: base.PostgreSQL.ConnectionString,
             rabbitMqConnectionString: base.RabbitMQ.ConnectionString,
-            rabbitMqContainerName: "performance-tester-rabbitmq",
-            postgresContainerName: "performance-tester-postgres",
+            rabbitMqContainerName: RabbitMqContainerName.FromString("performance-tester-rabbitmq"),
+            postgresContainerName: PostgresContainerName.FromString("performance-tester-postgres"),
             output: base.Output);
         base.Output?.WriteLine("[INIT] ✓ Orchestration (IHost) created");
 
