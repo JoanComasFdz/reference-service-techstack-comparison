@@ -11,7 +11,7 @@ namespace PerformanceTester.Infrastructure.RabbitMQ;
 /// Uses RabbitMQ Management HTTP API to discover and purge queues dynamically.
 /// Mimics the behavior of the clear-rabbitmq.sh script.
 /// </summary>
-internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
+internal sealed class RabbitMqCleaner
 {
     private static readonly HttpClient SharedHttpClient = new();
     private readonly System.Net.Http.Headers.AuthenticationHeaderValue _authHeader;
@@ -81,7 +81,11 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
         _authHeader = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authToken);
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Purges all messages from all queues in the default vhost.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Success with Unit, or a Failure describing what went wrong.</returns>
     public async Task<Result<Unit, string>> ClearAllQueuesAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("=========================================");
@@ -178,12 +182,6 @@ internal sealed class RabbitMqCleaner : IRabbitMQ, IAsyncDisposable
         request.Headers.Authorization = _authHeader;
         var response = await SharedHttpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        // Static HttpClient is intentionally not disposed — it's shared across instances
-        return ValueTask.CompletedTask;
     }
 
     /// <summary>

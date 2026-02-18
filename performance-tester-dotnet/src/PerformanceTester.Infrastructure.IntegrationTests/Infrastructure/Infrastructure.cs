@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.Database;
+using PerformanceTester.Infrastructure.RabbitMQ;
 using PerformanceTester.IntegrationTesting.Logging;
 using Xunit.Abstractions;
 
@@ -22,9 +23,9 @@ public sealed class Infrastructure
     public ClearDatabase ClearDatabase { get; private set; } = null!;
 
     /// <summary>
-    /// RabbitMQ management for clearing queues.
+    /// Delegate for clearing all RabbitMQ queues.
     /// </summary>
-    public IRabbitMQ RabbitMQ { get; private set; } = null!;
+    public ClearAllQueues ClearAllQueues { get; private set; } = null!;
 
     public Infrastructure(
         string postgreSQLConnectionString,
@@ -52,7 +53,7 @@ public sealed class Infrastructure
 
         FindServiceProcessId = _host.Services.GetRequiredService<FindServiceProcessId>();
         ClearDatabase = _host.Services.GetRequiredService<ClearDatabase>();
-        RabbitMQ = _host.Services.GetRequiredService<IRabbitMQ>();
+        ClearAllQueues = _host.Services.GetRequiredService<ClearAllQueues>();
     }
 
     public void Dispose()

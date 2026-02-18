@@ -23,7 +23,7 @@ public sealed class RabbitMqCleanerTests(ITestOutputHelper output) : Integration
         await Asserting.That(System.RabbitMQ).QueueHasMessageCount(testQueue, 10);
 
         // Act
-        var result = await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+        var result = await System.Infrastructure.ClearAllQueues();
 
         // Assert - Queue should still exist but have no messages
         Assert.IsType<Result<Unit, string>.Success>(result);
@@ -40,7 +40,7 @@ public sealed class RabbitMqCleanerTests(ITestOutputHelper output) : Integration
         // Note: We intentionally don't delete all queues to avoid interfering with parallel tests
 
         // Act
-        var result = await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+        var result = await System.Infrastructure.ClearAllQueues();
 
         // Assert
         Assert.IsType<Result<Unit, string>.Success>(result);
@@ -65,7 +65,7 @@ public sealed class RabbitMqCleanerTests(ITestOutputHelper output) : Integration
         await Asserting.That(System.RabbitMQ).QueueHasMessageCount(queue3, 7);
 
         // Act
-        var result = await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+        var result = await System.Infrastructure.ClearAllQueues();
 
         // Assert - All queues should have no messages
         Assert.IsType<Result<Unit, string>.Success>(result);
@@ -93,7 +93,7 @@ public sealed class RabbitMqCleanerTests(ITestOutputHelper output) : Integration
         await System.RabbitMQ.CreateQueueWithMessagesAsync(queue3, 2);
 
         // Act
-        var result = await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+        var result = await System.Infrastructure.ClearAllQueues();
 
         // Assert - All queues should have no messages
         Assert.IsType<Result<Unit, string>.Success>(result);
@@ -118,7 +118,7 @@ public sealed class RabbitMqCleanerTests(ITestOutputHelper output) : Integration
         await System.RabbitMQ.CreateQueueWithMessagesAsync(queue2, 0);
 
         // Act
-        var result = await System.Infrastructure.RabbitMQ.ClearAllQueuesAsync();
+        var result = await System.Infrastructure.ClearAllQueues();
 
         // Assert
         Assert.IsType<Result<Unit, string>.Success>(result);
