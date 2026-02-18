@@ -1,4 +1,5 @@
 using JoanComasFdz.Result;
+using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.Orchestration.ValueObjects;
 
