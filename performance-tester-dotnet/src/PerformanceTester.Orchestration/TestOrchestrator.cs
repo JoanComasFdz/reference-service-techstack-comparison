@@ -100,13 +100,13 @@ internal static class TestOrchestrator
         CancellationToken ct)
     {
         // Resolve interfaces needed for shared operation-level delegates
-        var database = services.GetRequiredService<IDatabase>();
+        var clearDatabaseAsync = services.GetRequiredService<Infrastructure.Database.ClearDatabase>();
         var rabbitMq = services.GetRequiredService<IRabbitMQ>();
         var eventPublisher = services.GetRequiredService<IEventPublisher>();
         var eventConsumer = services.GetRequiredService<IEventConsumer>();
 
         // Shared operation-level delegates (reused across phases)
-        PhasesToolbox.ClearDatabase clearDatabase = () => database.ClearDatabaseAsync(config.DatabaseName.Value, ct);
+        PhasesToolbox.ClearDatabase clearDatabase = () => clearDatabaseAsync(config.DatabaseName.Value, ct);
 
         PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
         {
