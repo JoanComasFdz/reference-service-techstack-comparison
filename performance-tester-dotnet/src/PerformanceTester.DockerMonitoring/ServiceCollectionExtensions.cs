@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.DockerMonitoring;
@@ -12,18 +13,21 @@ namespace PerformanceTester.DockerMonitoring;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds Docker container monitoring for the specified containers.
+    /// Adds Docker container monitoring for the RabbitMQ and PostgreSQL containers.
     /// Registers internal BackgroundServices and three public named delegates:
     /// <see cref="WarmupDockerMonitors"/>, <see cref="StartDockerMonitoring"/>,
     /// and <see cref="GetDockerMetrics"/>.
     /// </summary>
     /// <param name="services">Service collection.</param>
-    /// <param name="containerNames">Names of containers to monitor.</param>
+    /// <param name="rabbitMqContainerName">RabbitMQ container name to monitor.</param>
+    /// <param name="postgresContainerName">PostgreSQL container name to monitor.</param>
     /// <returns>Service collection for chaining.</returns>
     public static IServiceCollection AddDockerMonitoring(
         this IServiceCollection services,
-        params NonEmptyString[] containerNames)
+        RabbitMqContainerName rabbitMqContainerName,
+        PostgresContainerName postgresContainerName)
     {
+        NonEmptyString[] containerNames = [rabbitMqContainerName, postgresContainerName];
         // Shared Docker client (singleton, registered once)
         services.AddSingleton<DockerClientWrapper>();
 
