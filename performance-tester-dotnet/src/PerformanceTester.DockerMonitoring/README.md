@@ -8,13 +8,14 @@ This slice provides real-time Docker container monitoring capabilities using the
 
 ### Key Features
 
-- ✅ **Event-driven monitoring** - Collects a sample directly from each Docker stats push (no polling)
-- ✅ **Docker.DotNet integration** - Uses official Docker SDK (no subprocess spawning)
-- ✅ **BackgroundService pattern** - Runs asynchronously during test execution
-- ✅ **Cross-platform** - Supports Linux (Unix socket) and Windows (named pipe)
-- ✅ **Producer-owned contract** - Slice owns `DockerMetrics` model (VSA principle)
-- ✅ **Multiple containers** - Monitor multiple containers simultaneously
-- ✅ **Graceful degradation** - Continues monitoring even if containers aren't found initially
+- **Event-driven monitoring** - Collects a sample directly from each Docker stats push (no polling)
+- **Docker.DotNet integration** - Uses official Docker SDK (no subprocess spawning)
+- **BackgroundService pattern** - Runs asynchronously during test execution
+- **Cross-platform** - Supports Linux (Unix socket) and Windows (named pipe)
+- **Producer-owned contract** - Slice owns `DockerMetrics` model (VSA principle)
+- **Multiple containers** - Monitor multiple containers simultaneously
+- **Named delegates** - Exposes `WarmupDockerMonitors`, `StartDockerMonitoring`, `GetDockerMetrics` delegates via DI
+- **Graceful degradation** - Continues monitoring even if containers aren't found initially
 
 ## Usage
 
@@ -23,94 +24,62 @@ This slice provides real-time Docker container monitoring capabilities using the
 ```csharp
 using Microsoft.Extensions.Hosting;
 using PerformanceTester.DockerMonitoring;
+using PerformanceTester.Infrastructure.ValueObjects;
 
 var builder = Host.CreateApplicationBuilder();
 
-// Register Docker monitoring for PostgreSQL
+// Register Docker monitoring for multiple containers in one call
 builder.Services.AddDockerMonitoring(
-    containerName: "performance-tester-postgres");
-
-// Register Docker monitoring for RabbitMQ
-builder.Services.AddDockerMonitoring(
-    containerName: "performance-tester-rabbitmq");
+    postgresContainerName,
+    rabbitMqContainerName);
 
 var host = builder.Build();
 
+// Resolve named delegates
+var warmup = host.Services.GetRequiredService<WarmupDockerMonitors>();
+var startMonitoring = host.Services.GetRequiredService<StartDockerMonitoring>();
+var getMetrics = host.Services.GetRequiredService<GetDockerMetrics>();
+
 // Start monitoring (BackgroundServices start automatically)
 await host.StartAsync();
+
+// Warm up Docker API connections
+await warmup();
+
+// Start collecting metrics (blocks until first sample per container)
+await startMonitoring(_ => { });
 
 // ... run your performance tests ...
 
 // Stop monitoring
 await host.StopAsync();
 
-// Retrieve collected metrics
-var monitors = host.Services.GetServices<IDockerMonitor>();
-foreach (var monitor in monitors)
-{
-    var metrics = monitor.GetCollectedMetrics();
-    Console.WriteLine($"{monitor.ContainerName}: {metrics.Count} samples collected");
-
-    foreach (var metric in metrics)
-    {
-        Console.WriteLine($"  [{metric.Timestamp:HH:mm:ss}] CPU: {metric.CpuPercent:F2}%, Memory: {metric.MemoryMB:F2} MB");
-    }
-}
-```
-
-### Integration with Tests
-
-```csharp
-using Xunit;
-using PerformanceTester.DockerMonitoring;
-
-public class MyPerformanceTests
-{
-    [Fact]
-    public async Task MyTest_WithDockerMonitoring()
-    {
-        // Arrange
-        var builder = Host.CreateApplicationBuilder();
-        builder.Services.AddDockerMonitoring("my-container");
-        var host = builder.Build();
-
-        await host.StartAsync();
-
-        // Act - run your test
-        await RunMyPerformanceTest();
-
-        // Assert - stop and check metrics
-        await host.StopAsync();
-
-        var monitor = host.Services.GetRequiredService<IDockerMonitor>();
-        var metrics = monitor.GetCollectedMetrics();
-
-        Assert.NotEmpty(metrics);
-        Assert.All(metrics, m => Assert.True(m.CpuPercent >= 0));
-        Assert.All(metrics, m => Assert.True(m.MemoryMB > 0));
-    }
-}
+// Retrieve collected metrics per container
+var metrics = getMetrics(postgresContainerName);
+Console.WriteLine($"PostgreSQL: {metrics.Count} samples collected");
 ```
 
 ## API Reference
 
-### `IDockerMonitor`
+### Named Delegates
 
-Public interface for accessing collected metrics.
+The public API consists of four named delegates registered in DI:
 
 ```csharp
-public interface IDockerMonitor
-{
-    /// <summary>
-    /// Gets the name of the container being monitored.
-    /// </summary>
-    string ContainerName { get; }
+// Reports docker monitoring phase changes
+public delegate void ReportDockerMonitorProgress(DockerMonitorPhaseInfo phaseInfo);
 
-    /// <summary>
-    /// Gets all collected metrics for this container in chronological order.
-    /// </summary>
-    IReadOnlyCollection<DockerMetrics> GetCollectedMetrics();
-}
+// Warms up Docker API for all registered containers
+public delegate Task WarmupDockerMonitors(CancellationToken ct = default);
+
+// Starts metrics collection on all registered containers
+public delegate Task StartDockerMonitoring(
+    ReportDockerMonitorProgress reportProgress,
+    CancellationToken ct = default);
+
+// Retrieves collected metrics for a specific container by name
+public delegate IReadOnlyCollection<DockerMetrics> GetDockerMetrics(
+    NonEmptyString containerName);
 ```
 
 ### `DockerMetrics`
@@ -120,31 +89,10 @@ Immutable record representing a single container metrics snapshot.
 ```csharp
 public sealed record DockerMetrics
 {
-    /// <summary>
-    /// When the metrics were captured (UTC).
-    /// </summary>
     public required DateTime Timestamp { get; init; }
-
-    /// <summary>
-    /// Docker container ID (full SHA256).
-    /// </summary>
     public required string ContainerId { get; init; }
-
-    /// <summary>
-    /// Human-readable container name.
-    /// </summary>
     public required string ContainerName { get; init; }
-
-    /// <summary>
-    /// CPU usage percentage (0-100% per core, can exceed 100% on multi-core).
-    /// Formula: (cpu_delta / system_delta) * cpu_count * 100
-    /// </summary>
     public required double CpuPercent { get; init; }
-
-    /// <summary>
-    /// Memory usage in megabytes.
-    /// Calculated from stats.MemoryStats.Usage / 1024 / 1024.
-    /// </summary>
     public required double MemoryMB { get; init; }
 }
 ```
@@ -156,13 +104,19 @@ Extension method for registering Docker monitoring services.
 ```csharp
 public static IServiceCollection AddDockerMonitoring(
     this IServiceCollection services,
-    string containerName)
+    params NonEmptyString[] containerNames)
 ```
 
 **Parameters:**
-- `containerName` - Name of the Docker container to monitor (e.g., "performance-tester-rabbitmq")
+- `containerNames` - Names of Docker containers to monitor (as `NonEmptyString` values)
 
 **Returns:** Service collection for fluent chaining.
+
+**Registers:**
+- Internal `DockerMonitorService` BackgroundServices (one per container, keyed singletons)
+- `WarmupDockerMonitors` delegate (singleton)
+- `StartDockerMonitoring` delegate (singleton)
+- `GetDockerMetrics` delegate (singleton)
 
 ## CPU Calculation: Container vs Process
 
@@ -181,11 +135,6 @@ var cpuPercent = (double)cpuDelta / systemDelta * cpuCount * 100.0;
 - Stateless (Docker API provides both current and previous stats in single response)
 - Matches Docker CLI (`docker stats`) output exactly
 
-**Example:** If container used 100ms of 1000ms system CPU on 4-core system:
-```
-(100ms / 1000ms) * 4 * 100 = 40% total capacity
-```
-
 ### Process-Level CPU (ProcessMonitoring Slice)
 
 ```csharp
@@ -198,11 +147,6 @@ var cpuPercent = (cpuDelta / timeDelta / Environment.ProcessorCount) * 100.0;
 - **Normalizes** by dividing by core count (shows per-core average)
 - Stateful (maintains previous timestamp and CPU time between calls)
 - Matches .NET Process API conventions
-
-**Example:** If 200ms CPU time used in 1000ms elapsed on 4-core system:
-```
-(200ms / 1000ms / 4) * 100 = 5% per-core average
-```
 
 ### Why the Formulas Differ
 
@@ -222,25 +166,25 @@ var cpuPercent = (cpuDelta / timeDelta / Environment.ProcessorCount) * 100.0;
 ### Components
 
 ```
-DockerMonitorService (BackgroundService + IDockerMonitor)
-    ↓ uses
+DockerMonitorService (internal BackgroundService)
+    |  uses
 DockerClientWrapper
-    ↓ wraps
+    |  wraps
 Docker.DotNet.DockerClient
-    ↓ produces
+    |  produces
 DockerMetrics
-    ↓ stores in
+    |  stores in
 ConcurrentBag<DockerMetrics> (in-memory)
-    ↓ retrieved via
-IDockerMonitor.GetCollectedMetrics()
+    |  retrieved via
+GetDockerMetrics delegate
 ```
 
 ### Design Patterns
 
-**Single-Class Pattern:**
-- `DockerMonitorService` implements both `BackgroundService` and `IDockerMonitor`
-- Simpler than channel/consumer pattern for event-driven sampling
-- Writing to `ConcurrentBag<T>` is negligible overhead (~nanoseconds)
+**Named Delegates (FP Pattern):**
+- `WarmupDockerMonitors`, `StartDockerMonitoring`, `GetDockerMetrics` registered as singletons in DI
+- Consumers resolve only delegates — never interfaces or service instances
+- Internal `DockerMonitorService` instances managed via keyed services
 
 **Event-Driven Sampling:**
 - Each Docker stats push is collected directly as a sample in `OnStatsReceived()`
@@ -248,9 +192,9 @@ IDockerMonitor.GetCollectedMetrics()
 - Sample rate is determined by Docker's push frequency (~1s), not a configured interval
 
 **Graceful Degradation:**
-- Returns null if container not found (non-fatal error)
+- Returns empty collection if container not found (non-fatal error)
 - Logs debug message (not warning, to avoid noise)
-- Continues monitoring (allows late container start)
+- Reports `StreamFailed` phase via `ReportDockerMonitorProgress`
 
 ## Cross-Platform Support
 
@@ -273,11 +217,6 @@ IDockerMonitor.GetCollectedMetrics()
 - Subsequent samples: ~200-300ms each (steady state)
 - Memory overhead: ~10-20 MB per monitor instance
 
-**Why Docker Stats API is Slow:**
-- Docker.DotNet uses `IProgress<T>` callback pattern
-- 100ms delay built-in to wait for async callback
-- Network overhead for Docker API communication
-
 **Recommendations:**
 - Expect approximately 1 sample per second (Docker's default push rate)
 - Sample rate is determined by Docker, not configurable on this side
@@ -287,6 +226,7 @@ IDockerMonitor.GetCollectedMetrics()
 - **Docker.DotNet** 3.125.15 - Official Docker SDK for .NET
 - **Microsoft.Extensions.Hosting.Abstractions** 9.0.0 - BackgroundService support
 - **Microsoft.Extensions.Logging.Abstractions** 9.0.0 - Structured logging
+- **PerformanceTester.Infrastructure** - `NonEmptyString` value object
 
 ## Integration Testing
 
@@ -304,27 +244,18 @@ dotnet test src/PerformanceTester.DockerMonitoring.IntegrationTests
 - Tests use Testcontainers to manage container lifecycle
 
 **Test Coverage:**
-- ✅ BackgroundService lifecycle (start/stop)
-- ✅ Metrics collection on each Docker push
-- ✅ Container not found handling (graceful degradation)
-- ✅ CPU calculation validation
-- ✅ Memory calculation validation
-- ✅ Chronological ordering of metrics
+- BackgroundService lifecycle (start/stop)
+- Metrics collection on each Docker push
+- Container not found handling (graceful degradation)
+- CPU calculation validation
+- Memory calculation validation
+- Chronological ordering of metrics
 
 ## Known Limitations
 
 - **Container name matching:** Exact match required (no wildcards)
 - **Single Docker daemon:** Multi-host not supported
 - **Sample rate:** Determined by Docker's push frequency (~1s), not configurable
-
-## Future Enhancements (Out of Scope)
-
-- Support for container name wildcards
-- Support for multiple Docker hosts
-- Network I/O metrics
-- Disk I/O metrics
-- Container event stream monitoring
-- Real-time streaming (not snapshot mode)
 
 ## Related Slices
 
@@ -336,5 +267,3 @@ dotnet test src/PerformanceTester.DockerMonitoring.IntegrationTests
 
 - [Docker.DotNet GitHub](https://github.com/dotnet/Docker.DotNet)
 - [Docker Stats API Documentation](https://docs.docker.com/engine/api/v1.43/#tag/Container/operation/ContainerStats)
-- [Python Reference Implementation](../../performance-tester/container_monitor.py)
-- [Phase 2e Implementation Plan](../../docs/plans/10.PHASE_2_DOCKERMONITORING_PLAN.md)

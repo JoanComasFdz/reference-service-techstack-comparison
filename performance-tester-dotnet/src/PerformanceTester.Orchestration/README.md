@@ -158,7 +158,7 @@ var result = await TestOrchestrator.RunTestAsync(deps, config, progress, logger)
 - `IEventPublisher` - CloudEvents publishing
 - `IEventConsumer` - Event consumption with tracking
 - `IMetricsCollector` - Throughput sample collection
-- `IDockerMonitor` (keyed: "RabbitMQ", "PostgreSQL") - Container monitoring
+- `WarmupDockerMonitors`, `StartDockerMonitoring`, `GetDockerMetrics` delegates - Container monitoring
 - `IApiLoadTester` - k6-based API load testing
 
 **Phase 3: Reporting**
@@ -272,8 +272,9 @@ await _host.StopAsync();  // Stops all BackgroundServices
 Uses .NET 8+ keyed services for container monitoring:
 
 ```csharp
-[FromKeyedServices("RabbitMQ")] IDockerMonitor rabbitMqMonitor
-[FromKeyedServices("PostgreSQL")] IDockerMonitor postgresMonitor
+var getDockerMetrics = services.GetRequiredService<GetDockerMetrics>();
+// getDockerMetrics(config.RabbitMqContainerName)
+// getDockerMetrics(config.PostgresContainerName)
 ```
 
 **Why?**
@@ -414,7 +415,7 @@ var metrics = _processMonitor.GetCollectedMetrics();
 
 ```csharp
 // Registered by AddOrchestration with keyed services
-[FromKeyedServices("RabbitMQ")] IDockerMonitor rabbitMqMonitor
+var getDockerMetrics = services.GetRequiredService<GetDockerMetrics>()
 
 // Collect metrics after test
 var metrics = rabbitMqMonitor.GetCollectedMetrics();
@@ -522,7 +523,7 @@ Orchestration consumes interfaces from other slices:
 - EventPublishing: `IEventPublisher`, `PublishMetrics`
 - EventConsuming: `IEventConsumer`, `IMetricsCollector`, `EventThroughputSample`
 - ProcessMonitoring: `IProcessMonitor`, `ProcessMetrics`
-- DockerMonitoring: `IDockerMonitor`, `DockerMetrics`
+- DockerMonitoring: `WarmupDockerMonitors`, `StartDockerMonitoring`, `GetDockerMetrics`, `DockerMetrics`
 - ApiLoadTesting: `IApiLoadTester`, `ApiLoadTestResult`, `ApiThroughputSample`
 - Reporting: `IReportGenerator`, `IChartGenerator`, `TestReport`
 
