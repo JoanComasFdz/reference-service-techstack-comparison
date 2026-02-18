@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.IntegrationTesting.Logging;
 using Xunit.Abstractions;
 
@@ -18,7 +19,7 @@ public sealed class Infrastructure
     /// <summary>
     /// Database management for clearing test data.
     /// </summary>
-    public IDatabase Database { get; private set; } = null!;
+    public ClearDatabase ClearDatabase { get; private set; } = null!;
 
     /// <summary>
     /// RabbitMQ management for clearing queues.
@@ -50,7 +51,7 @@ public sealed class Infrastructure
         _host = builder.Build();
 
         FindServiceProcessId = _host.Services.GetRequiredService<FindServiceProcessId>();
-        Database = _host.Services.GetRequiredService<IDatabase>();
+        ClearDatabase = _host.Services.GetRequiredService<ClearDatabase>();
         RabbitMQ = _host.Services.GetRequiredService<IRabbitMQ>();
     }
 
