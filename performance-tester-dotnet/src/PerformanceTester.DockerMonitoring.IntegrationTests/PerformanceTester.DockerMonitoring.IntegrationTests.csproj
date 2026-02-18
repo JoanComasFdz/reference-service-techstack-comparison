@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PerformanceTester.IntegrationTesting\PerformanceTester.IntegrationTesting.csproj" />
+    <ProjectReference Include="..\PerformanceTester.Infrastructure\PerformanceTester.Infrastructure.csproj" />
     <ProjectReference Include="..\PerformanceTester.DockerMonitoring\PerformanceTester.DockerMonitoring.csproj" />
   </ItemGroup>
 
