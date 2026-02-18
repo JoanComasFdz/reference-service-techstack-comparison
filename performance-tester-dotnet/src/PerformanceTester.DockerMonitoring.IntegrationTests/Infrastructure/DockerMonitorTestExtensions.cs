@@ -1,20 +1,24 @@
+using PerformanceTester.Infrastructure.ValueObjects;
+
 namespace PerformanceTester.DockerMonitoring.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// Test extensions for IDockerMonitor.
-/// Provides convenient waiting mechanisms without polluting the phase enum.
+/// Test extensions for GetDockerMetrics delegate.
+/// Provides convenient waiting mechanisms for sample collection.
 /// </summary>
 public static class DockerMonitorTestExtensions
 {
     /// <summary>
-    /// Waits until the monitor has collected at least the specified number of samples.
+    /// Waits until the specified container has collected at least the given number of samples.
     /// </summary>
-    /// <param name="monitor">The monitor to wait on.</param>
+    /// <param name="getDockerMetrics">The metrics retrieval delegate.</param>
+    /// <param name="containerName">Container to check.</param>
     /// <param name="minimumCount">Minimum number of samples to wait for.</param>
     /// <param name="timeout">Timeout (default: 30 seconds).</param>
     /// <exception cref="TimeoutException">Thrown if timeout expires before reaching sample count.</exception>
     public static async Task WaitForSampleCountAsync(
-        this IDockerMonitor monitor,
+        this GetDockerMetrics getDockerMetrics,
+        NonEmptyString containerName,
         int minimumCount,
         TimeSpan? timeout = null)
     {
@@ -23,16 +27,16 @@ public static class DockerMonitorTestExtensions
 
         try
         {
-            while (monitor.GetCollectedMetrics().Count < minimumCount)
+            while (getDockerMetrics(containerName).Count < minimumCount)
             {
                 await Task.Delay(50, cts.Token);
             }
         }
         catch (OperationCanceledException)
         {
-            var actualCount = monitor.GetCollectedMetrics().Count;
+            var actualCount = getDockerMetrics(containerName).Count;
             throw new TimeoutException(
-                $"Timeout waiting for {minimumCount} samples from '{monitor.ContainerName}'. " +
+                $"Timeout waiting for {minimumCount} samples from '{containerName}'. " +
                 $"Only received {actualCount} samples after {effectiveTimeout.TotalSeconds}s.");
         }
     }
