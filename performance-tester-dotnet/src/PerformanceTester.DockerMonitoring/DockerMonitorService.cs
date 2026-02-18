@@ -8,10 +8,10 @@ namespace PerformanceTester.DockerMonitoring;
 /// <summary>
 /// BackgroundService that monitors Docker container resource usage using streaming mode.
 /// Each Docker stats push is collected directly as a sample (event-driven, no polling).
-/// Implements IDockerMonitor to provide access to collected metrics.
+/// Named delegates in DI provide public access to collected metrics.
 /// Supports deferred start pattern - waits for StartMonitoring() before collecting metrics.
 /// </summary>
-internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
+internal sealed class DockerMonitorService : BackgroundService
 {
     private readonly string _containerName;
     private readonly DockerClientWrapper _dockerClient;
@@ -34,7 +34,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
     private volatile bool _hasReceivedValidStats;
     private volatile bool _streamingFailed;
 
-    private IProgress<DockerMonitorPhaseInfo>? _progress;
+    private ReportDockerMonitorProgress? _progress;
     private bool _started;
 
     public string ContainerName => _containerName;
@@ -49,7 +49,6 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         _logger = logger;
     }
 
-    /// <inheritdoc />
     public async Task WarmupAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Warming up Docker API for container {ContainerName}...", _containerName);
@@ -66,9 +65,8 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         _logger.LogDebug("Docker API warmup complete for container {ContainerName}", _containerName);
     }
 
-    /// <inheritdoc />
     public async Task StartMonitoringAsync(
-        IProgress<DockerMonitorPhaseInfo>? progress = null,
+        ReportDockerMonitorProgress? progress = null,
         CancellationToken cancellationToken = default)
     {
         if (_started)
@@ -79,7 +77,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         _started = true;
         _progress = progress;
 
-        _progress?.Report(DockerMonitorPhaseInfo.Starting(
+        _progress?.Invoke(DockerMonitorPhaseInfo.Starting(
             DockerMonitorPhase.MonitoringRequested,
             _containerName,
             message: $"Starting streaming monitor for container {_containerName}"));
@@ -94,7 +92,6 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         _logger.LogInformation("First sample collected for container {ContainerName}", _containerName);
     }
 
-    /// <inheritdoc />
     public IReadOnlyCollection<DockerMetrics> GetCollectedMetrics() => _collectedMetrics
             .OrderBy(m => m.Timestamp)
             .ToList()
@@ -128,7 +125,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         {
             _logger.LogError(ex, "Failed to resolve container {ContainerName}", _containerName);
             _firstSampleCollected.TrySetResult(); // Unblock caller
-            _progress?.Report(DockerMonitorPhaseInfo.Failed(
+            _progress?.Invoke(DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
                 _containerName,
                 message: $"Failed to resolve container: {ex.Message}"));
@@ -139,7 +136,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         {
             _logger.LogWarning("Container {ContainerName} not found, cannot start monitoring", _containerName);
             _firstSampleCollected.TrySetResult(); // Unblock caller
-            _progress?.Report(DockerMonitorPhaseInfo.Failed(
+            _progress?.Invoke(DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
                 _containerName,
                 message: $"Container '{_containerName}' not found"));
@@ -202,7 +199,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             // Report completion (success case only - failures reported elsewhere)
             if (!_streamingFailed)
             {
-                _progress?.Report(DockerMonitorPhaseInfo.Completed(
+                _progress?.Invoke(DockerMonitorPhaseInfo.Completed(
                     DockerMonitorPhase.MonitoringCompleted,
                     _containerName,
                     sampleCount: _collectedMetrics.Count,
@@ -224,7 +221,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
         while (!cancellationToken.IsCancellationRequested)
         {
             // === REPORT: Connecting ===
-            _progress?.Report(DockerMonitorPhaseInfo.Starting(
+            _progress?.Invoke(DockerMonitorPhaseInfo.Starting(
                 DockerMonitorPhase.StreamConnecting,
                 _containerName,
                 message: _consecutiveFailures > 0
@@ -297,7 +294,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
     {
         // === REPORT: Connected ===
         var wasReconnecting = _consecutiveFailures > 0;
-        _progress?.Report(DockerMonitorPhaseInfo.Completed(
+        _progress?.Invoke(DockerMonitorPhaseInfo.Completed(
             DockerMonitorPhase.StreamConnected,
             _containerName,
             message: wasReconnecting
@@ -333,7 +330,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             "Streaming failed permanently after {Failures} attempts for container {ContainerName}",
             _consecutiveFailures, _containerName);
 
-        _progress?.Report(DockerMonitorPhaseInfo.Failed(
+        _progress?.Invoke(DockerMonitorPhaseInfo.Failed(
             DockerMonitorPhase.StreamFailed,
             _containerName,
             message: $"Connection failed permanently after {_consecutiveFailures} attempts"));
@@ -379,7 +376,7 @@ internal sealed class DockerMonitorService : BackgroundService, IDockerMonitor
             _containerName, delayToUse.TotalSeconds,
             _consecutiveFailures, StreamingConstants.MaxReconnectAttempts);
 
-        _progress?.Report(DockerMonitorPhaseInfo.Failed(
+        _progress?.Invoke(DockerMonitorPhaseInfo.Failed(
             DockerMonitorPhase.StreamDisconnected,
             _containerName,
             message: $"Disconnected, retrying in {delayToUse.TotalSeconds:F1}s " +
