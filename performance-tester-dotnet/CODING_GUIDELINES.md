@@ -243,7 +243,7 @@ public static Plot Build(ResourceMetricsReport? data, ChartConfig config)
 
 ## Function-Typed Dependencies (Named Delegates)
 
-When Guideline 10 says "Composition Over Interfaces," the natural question is: *what replaces the interface?* For single-operation dependencies, the answer is a **named delegate**. This section covers when to use delegates, how to name them, and how they coexist with interfaces at DI boundaries.
+When Guideline 10 says "Composition Over Interfaces," the natural question is: _what replaces the interface?_ For single-operation dependencies, the answer is a **named delegate**. This section covers when to use delegates, how to name them, and how they coexist with interfaces at DI boundaries.
 
 ### 12. Use Named Delegates for Single-Operation Dependencies
 
@@ -273,10 +273,12 @@ public static async Task ExecuteAsync(Action<ApiLoadProgress> progress) { ... }
 ```
 
 **When to use:**
+
 - The dependency is a single operation, not a family of related operations
 - The caller only needs to supply one behavior
 
 **When NOT to use:**
+
 - The dependency has multiple related methods that change together → use an interface
 - The dependency needs DI container registration at a slice boundary → use an interface (see Guideline 14)
 
@@ -297,6 +299,7 @@ Func<Task<Result<Unit, string>>>     // Could be any async operation
 ```
 
 **Where to define the delegate:**
+
 - **Next to its data type** if shared across callers (e.g., `ReportApiLoadProgress` next to `ApiLoadProgress` in `ApiLoadProgress.cs`)
 - **Inside the consumer** if only used by one caller (e.g., `StartApiLoadTest` inside `ApiTestPhase`)
 
@@ -304,12 +307,12 @@ Func<Task<Result<Unit, string>>>     // Could be any async operation
 
 Interfaces and delegates serve different layers. Use both, but in the right place:
 
-| Layer | Mechanism | Example |
-|-------|-----------|---------|
-| **DI boundary** (slice API) | Interface | `IApiLoadTester`, `IRabbitMQ` |
-| **DI boundary** (single operation) | Named delegate | `ClearDatabase`, `FindServiceProcessId` |
-| **Internal wiring** (between static classes) | Named delegate | `StartApiLoadTest` |
-| **Orchestrator** | Lambda adapter | Closes over `CancellationToken`, adapts interface/delegate → delegate |
+| Layer                                        | Mechanism      | Example                                                              |
+| -------------------------------------------- | -------------- | -------------------------------------------------------------------- |
+| **DI boundary** (slice API)                  | Interface      | `IApiLoadTester`, `IRabbitMQ`                                        |
+| **DI boundary** (single operation)           | Named delegate | `ClearDatabase`, `FindServiceProcessId`                              |
+| **Internal wiring** (between static classes) | Named delegate | `StartApiLoadTest`                                                   |
+| **Orchestrator**                             | Lambda adapter | Closes over `CancellationToken`, adapts interface/delegate → delegate |
 
 ```csharp
 // ✅ Good - orchestrator adapts interface to delegate via lambda
@@ -330,6 +333,7 @@ public static async Task ExecuteAsync(IApiLoadTester apiLoadTester, ...) { ... }
 ```
 
 **Why the orchestrator adapts:**
+
 - Phase classes stay decoupled from DI interfaces (testable with simple lambdas)
 - `CancellationToken` belongs to the orchestrator, not the phase — the lambda closes over it
 - The phase only sees the exact operation it needs, not the full interface surface
@@ -372,10 +376,10 @@ public static TimeSpan Parse(string duration)
 
 **Result variant selection:**
 
-| | Simple failure (`string`) | Typed failure (`TFailure`) |
-|--|--|--|
-| **Has value** | `Result<TValue>` | `Result<TValue, TFailure>` |
-| **Void** | `Result<Unit>` | `Result<Unit, TFailure>` |
+|               | Simple failure (`string`) | Typed failure (`TFailure`) |
+| ------------- | ------------------------- | -------------------------- |
+| **Has value** | `Result<TValue>`          | `Result<TValue, TFailure>` |
+| **Void**      | `Result<Unit>`            | `Result<Unit, TFailure>`   |
 
 **Naming failure union types:** Use `{MethodAction}Error` — the name describes what failed, not where. Each variant carries contextual data. Define the union alongside the method that returns it.
 
@@ -434,6 +438,7 @@ using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, string>;
 When consuming a Result, always use dunet's generated `Match` method instead of native C# pattern matching (`is`, `is not`, `switch`). `Match` guarantees exhaustiveness at compile time — if a variant is added, all call sites fail to compile until updated.
 
 **Extracting a value (or throwing on failure):**
+
 ```csharp
 // ✅ Good - Match with exhaustive handling
 var processId = serviceDiscoveryResult.Match(
@@ -448,6 +453,7 @@ else if (serviceDiscoveryResult is Result<int, string>.Failure failure)
 ```
 
 **Side-effect on failure, no-op on success:**
+
 ```csharp
 // ✅ Good - concise Match
 (await _database.ClearDatabaseAsync(dbName, ct)).Match(
@@ -456,6 +462,7 @@ else if (serviceDiscoveryResult is Result<int, string>.Failure failure)
 ```
 
 **Boolean check:**
+
 ```csharp
 // ✅ Good - Match to bool
 public static bool IsValid(string duration) =>
@@ -469,6 +476,7 @@ public static bool IsValid(string duration) =>
 ```
 
 **Processing with silent skip on failure:**
+
 ```csharp
 // ✅ Good - Match with side-effects in success, empty failure
 _metricsParser.ParseLine(line).Match(
@@ -541,11 +549,13 @@ if (options.Events < 1 || options.Events > 1_000_000) return "error";
 ```
 
 **When to use value objects:**
+
 - The primitive has a valid range or format (e.g., 1–1,000,000)
 - Multiple callers need to trust the value is valid
 - The constraint is a domain rule, not a one-off check
 
 **When NOT to use value objects:**
+
 - The primitive is unconstrained (any `int` is fine)
 - The constraint is only checked once at a single boundary
 - The overhead outweighs the clarity (e.g., internal loop counters)
@@ -578,6 +588,7 @@ public sealed record EventCount
 ```
 
 **Key elements:**
+
 - **`sealed record`** — immutable, value equality, cannot be subclassed
 - **Private constructor** — forces callers through `Create()`
 - **`Result<T, string>` for errors** — the error message lives next to the constraint, consumers just display it. Use a Dunet union error type only when callers need to branch on different failure kinds (e.g., `ClearDatabaseError` with `EmptyName`, `DatabaseNotFound`, `RetriesExhausted`)
@@ -671,11 +682,13 @@ var config = new TestConfiguration(
 ```
 
 **When to use this pattern:**
+
 - Two or more value objects have identical validation logic
 - They appear as separate parameters in the same method/record (swap risk)
 - The base validation can be parameterized (e.g., `displayName` for error messages)
 
 **Key elements:**
+
 - **Base `record`** (not `sealed`) — owns `Value`, `ToString()`, and `protected static Create<T>`
 - **Derived `sealed record`** — tag type, private constructor, one-liner `Create()` delegates to base
 - **`Create<T>` uses explicit `Result<T, string>` constructors** — cannot use `using static` because `T` is generic
@@ -755,6 +768,7 @@ foreach (var item in items)
 ### 26. Blank Line After Closing Brace
 
 Every closing brace `}` must be followed by a blank line, **except** when the next line is:
+
 - Another closing brace `}`
 - An `else`, `catch`, or `finally` keyword (continuation of the same statement)
 
@@ -879,7 +893,7 @@ public static OrchestratorDeps Build(IServiceProvider services, Config config) =
         RunProcess: ...);
 ```
 
-**Why:** The expression after `=>` is the most important part — it's *what the function does*. Pushing it to the next line hides it. If the expression is too long for one line, switch to a block body `{ }` instead of dangling the arrow.
+**Why:** The expression after `=>` is the most important part — it's _what the function does_. Pushing it to the next line hides it. If the expression is too long for one line, switch to a block body `{ }` instead of dangling the arrow.
 
 **Not enforced by `.editorconfig`** (no built-in rule). Enforced by convention and code review.
 
@@ -1008,11 +1022,13 @@ internal static class SetupPhaseDependencies
 **Why:** In FP languages, a module contains both its types and its functions — there's no separate "builder" concept. C# static classes serve the same role. Co-locating definitions, bundling, construction, and execution gives a top-to-bottom reading flow and eliminates file-hopping.
 
 **When to use:**
+
 - A static method has many delegate parameters (4+) that are always passed together
 - The delegates are only used by this one consumer
 - IDE navigation for delegates is important (no Ctrl+Click on delegate types)
 
 **When NOT to use:**
+
 - The factory needs to be called from multiple unrelated sites (keep it separate)
 - The dependencies are shared across multiple consumers (use `PhasesToolbox` instead)
 
@@ -1024,18 +1040,17 @@ internal static class SetupPhaseDependencies
 
 When composing delegates (lambdas) in a dependencies class or factory, every value falls into one of three buckets based on its **lifetime**. Choosing the wrong bucket leads to either stale closures or unnecessary parameters.
 
-| Bucket | Lifetime | Mechanism | Example |
-|--------|----------|-----------|---------|
-| **Bake in** | Immutable for the app's lifetime | Close over in the lambda | Config values, connection strings, container names, `CancellationToken` |
-| **Pass as parameter** | Produced at runtime, different per call | Lambda parameter | `testRunId`, `serviceProcessId`, `testResult` |
-| **Reader delegate** | Can change during the app's lifetime | `Func<T>` that reads current value | Feature flags, user preferences, dynamic settings |
+| Bucket                | Lifetime                                | Mechanism                          | Example                                                                 |
+| --------------------- | --------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------- |
+| **Bake in**           | Immutable for the app's lifetime        | Close over in the lambda           | Config values, connection strings, container names, `CancellationToken` |
+| **Pass as parameter** | Produced at runtime, different per call | Lambda parameter                   | `testRunId`, `serviceProcessId`, `testResult`                           |
+| **Reader delegate**   | Can change during the app's lifetime    | `Func<T>` that reads current value | Feature flags, user preferences, dynamic settings                       |
 
 **Bake in** — the value is known at construction time and will never change:
 
 ```csharp
 // ✅ Good - DatabaseName and CancellationToken are fixed for the app's lifetime
-PhasesToolbox.ClearDatabase clearDatabase =
-    () => database.ClearDatabaseAsync(config.DatabaseName.Value, ct);
+PhasesToolbox.ClearDatabase clearDatabase = () => database.ClearDatabaseAsync(config.DatabaseName.Value, ct);
 
 // ✅ Good - container name won't change mid-run
 GetRabbitMqMetrics: () => dockerMonitor.GetMetricsAsync(config.RabbitMqContainerName.Value),
@@ -1079,22 +1094,22 @@ var deps = new Dependencies(
 **Decision flowchart:**
 
 1. **Does the value exist at construction time?**
-   - No → it's a **lambda parameter** (produced at runtime)
-   - Yes → continue to 2
+    - No → it's a **lambda parameter** (produced at runtime)
+    - Yes → continue to 2
 2. **Can the value change after construction?**
-   - Yes → use a **reader delegate** (`Func<T>` or named delegate)
-   - No → **bake it in** (close over it)
+    - Yes → use a **reader delegate** (`Func<T>` or named delegate)
+    - No → **bake it in** (close over it)
 
 **Current codebase examples:**
 
-| Value | Bucket | Where |
-|-------|--------|-------|
-| `config.DatabaseName` | Bake in | `TestOrchestrator.BuildDependencies` — closed over in `ClearDatabase` lambda |
-| `config.RabbitMqContainerName` | Bake in | `ReportingPhase.BuildDependencies` — closed over in `GetRabbitMqMetrics` lambda |
-| `CancellationToken` | Bake in | All phase delegates — closed over at construction |
-| `testRunId` | Parameter | `RunSetup(Guid testRunId)` — generated at runtime |
-| `serviceProcessId` | Parameter | `RunEventTest(ProcessId serviceProcessId)` — output of Setup phase |
-| `testResult` | Parameter | `RunReporting(TestResult testResult)` — assembled from all phase outputs |
+| Value                          | Bucket    | Where                                                                           |
+| ------------------------------ | --------- | ------------------------------------------------------------------------------- |
+| `config.DatabaseName`          | Bake in   | `TestOrchestrator.BuildDependencies` — closed over in `ClearDatabase` lambda    |
+| `config.RabbitMqContainerName` | Bake in   | `ReportingPhase.BuildDependencies` — closed over in `GetRabbitMqMetrics` lambda |
+| `CancellationToken`            | Bake in   | All phase delegates — closed over at construction                               |
+| `testRunId`                    | Parameter | `RunSetup(Guid testRunId)` — generated at runtime                               |
+| `serviceProcessId`             | Parameter | `RunEventTest(ProcessId serviceProcessId)` — output of Setup phase              |
+| `testResult`                   | Parameter | `RunReporting(TestResult testResult)` — assembled from all phase outputs        |
 
 **Why this matters:**
 
@@ -1107,38 +1122,38 @@ var deps = new Dependencies(
 
 ## Summary
 
-**One-liner:** *Make dependencies explicit, keep functions small and pure, let each file tell its own complete story.*
+**One-liner:** _Make dependencies explicit, keep functions small and pure, let each file tell its own complete story._
 
-| Principle | Question to Ask |
-|-----------|-----------------|
-| Static classes | Does this class have instance state? If no → make it static |
-| Explicit parameters | Can I see all inputs at the call site? |
-| Inline single-use | Is this only used once? Inline it with a comment |
-| Descriptive names | Does the name say exactly what it does? |
-| Toolbox pattern | Is this function small, pure, and single-purpose? |
-| Vertical slice | Can I understand this file without opening others? |
-| Reasons for change | Will these things change together or separately? |
-| Explicit over implicit | Do readers need to trace through indirection? |
-| No useless wrappers | Does this wrapper add value? |
-| Composition over interfaces | Do I actually need this abstraction? |
-| Return early | Can I use a guard clause to avoid nesting? |
-| Named delegates | Is this dependency a single operation? Use a named delegate |
-| Named over Action/Func | Does the delegate name describe what it does? |
-| Interfaces vs delegates | Am I at a DI boundary (interface) or internal wiring (delegate)? |
-| Result over exceptions | Is this failure expected? Use Result, not exceptions |
-| `using static` for Results | Am I producing Results? Shorten with `using static` |
-| dunet Match | Am I consuming a Result? Use `Match` (consumption) or `IsFailure` (pipelines) |
-| Value objects | Does this primitive have domain constraints? Wrap it |
-| Value object structure | sealed record, private ctor, `Create()` → Result, `ToString()` |
-| Unwrap at boundaries | Am I crossing into a primitive-typed API? Use `.Value` |
-| No VO unit tests | Is the validation trivially correct? Skip the test |
-| Value object families | Do multiple VOs share the same validation? Base record + sealed tag types |
-| Higher-order helpers | Is the same structure repeated with different operations plugged in? |
-| Consumer owns defaults | Am I encoding what a consumer needs? Let the consumer decide |
-| Always use braces | Does every `if`/`else`/`for`/`while`/`using` have braces? |
-| Blank line after `}` | Is there a blank line after every closing brace (unless followed by another `}`, `else`, `catch`, `finally`)? |
-| All-or-nothing params | Are parameters all on one line, or each on its own line? Never partial wrap |
-| `=>` same line | Does the expression start on the same line as `=>`? If too long, use block body |
-| Dependency composition | Am I receiving interfaces? Contain them in a dependencies class, expose delegates at the right level |
-| Static class as module | Can I co-locate delegates, bundle record, factory, and execution in one static class? |
-| Three-bucket rule | Is this value fixed at construction, produced at runtime, or mutable? Bake in / parameter / reader delegate |
+| Principle                   | Question to Ask                                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Static classes              | Does this class have instance state? If no → make it static                                                   |
+| Explicit parameters         | Can I see all inputs at the call site?                                                                        |
+| Inline single-use           | Is this only used once? Inline it with a comment                                                              |
+| Descriptive names           | Does the name say exactly what it does?                                                                       |
+| Toolbox pattern             | Is this function small, pure, and single-purpose?                                                             |
+| Vertical slice              | Can I understand this file without opening others?                                                            |
+| Reasons for change          | Will these things change together or separately?                                                              |
+| Explicit over implicit      | Do readers need to trace through indirection?                                                                 |
+| No useless wrappers         | Does this wrapper add value?                                                                                  |
+| Composition over interfaces | Do I actually need this abstraction?                                                                          |
+| Return early                | Can I use a guard clause to avoid nesting?                                                                    |
+| Named delegates             | Is this dependency a single operation? Use a named delegate                                                   |
+| Named over Action/Func      | Does the delegate name describe what it does?                                                                 |
+| Interfaces vs delegates     | Am I at a DI boundary (interface) or internal wiring (delegate)?                                              |
+| Result over exceptions      | Is this failure expected? Use Result, not exceptions                                                          |
+| `using static` for Results  | Am I producing Results? Shorten with `using static`                                                           |
+| dunet Match                 | Am I consuming a Result? Use `Match` (consumption) or `IsFailure` (pipelines)                                 |
+| Value objects               | Does this primitive have domain constraints? Wrap it                                                          |
+| Value object structure      | sealed record, private ctor, `Create()` → Result, `ToString()`                                                |
+| Unwrap at boundaries        | Am I crossing into a primitive-typed API? Use `.Value`                                                        |
+| No VO unit tests            | Is the validation trivially correct? Skip the test                                                            |
+| Value object families       | Do multiple VOs share the same validation? Base record + sealed tag types                                     |
+| Higher-order helpers        | Is the same structure repeated with different operations plugged in?                                          |
+| Consumer owns defaults      | Am I encoding what a consumer needs? Let the consumer decide                                                  |
+| Always use braces           | Does every `if`/`else`/`for`/`while`/`using` have braces?                                                     |
+| Blank line after `}`        | Is there a blank line after every closing brace (unless followed by another `}`, `else`, `catch`, `finally`)? |
+| All-or-nothing params       | Are parameters all on one line, or each on its own line? Never partial wrap                                   |
+| `=>` same line              | Does the expression start on the same line as `=>`? If too long, use block body                               |
+| Dependency composition      | Am I receiving interfaces? Contain them in a dependencies class, expose delegates at the right level          |
+| Static class as module      | Can I co-locate delegates, bundle record, factory, and execution in one static class?                         |
+| Three-bucket rule           | Is this value fixed at construction, produced at runtime, or mutable? Bake in / parameter / reader delegate   |
