@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Output;
 using PerformanceTester.Orchestration;
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.Orchestration.ValueObjects;
 using PerformanceTester.Reporting.ValueObjects;
