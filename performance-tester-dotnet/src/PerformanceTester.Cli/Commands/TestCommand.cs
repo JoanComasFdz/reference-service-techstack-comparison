@@ -168,10 +168,9 @@ public static class TestCommand
                 progressReporter,
                 config.EventCount,
                 config.ApiDuration);
-
             var deps = TestOrchestrator.BuildDependencies(services, config, progressAdapter.Report, logger, cancellationToken);
-            var result = await TestOrchestrator.RunTestAsync(deps, config, logger);
 
+            var result = await TestOrchestrator.RunTestAsync(deps, config, logger);
             return result.Match(
                 success: s =>
                 {

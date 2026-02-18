@@ -30,7 +30,7 @@ internal static class DatabaseCleaner
 
         // Verify database exists before retrying
         cancellationToken.ThrowIfCancellationRequested();
-        if (!await DatabaseExistsAsync(databaseName.Value, connectionString, cancellationToken))
+        if (!await DatabaseExistsAsync(databaseName, connectionString, cancellationToken))
         {
             return new Failure(new ClearDatabaseError.DatabaseNotFound(databaseName));
         }
@@ -74,7 +74,7 @@ internal static class DatabaseCleaner
     }
 
     private static async Task<bool> DatabaseExistsAsync(
-        string databaseName,
+        DatabaseName databaseName,
         string connectionString,
         CancellationToken cancellationToken)
     {
@@ -84,7 +84,7 @@ internal static class DatabaseCleaner
         await using var cmd = new NpgsqlCommand(
             "SELECT 1 FROM pg_database WHERE datname = @dbName",
             conn);
-        cmd.Parameters.AddWithValue("@dbName", databaseName);
+        cmd.Parameters.AddWithValue("@dbName", databaseName.Value);
 
         var result = await cmd.ExecuteScalarAsync(cancellationToken);
         return result != null;
