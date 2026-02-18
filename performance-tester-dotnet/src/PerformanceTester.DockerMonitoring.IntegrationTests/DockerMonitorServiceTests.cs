@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PerformanceTester.DockerMonitoring;
 using PerformanceTester.DockerMonitoring.IntegrationTests.Infrastructure;
+using PerformanceTester.Infrastructure.ValueObjects;
 using Xunit.Abstractions;
 
 namespace PerformanceTester.DockerMonitoring.IntegrationTests;
@@ -14,6 +15,9 @@ namespace PerformanceTester.DockerMonitoring.IntegrationTests;
 /// </summary>
 public sealed class DockerMonitorServiceTests : IntegrationTest
 {
+    private static readonly NonEmptyString PostgresName = DockerMonitoringSystem.PostgresName;
+    private static readonly NonEmptyString RabbitMqName = DockerMonitoringSystem.RabbitMqName;
+
     public DockerMonitorServiceTests(ITestOutputHelper output) : base(output)
     {
     }
@@ -25,7 +29,7 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
 
         // Act
-        await System.StartMonitoringAsync(phaseAwaiter);
+        await System.StartMonitoringAsync(phaseAwaiter.Report);
 
         // Wait for connection (lifecycle phase)
         await phaseAwaiter.WaitForPhaseAsync(
@@ -33,18 +37,18 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
             DockerMonitorPhase.StreamConnected,
             DockerMonitorPhaseState.Completed);
 
-        // Wait for samples (explicit, per-monitor)
-        await System.PostgresMonitor.WaitForSampleCountAsync(1);
-        await System.RabbitMqMonitor.WaitForSampleCountAsync(1);
+        // Wait for samples (explicit, per-container)
+        await System.GetDockerMetrics.WaitForSampleCountAsync(PostgresName, 1);
+        await System.GetDockerMetrics.WaitForSampleCountAsync(RabbitMqName, 1);
 
         await System.StopMonitoringAsync();
 
         // Assert - should have collected metrics from both containers
-        Asserting.That(System.PostgresMonitor).HasCollectedMetrics();
-        Asserting.That(System.RabbitMqMonitor).HasCollectedMetrics();
+        Asserting.That(System.GetDockerMetrics).HasCollectedMetricsFor(PostgresName);
+        Asserting.That(System.GetDockerMetrics).HasCollectedMetricsFor(RabbitMqName);
 
-        Output.WriteLine($"PostgreSQL: {System.PostgresMonitor.GetCollectedMetrics().Count} samples");
-        Output.WriteLine($"RabbitMQ: {System.RabbitMqMonitor.GetCollectedMetrics().Count} samples");
+        Output.WriteLine($"PostgreSQL: {System.GetDockerMetrics(PostgresName).Count} samples");
+        Output.WriteLine($"RabbitMQ: {System.GetDockerMetrics(RabbitMqName).Count} samples");
     }
 
     [Fact]
@@ -52,21 +56,21 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     {
         // Arrange
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
-        await System.StartMonitoringAsync(phaseAwaiter);
+        await System.StartMonitoringAsync(phaseAwaiter.Report);
 
-        // Wait for first sample (explicit, per-monitor)
-        await System.PostgresMonitor.WaitForSampleCountAsync(1);
-        await System.RabbitMqMonitor.WaitForSampleCountAsync(1);
+        // Wait for first sample (explicit, per-container)
+        await System.GetDockerMetrics.WaitForSampleCountAsync(PostgresName, 1);
+        await System.GetDockerMetrics.WaitForSampleCountAsync(RabbitMqName, 1);
 
         // Act
         await System.StopMonitoringAsync();
 
         // Assert - metrics should be retrievable after stop
-        Asserting.That(System.PostgresMonitor).HasCollectedMetrics();
-        Asserting.That(System.RabbitMqMonitor).HasCollectedMetrics();
+        Asserting.That(System.GetDockerMetrics).HasCollectedMetricsFor(PostgresName);
+        Asserting.That(System.GetDockerMetrics).HasCollectedMetricsFor(RabbitMqName);
 
-        Output.WriteLine($"PostgreSQL: {System.PostgresMonitor.GetCollectedMetrics().Count} samples");
-        Output.WriteLine($"RabbitMQ: {System.RabbitMqMonitor.GetCollectedMetrics().Count} samples");
+        Output.WriteLine($"PostgreSQL: {System.GetDockerMetrics(PostgresName).Count} samples");
+        Output.WriteLine($"RabbitMQ: {System.GetDockerMetrics(RabbitMqName).Count} samples");
     }
 
     [Fact]
@@ -74,17 +78,17 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     {
         // Arrange
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
-        await System.StartMonitoringAsync(phaseAwaiter);
+        await System.StartMonitoringAsync(phaseAwaiter.Report);
 
-        // Act - Wait for exactly 3 samples (explicit, per-monitor)
-        await System.PostgresMonitor.WaitForSampleCountAsync(3);
-        await System.RabbitMqMonitor.WaitForSampleCountAsync(3);
+        // Act - Wait for exactly 3 samples (explicit, per-container)
+        await System.GetDockerMetrics.WaitForSampleCountAsync(PostgresName, 3);
+        await System.GetDockerMetrics.WaitForSampleCountAsync(RabbitMqName, 3);
 
         await System.StopMonitoringAsync();
 
         // Assert - now we know we have at least 3 samples
-        Asserting.That(System.PostgresMonitor).HasMinimumSampleCount(expectedMinimum: 3);
-        Asserting.That(System.RabbitMqMonitor).HasMinimumSampleCount(expectedMinimum: 3);
+        Asserting.That(System.GetDockerMetrics).HasMinimumSampleCountFor(PostgresName, expectedMinimum: 3);
+        Asserting.That(System.GetDockerMetrics).HasMinimumSampleCountFor(RabbitMqName, expectedMinimum: 3);
     }
 
     [Fact]
@@ -92,19 +96,20 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     {
         // Arrange - add monitoring for non-existent container
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
+        var nonexistentName = new TestContainerName("nonexistent-container");
+
         var builder = Host.CreateApplicationBuilder();
-        builder.Services.AddDockerMonitoring("nonexistent-container");
+        builder.Services.AddDockerMonitoring(nonexistentName);
         var host = builder.Build();
-        var monitors = host.Services.GetServices<IDockerMonitor>().ToList();
-        var nonexistentContainerMonitor = monitors.First(m => m.ContainerName == "nonexistent-container");
+
+        var startDockerMonitoring = host.Services.GetRequiredService<StartDockerMonitoring>();
+        var getDockerMetrics = host.Services.GetRequiredService<GetDockerMetrics>();
 
         // Act - should not throw
         await host.StartAsync();
+        await startDockerMonitoring(phaseAwaiter.Report, CancellationToken.None);
 
-        // Trigger the monitor to start
-        await nonexistentContainerMonitor.StartMonitoringAsync(phaseAwaiter);
-
-        // Wait for StreamFailed phase (container not found is now reported as StreamFailed)
+        // Wait for StreamFailed phase (container not found is reported as StreamFailed)
         await phaseAwaiter.WaitForPhaseAsync(
             "nonexistent-container",
             DockerMonitorPhase.StreamFailed,
@@ -116,7 +121,7 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         phaseAwaiter.AssertPhaseReceived(
             "nonexistent-container",
             DockerMonitorPhase.StreamFailed);
-        Asserting.That(nonexistentContainerMonitor).HasNotCollectedMetrics();
+        Asserting.That(getDockerMetrics).HasNotCollectedMetricsFor(nonexistentName);
     }
 
     [Fact]
@@ -124,17 +129,17 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     {
         // Arrange
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
-        await System.StartMonitoringAsync(phaseAwaiter);
+        await System.StartMonitoringAsync(phaseAwaiter.Report);
 
         // Wait for at least 1 sample to validate CPU calculations
-        await System.PostgresMonitor.WaitForSampleCountAsync(1);
-        await System.RabbitMqMonitor.WaitForSampleCountAsync(1);
+        await System.GetDockerMetrics.WaitForSampleCountAsync(PostgresName, 1);
+        await System.GetDockerMetrics.WaitForSampleCountAsync(RabbitMqName, 1);
 
         await System.StopMonitoringAsync();
 
         // Assert
-        Asserting.That(System.PostgresMonitor).HasValidCpuPercentages();
-        Asserting.That(System.RabbitMqMonitor).HasValidCpuPercentages();
+        Asserting.That(System.GetDockerMetrics).HasValidCpuPercentagesFor(PostgresName);
+        Asserting.That(System.GetDockerMetrics).HasValidCpuPercentagesFor(RabbitMqName);
     }
 
     [Fact]
@@ -142,17 +147,17 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     {
         // Arrange
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
-        await System.StartMonitoringAsync(phaseAwaiter);
+        await System.StartMonitoringAsync(phaseAwaiter.Report);
 
         // Wait for at least 1 sample to validate memory calculations
-        await System.PostgresMonitor.WaitForSampleCountAsync(1);
-        await System.RabbitMqMonitor.WaitForSampleCountAsync(1);
+        await System.GetDockerMetrics.WaitForSampleCountAsync(PostgresName, 1);
+        await System.GetDockerMetrics.WaitForSampleCountAsync(RabbitMqName, 1);
 
         await System.StopMonitoringAsync();
 
         // Assert
-        Asserting.That(System.PostgresMonitor).HasValidMemoryMeasurements();
-        Asserting.That(System.RabbitMqMonitor).HasValidMemoryMeasurements();
+        Asserting.That(System.GetDockerMetrics).HasValidMemoryMeasurementsFor(PostgresName);
+        Asserting.That(System.GetDockerMetrics).HasValidMemoryMeasurementsFor(RabbitMqName);
     }
 
     [Fact]
@@ -160,17 +165,17 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     {
         // Arrange
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
-        await System.StartMonitoringAsync(phaseAwaiter);
+        await System.StartMonitoringAsync(phaseAwaiter.Report);
 
         // Wait for at least 2 samples to verify chronological order
-        await System.PostgresMonitor.WaitForSampleCountAsync(2);
-        await System.RabbitMqMonitor.WaitForSampleCountAsync(2);
+        await System.GetDockerMetrics.WaitForSampleCountAsync(PostgresName, 2);
+        await System.GetDockerMetrics.WaitForSampleCountAsync(RabbitMqName, 2);
 
         await System.StopMonitoringAsync();
 
         // Assert
-        Asserting.That(System.PostgresMonitor).HasMetricsInChronologicalOrder();
-        Asserting.That(System.RabbitMqMonitor).HasMetricsInChronologicalOrder();
+        Asserting.That(System.GetDockerMetrics).HasMetricsInChronologicalOrderFor(PostgresName);
+        Asserting.That(System.GetDockerMetrics).HasMetricsInChronologicalOrderFor(RabbitMqName);
     }
 
     [Fact]
@@ -180,7 +185,7 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
 
         // Act
-        await System.StartMonitoringAsync(phaseAwaiter);
+        await System.StartMonitoringAsync(phaseAwaiter.Report);
 
         await phaseAwaiter.WaitForPhaseAsync(
             "performance-tester-postgres",
@@ -203,9 +208,9 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
     {
         // Arrange
         var phaseAwaiter = new DockerMonitorPhaseAwaiter();
-        await System.StartMonitoringAsync(phaseAwaiter);
+        await System.StartMonitoringAsync(phaseAwaiter.Report);
 
-        await System.PostgresMonitor.WaitForSampleCountAsync(2);
+        await System.GetDockerMetrics.WaitForSampleCountAsync(PostgresName, 2);
 
         // Act
         await System.StopMonitoringAsync();
