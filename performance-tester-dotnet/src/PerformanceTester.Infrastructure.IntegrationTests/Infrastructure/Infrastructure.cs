@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.RabbitMQ;
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.IntegrationTesting.Logging;
 using Xunit.Abstractions;
 
@@ -30,7 +31,7 @@ public sealed class Infrastructure
     public Infrastructure(
         string postgreSQLConnectionString,
         string rabbitMQConnectionString,
-        int? rabbitMQManagementPort,
+        Port? rabbitMQManagementPort,
         ITestOutputHelper? output = null)
     {
         var builder = Host.CreateApplicationBuilder();
