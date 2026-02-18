@@ -5,7 +5,7 @@ using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure;
-using PerformanceTester.Infrastructure.ValueObjects;
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
 using PerformanceTester.SystemMonitoring;
@@ -46,8 +46,8 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         string postgresConnectionString,
         string rabbitMqConnectionString,
-        NonEmptyString rabbitMqContainerName,
-        NonEmptyString postgresContainerName)
+        RabbitMqContainerName rabbitMqContainerName,
+        PostgresContainerName postgresContainerName)
     {
         // Phase 1: Infrastructure
         services.AddInfrastructure(

@@ -1,3 +1,4 @@
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.Orchestration.ValueObjects;
 using PerformanceTester.Reporting.ValueObjects;
