@@ -6,6 +6,7 @@ using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure;
+using PerformanceTester.Infrastructure.RabbitMQ;
 using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
@@ -101,7 +102,7 @@ internal static class TestOrchestrator
     {
         // Resolve interfaces needed for shared operation-level delegates
         var database = services.GetRequiredService<IDatabase>();
-        var rabbitMq = services.GetRequiredService<IRabbitMQ>();
+        var clearAllQueuesOp = services.GetRequiredService<ClearAllQueues>();
         var eventPublisher = services.GetRequiredService<IEventPublisher>();
         var eventConsumer = services.GetRequiredService<IEventConsumer>();
 
@@ -110,7 +111,7 @@ internal static class TestOrchestrator
 
         PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
         {
-            var result = await rabbitMq.ClearAllQueuesAsync(ct);
+            var result = await clearAllQueuesOp(ct);
             await Task.Delay(TimeSpan.FromMilliseconds(500), ct);
             return result;
         };
