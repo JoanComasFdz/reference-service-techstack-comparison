@@ -4,6 +4,7 @@ using PerformanceTester.Common;
 using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.ProcessFinding;
 using PerformanceTester.Infrastructure.RabbitMQ;
+using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.Infrastructure;
 
@@ -24,7 +25,7 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         string postgresConnectionString,
         string rabbitMqConnectionString,
-        int? rabbitMqManagementPort = null)
+        Port? rabbitMqManagementPort = null)
     {
         // Platform detection determines which static finder to use (Guideline 14: delegates for internal wiring)
         var platformResult = OSPlatformDetector.GetCurrentPlatform();
@@ -73,15 +74,17 @@ public static class ServiceCollectionExtensions
                     ct);
         });
 
-        // RabbitMqCleaner receives connection string, logger, and optional management port
-        // No adapter class — the method reference IS the registration (Guideline 12)
+        // No adapter class — the closure IS the implementation (Guidelines 1, 2, 12)
         services.AddSingleton<ClearAllQueues>(sp =>
         {
-            var cleaner = new RabbitMqCleaner(
-                rabbitMqConnectionString,
-                sp.GetRequiredService<ILogger<RabbitMqCleaner>>(),
-                rabbitMqManagementPort);
-            return cleaner.ClearAllQueuesAsync;
+            var logger = sp.GetRequiredService<ILoggerFactory>()
+                .CreateLogger(typeof(RabbitMqCleaner).FullName!);
+            return (ct) =>
+                RabbitMqCleaner.ClearAllQueuesAsync(
+                    rabbitMqConnectionString,
+                    rabbitMqManagementPort,
+                    logger,
+                    ct);
         });
 
         return services;

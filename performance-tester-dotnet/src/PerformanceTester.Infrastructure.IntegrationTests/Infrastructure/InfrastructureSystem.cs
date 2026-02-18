@@ -1,3 +1,4 @@
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.IntegrationTesting;
 
 namespace PerformanceTester.Infrastructure.IntegrationTests.Infrastructure;
@@ -12,10 +13,11 @@ public sealed class InfrastructureSystem : IntegrationTesting.VhostIsolatedSyste
     protected override async Task InitializeSystemAsync()
     {
         await base.InitializeSystemAsync();
+        Port? managementPort = base.RabbitMQ.ManagementPort is { } p ? Port.FromInt(p) : null;
         this.Infrastructure = new Infrastructure(
             base.PostgreSQL.ConnectionString,
             base.RabbitMQ.ConnectionString,
-            base.RabbitMQ.ManagementPort,
+            managementPort,
             base.Output); // Use Output from base class
     }
 
