@@ -306,9 +306,10 @@ Interfaces and delegates serve different layers. Use both, but in the right plac
 
 | Layer | Mechanism | Example |
 |-------|-----------|---------|
-| **DI boundary** (slice API) | Interface | `IApiLoadTester`, `IDatabase` |
-| **Internal wiring** (between static classes) | Named delegate | `StartApiLoadTest`, `ClearDatabase` |
-| **Orchestrator** | Lambda adapter | Closes over `CancellationToken`, adapts interface → delegate |
+| **DI boundary** (slice API) | Interface | `IApiLoadTester`, `IRabbitMQ` |
+| **DI boundary** (single operation) | Named delegate | `ClearDatabase`, `FindServiceProcessId` |
+| **Internal wiring** (between static classes) | Named delegate | `StartApiLoadTest` |
+| **Orchestrator** | Lambda adapter | Closes over `CancellationToken`, adapts interface/delegate → delegate |
 
 ```csharp
 // ✅ Good - orchestrator adapts interface to delegate via lambda
@@ -321,7 +322,7 @@ var (apiResult, apiTestStartTime, apiTestEndTime) = await ApiTestPhase.ExecuteAs
 
 // ✅ Good - shared delegates created once, reused across phases
 PhasesToolbox.ClearDatabase clearDatabase = () =>
-    _database.ClearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
+    clearDatabaseAsync(configuration.DatabaseName.Value, cancellationToken);
 
 // ❌ Avoid - phase class depending directly on DI interface
 public static async Task ExecuteAsync(IApiLoadTester apiLoadTester, ...) { ... }
@@ -332,6 +333,8 @@ public static async Task ExecuteAsync(IApiLoadTester apiLoadTester, ...) { ... }
 - Phase classes stay decoupled from DI interfaces (testable with simple lambdas)
 - `CancellationToken` belongs to the orchestrator, not the phase — the lambda closes over it
 - The phase only sees the exact operation it needs, not the full interface surface
+
+> **Evolution note:** Single-method interfaces at DI boundaries (e.g., the former `IDatabase`) are being migrated to named delegates as the functional approach extends beyond Orchestration. The interface-at-boundary rule applies primarily to multi-method contracts. For single-operation contracts, prefer a named delegate even at the DI boundary.
 
 ---
 
