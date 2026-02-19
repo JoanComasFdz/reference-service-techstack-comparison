@@ -1118,18 +1118,139 @@ var deps = new Dependencies(
 - **Baking in a mutable value** creates stale closures that silently use outdated data
 - **Using a reader delegate for an immutable value** adds unnecessary indirection
 
-### 32. Thin Shell Pattern for Framework-Coupled Classes
+### 32. Context Record Pattern (Shared Mutable State)
+
+When a class or function group has mutable state, centralize all mutable state in a single record. Pass the record explicitly to static functions. The value is **visibility** — all state that can change lives in one place.
+
+Apply at the first sign of mutable state — consistency matters more than saving a record definition.
+
+```csharp
+// ✅ Good — all mutable state visible in one record
+internal sealed record MonitorContext(NonEmptyString ContainerName)
+{
+    public ConcurrentBag<DockerMetrics> CollectedMetrics { get; } = new();
+    public TaskCompletionSource StartSignal { get; } = new();
+    public bool StreamingFailed { get; set; }
+}
+
+internal static class MonitoringOperations
+{
+    public static async Task RunStreamingLoopAsync(
+        MonitorContext ctx,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        ctx.CollectedMetrics.Add(metric);  // Thread-safe mutation
+    }
+}
+
+// ❌ Avoid — mutable state scattered across private fields
+internal sealed class DockerMonitorService
+{
+    private readonly ConcurrentBag<DockerMetrics> _collectedMetrics = new();
+    private readonly TaskCompletionSource _startSignal = new();
+    private volatile bool _streamingFailed;
+    // Must read entire class to find all mutable state
+}
+```
+
+**Why mutable, not immutable?** When state is shared across concurrent tasks, returning a new record doesn't work — other threads still hold the old reference:
+
+```csharp
+// ❌ Broken — Thread B still holds the old reference
+// Thread A:
+ctx = ctx with { StreamingFailed = true };  // creates new record
+
+// Thread B (still holds original ctx):
+if (ctx.StreamingFailed) { ... }  // always false — different reference
+```
+
+Types like `ConcurrentBag<T>`, `TaskCompletionSource`, and `SemaphoreSlim` are inherently mutable — other code holds references to the original instances. Copying them into a new record would fork the state. For single-threaded pipelines where immutability IS possible, see Guideline 33.
+
+**When to use:** Any class or function group that has mutable state — even a single field.
+
+**When NOT to use:** Purely stateless functions (like `DatabaseCleaner`, `RabbitMqCleaner`) — no state to extract.
+
+**Structure:**
+
+- `sealed record` with constructor parameters for fixed identity (e.g., `ContainerName`)
+- Mutable properties: `{ get; set; }` or self-initializing collections (`= new()`)
+- No logic in the record — it's a state bag, not a service
+
+**Relationship to other guidelines:**
+
+- Extends **Guideline 2** (explicit parameters) from single values to state bundles
+- Used by **Guideline 34** (thin shell) as the state extraction technique
+- For sequential code, prefer **Guideline 33** (immutable state threading)
+
+### 33. Immutable State Threading (Sequential Pipelines)
+
+When state flows through a single-threaded pipeline — no concurrent access, one step at a time — return a **new** record from each step instead of mutating. The caller reassigns the variable; the record itself is never mutated. This is the FP fold/reduce pattern in C#.
+
+```csharp
+// ✅ Good — each step returns new state, no mutation
+internal sealed record ParseState(
+    int LinesProcessed,
+    int ErrorCount,
+    bool HeaderFound);
+
+internal static class LogParser
+{
+    public static ParseState ProcessLine(ParseState state, string line) =>
+        IsError(line)
+            ? state with { LinesProcessed = state.LinesProcessed + 1, ErrorCount = state.ErrorCount + 1 }
+            : state with { LinesProcessed = state.LinesProcessed + 1 };
+}
+
+// Usage — pure fold via LINQ Aggregate
+var state = lines.Aggregate(
+    new ParseState(0, 0, false),
+    LogParser.ProcessLine);
+
+// ❌ Avoid — mutable fields in a single-threaded pipeline
+var linesProcessed = 0;
+var errorCount = 0;
+foreach (var line in lines)
+{
+    linesProcessed++;
+    if (IsError(line)) errorCount++;
+}
+```
+
+**Why this works here but not in Guideline 32:** There is only one reference to the state. Reassigning `state = ...` updates the only copy. No other thread holds a stale reference.
+
+**When to use:** Sequential processing (loops, pipelines, fold/reduce patterns) where state accumulates across steps but is only accessed by one thread.
+
+**When NOT to use:**
+
+- State is shared across concurrent tasks — use Guideline 32 (mutable context record)
+- State contains inherently mutable types (`ConcurrentBag`, `TaskCompletionSource`) — these can't be copied meaningfully
+
+**Structure:**
+
+- `sealed record` with all properties in the constructor (positional record)
+- All properties are immutable (no `{ get; set; }`)
+- Functions return the record type (the new state), not `void`
+- Caller uses `Aggregate` or `state = Function(state, input)` pattern
+
+**Relationship to other guidelines:**
+
+- Companion to **Guideline 32** — same idea (explicit state), different concurrency model
+- Extends **Guideline 1** (static classes) — static functions that transform state
+- Extends **Guideline 2** (explicit parameters) — state is an input AND an output
+
+### 34. Thin Shell Pattern for Framework-Coupled Classes
 
 Guidelines 1 and 2 say "make it static" and "pass all dependencies explicitly." But some classes _can't_ be static — they inherit from framework base classes (`BackgroundService`, `DbContext`, `ControllerBase`). These classes accumulate mutable state fields, business logic methods, and lifecycle management in one file, making them hard to test and reason about.
 
 **The pattern:** Extract everything out. The framework-inheriting class becomes a **thin shell** with three responsibilities only:
 
-1. **Own the context** — a record holding all mutable state
+1. **Own the context** — a context record holding all mutable state (Guideline 32 or 33)
 2. **Wire lifecycle** — connect framework hooks to static functions
 3. **Expose the public API** — delegate to context or static functions
 
 ```csharp
-// 1. Context record — all mutable state, no logic
+// 1. Context record — all mutable state, no logic (Guideline 32)
 internal sealed record MonitorContext(NonEmptyString ContainerName)
 {
     public ConcurrentBag<DockerMetrics> CollectedMetrics { get; } = new();
@@ -1144,13 +1265,10 @@ internal static class MonitoringOperations
         MonitorContext ctx,
         ContainerId initialContainerId,
         GetContainerIdDelegate getContainerId,
-        InvalidateContainerCacheDelegate invalidateCache,
         StreamMetricsDelegate streamMetrics,
-        ReportDockerMonitorProgress progress,
         ILogger logger,
         CancellationToken ct)
     {
-        // State machine loop, reconnection logic, metrics collection
         // All state access goes through ctx parameter
     }
 }
@@ -1235,14 +1353,10 @@ internal sealed class DockerClientWrapper
 
 - A class inherits from a framework base class (`BackgroundService`, `ControllerBase`, `DbContext`)
 - A class wraps an external client/SDK as instance state
-- The class has 3+ private methods containing business logic
-- You want to test the logic without framework lifecycle
 
 **When NOT to use:**
 
-- The class is already simple (1-2 short methods, minimal state)
 - The class has no framework coupling — just make it static (Guideline 1)
-- The "context" would only have one field — not worth the indirection
 
 **File organization:**
 
@@ -1254,6 +1368,7 @@ internal sealed class DockerClientWrapper
 
 **Relationship to other guidelines:**
 
+- Applies **Guideline 32** (context record) or **Guideline 33** (immutable state) for the state extraction
 - Extends **Guideline 1** (static classes) to cases where the class itself can't be static
 - Applies **Guideline 2** (explicit parameters) — static functions take context + delegates, not fields
 - Uses **Guideline 12** (named delegates) for the operations that the shell passes to static functions
