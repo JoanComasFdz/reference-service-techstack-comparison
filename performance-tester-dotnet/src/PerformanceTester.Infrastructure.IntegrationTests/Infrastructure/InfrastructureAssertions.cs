@@ -1,5 +1,5 @@
 using JoanComasFdz.AssertingThat;
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.IntegrationTesting;

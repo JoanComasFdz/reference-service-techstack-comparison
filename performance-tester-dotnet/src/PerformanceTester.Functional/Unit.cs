@@ -1,4 +1,4 @@
-namespace JoanComasFdz.Result;
+namespace PerformanceTester.Functional;
 
 /// <summary>
 /// A type with exactly one possible value, representing "no meaningful data."

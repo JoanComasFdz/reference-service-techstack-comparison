@@ -1,9 +1,9 @@
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.ApiLoadTesting;
 using Serilog.Context;
-using static JoanComasFdz.Result.Result<PerformanceTester.Orchestration.ApiTestPhase.Output, string>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.ApiTestPhase.Output, string>;
 
 namespace PerformanceTester.Orchestration;
 

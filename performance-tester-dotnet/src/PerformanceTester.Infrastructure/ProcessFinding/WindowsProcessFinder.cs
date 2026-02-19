@@ -1,8 +1,8 @@
 using System.Diagnostics;
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.ValueObjects;
-using static JoanComasFdz.Result.Result<PerformanceTester.Infrastructure.ValueObjects.ProcessId, string>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Infrastructure.ValueObjects.ProcessId, string>;
 
 namespace PerformanceTester.Infrastructure.ProcessFinding;
 

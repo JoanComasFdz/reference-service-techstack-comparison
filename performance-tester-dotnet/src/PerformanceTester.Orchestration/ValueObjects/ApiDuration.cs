@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
-using JoanComasFdz.Result;
-using static JoanComasFdz.Result.Result<PerformanceTester.Orchestration.ValueObjects.ApiDuration, string>;
+using PerformanceTester.Functional;
+using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.ValueObjects.ApiDuration, string>;
 
 namespace PerformanceTester.Orchestration.ValueObjects;
 

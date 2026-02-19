@@ -1,10 +1,10 @@
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.EventPublishing;
 using Serilog.Context;
-using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, string>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Functional.Unit, string>;
 
 namespace PerformanceTester.Orchestration;
 

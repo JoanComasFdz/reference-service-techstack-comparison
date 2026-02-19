@@ -1,5 +1,5 @@
-using JoanComasFdz.Result;
-using static JoanComasFdz.Result.Result<PerformanceTester.Infrastructure.ValueObjects.ProcessId, string>;
+using PerformanceTester.Functional;
+using static PerformanceTester.Functional.Result<PerformanceTester.Infrastructure.ValueObjects.ProcessId, string>;
 
 namespace PerformanceTester.Infrastructure.ValueObjects;
 

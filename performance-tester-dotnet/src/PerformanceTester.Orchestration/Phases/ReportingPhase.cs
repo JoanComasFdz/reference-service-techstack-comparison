@@ -1,4 +1,4 @@
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.DockerMonitoring;
@@ -10,7 +10,7 @@ using PerformanceTester.Reporting.ReportGeneration;
 using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.SystemMonitoring;
 using Serilog.Context;
-using static JoanComasFdz.Result.Result<PerformanceTester.Reporting.TestReport, string>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Reporting.TestReport, string>;
 
 namespace PerformanceTester.Orchestration;
 

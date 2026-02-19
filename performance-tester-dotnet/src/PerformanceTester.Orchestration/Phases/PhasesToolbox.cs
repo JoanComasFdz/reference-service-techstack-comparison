@@ -1,4 +1,4 @@
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;

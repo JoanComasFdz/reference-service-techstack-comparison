@@ -51,7 +51,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceTester.SystemMon
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceTester.SystemMonitoring.Tests", "PerformanceTester.SystemMonitoring.Tests\PerformanceTester.SystemMonitoring.Tests.csproj", "{84A8916D-F120-4CAC-A111-4C9DBD341726}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoanComasFdz.Result", "JoanComasFdz.Result\JoanComasFdz.Result.csproj", "{C4E4171C-1157-4CAE-A073-DFB1C79240FB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceTester.Functional", "PerformanceTester.Functional\PerformanceTester.Functional.csproj", "{C4E4171C-1157-4CAE-A073-DFB1C79240FB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotnet9.Events", "..\..\implementations\dotnet9.events\Dotnet9.Events.csproj", "{7C312E6D-4685-69CD-0E6C-C6CC3459EC26}"
 EndProject

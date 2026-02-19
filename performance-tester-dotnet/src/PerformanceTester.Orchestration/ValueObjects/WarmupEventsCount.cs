@@ -1,5 +1,5 @@
-using JoanComasFdz.Result;
-using static JoanComasFdz.Result.Result<PerformanceTester.Orchestration.ValueObjects.WarmupEventsCount, string>;
+using PerformanceTester.Functional;
+using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.ValueObjects.WarmupEventsCount, string>;
 
 namespace PerformanceTester.Orchestration.ValueObjects;
 

@@ -1,6 +1,6 @@
 using Dunet;
 
-namespace JoanComasFdz.Result;
+namespace PerformanceTester.Functional;
 
 /// <summary>
 /// A discriminated union representing either a successful value or a typed failure.

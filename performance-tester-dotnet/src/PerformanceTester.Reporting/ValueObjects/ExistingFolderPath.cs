@@ -1,4 +1,4 @@
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 
 namespace PerformanceTester.Reporting.ValueObjects;
 

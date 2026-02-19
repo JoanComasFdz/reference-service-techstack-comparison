@@ -1,4 +1,4 @@
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using Microsoft.Extensions.Configuration;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;

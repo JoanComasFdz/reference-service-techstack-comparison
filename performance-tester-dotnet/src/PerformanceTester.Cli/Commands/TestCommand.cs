@@ -1,7 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Hosting;
 using System.CommandLine.Invocation;
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Cli.Output;

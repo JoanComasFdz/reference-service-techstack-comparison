@@ -1,8 +1,8 @@
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using PerformanceTester.Infrastructure.ValueObjects;
-using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, PerformanceTester.Infrastructure.Database.ClearDatabaseError>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Functional.Unit, PerformanceTester.Infrastructure.Database.ClearDatabaseError>;
 
 namespace PerformanceTester.Infrastructure.Database;
 

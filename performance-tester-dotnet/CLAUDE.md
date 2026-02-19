@@ -72,7 +72,7 @@ This project follows **Vertical Slice Architecture** rather than traditional lay
 PerformanceTester.sln (25 projects)
 │
 ├── Shared Libraries
-│   ├── JoanComasFdz.Result/                      # Result<T> discriminated union (dunet)
+│   ├── PerformanceTester.Functional/              # Result<T>, Option<T>, Unit (dunet)
 │   └── PerformanceTester.Common/                  # Cross-platform utilities (netstandard2.0)
 │
 ├── Foundation Layer

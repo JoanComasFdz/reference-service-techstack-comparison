@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using Microsoft.Extensions.Logging;
 
 namespace PerformanceTester.ApiLoadTesting;

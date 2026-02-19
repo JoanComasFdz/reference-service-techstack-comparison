@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\JoanComasFdz.Result\JoanComasFdz.Result.csproj" />
+    <ProjectReference Include="..\PerformanceTester.Functional\PerformanceTester.Functional.csproj" />
   </ItemGroup>
 
 </Project>

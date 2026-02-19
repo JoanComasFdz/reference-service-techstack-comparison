@@ -1,4 +1,4 @@
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.Infrastructure.ProcessFinding;

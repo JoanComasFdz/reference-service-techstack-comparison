@@ -344,7 +344,7 @@ public static async Task ExecuteAsync(IApiLoadTester apiLoadTester, ...) { ... }
 
 ## Error Handling with Result Types
 
-This codebase uses the `JoanComasFdz.Result` library (backed by [dunet](https://github.com/domn1995/dunet) discriminated unions) for typed error handling. These guidelines govern how Results are produced and consumed.
+This codebase uses the `PerformanceTester.Functional` library (backed by [dunet](https://github.com/domn1995/dunet) discriminated unions) for typed error handling. These guidelines govern how Results are produced and consumed.
 
 ### 15. Use Result Types Instead of Exceptions for Expected Failures
 
@@ -416,7 +416,7 @@ Producer methods that return `Result<TSuccess, TFailure>` should add a `using st
 
 ```csharp
 // ✅ Good - using static at the top of the file
-using static JoanComasFdz.Result.Result<System.TimeSpan, DurationParseError>;
+using static PerformanceTester.Functional.Result<System.TimeSpan, DurationParseError>;
 
 // Then in the method body:
 return new Success(TimeSpan.FromSeconds(value));
@@ -430,7 +430,7 @@ return new Result<TimeSpan, DurationParseError>.Failure(new DurationParseError.E
 When `TSuccess` or `TFailure` uses types from other namespaces, use fully qualified names in the `using static` directive:
 
 ```csharp
-using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, string>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Functional.Unit, string>;
 ```
 
 ### 17. Use dunet `Match` for Exhaustive Result Consumption
@@ -565,8 +565,8 @@ if (options.Events < 1 || options.Events > 1_000_000) return "error";
 Follow this exact structure for consistency:
 
 ```csharp
-using JoanComasFdz.Result;
-using static JoanComasFdz.Result.Result<Namespace.ValueType, string>;
+using PerformanceTester.Functional;
+using static PerformanceTester.Functional.Result<Namespace.ValueType, string>;
 
 namespace PerformanceTester.Orchestration.ValueObjects;
 

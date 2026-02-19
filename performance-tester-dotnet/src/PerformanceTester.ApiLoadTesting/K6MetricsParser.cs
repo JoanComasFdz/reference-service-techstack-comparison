@@ -1,6 +1,6 @@
 using System.Text.Json;
-using JoanComasFdz.Result;
-using static JoanComasFdz.Result.Result<PerformanceTester.ApiLoadTesting.K6Metric, PerformanceTester.ApiLoadTesting.ParseLineError>;
+using PerformanceTester.Functional;
+using static PerformanceTester.Functional.Result<PerformanceTester.ApiLoadTesting.K6Metric, PerformanceTester.ApiLoadTesting.ParseLineError>;
 
 namespace PerformanceTester.ApiLoadTesting;
 

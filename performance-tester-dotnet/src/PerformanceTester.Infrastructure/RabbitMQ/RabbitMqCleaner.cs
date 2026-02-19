@@ -1,10 +1,10 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.ValueObjects;
-using static JoanComasFdz.Result.Result<JoanComasFdz.Result.Unit, string>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Functional.Unit, string>;
 
 namespace PerformanceTester.Infrastructure.RabbitMQ;
 

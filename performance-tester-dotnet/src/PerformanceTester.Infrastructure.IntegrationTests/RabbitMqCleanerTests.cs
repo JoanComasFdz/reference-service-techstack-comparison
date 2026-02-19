@@ -1,5 +1,5 @@
 using JoanComasFdz.AssertingThat;
-using JoanComasFdz.Result;
+using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.IntegrationTests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;

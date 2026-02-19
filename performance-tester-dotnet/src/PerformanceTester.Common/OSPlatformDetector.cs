@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
-using JoanComasFdz.Result;
-using static JoanComasFdz.Result.Result<PerformanceTester.Common.SupportedPlatform, string>;
+using PerformanceTester.Functional;
+using static PerformanceTester.Functional.Result<PerformanceTester.Common.SupportedPlatform, string>;
 
 namespace PerformanceTester.Common;
 

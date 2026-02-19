@@ -1,6 +1,6 @@
 using System;
 
-namespace JoanComasFdz.Result;
+namespace PerformanceTester.Functional;
 
 /// <summary>
 /// LINQ query syntax support for <see cref="Result{TSuccess,TFailure}"/>.
