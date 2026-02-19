@@ -24,6 +24,7 @@ This slice provides real-time Docker container monitoring capabilities using the
 ```csharp
 using Microsoft.Extensions.Hosting;
 using PerformanceTester.DockerMonitoring;
+using PerformanceTester.DockerMonitoring.Monitoring;
 using PerformanceTester.Infrastructure.ValueObjects;
 
 var builder = Host.CreateApplicationBuilder();
@@ -163,20 +164,46 @@ var cpuPercent = (cpuDelta / timeDelta / Environment.ProcessorCount) * 100.0;
 
 ## Architecture
 
+### Folder Structure
+
+```
+DockerMonitoring/
+├── Connection/               # State machine & reconnection logic
+│   ├── ConnectionState.cs       # Discriminated union of connection states
+│   ├── ConnectionStateMachine.cs # Pure state transition function
+│   ├── StreamEvent.cs           # Stream event discriminated union
+│   ├── ReconnectionPolicy.cs    # Backoff and retry decisions
+│   └── StreamingConstants.cs    # Timeout and retry configuration
+├── Stats/                    # Docker API & metrics conversion
+│   ├── DockerClientWrapper.cs   # Docker.DotNet client wrapper
+│   └── StatsProcessing.cs      # Raw stats → DockerMetrics conversion
+├── Monitoring/               # Lifecycle orchestration & public API
+│   ├── DockerMonitorService.cs  # BackgroundService (state machine interpreter)
+│   ├── DockerMonitorPhaseInfo.cs # Phase enum & phase info record
+│   ├── PhaseReporting.cs        # ConnectionState → PhaseInfo mapping
+│   ├── DockerMonitoringDelegates.cs # Public named delegates
+│   └── ServiceCollectionExtensions.cs # DI registration
+├── ValueObjects/             # Domain value objects
+├── DockerMetrics.cs          # Shared slice-level data model
+└── README.md
+```
+
 ### Components
 
 ```
-DockerMonitorService (internal BackgroundService)
+Monitoring/DockerMonitorService (internal BackgroundService)
     |  uses
-DockerClientWrapper
+Connection/ConnectionStateMachine (pure state transitions)
+    |  uses
+Stats/DockerClientWrapper
     |  wraps
 Docker.DotNet.DockerClient
     |  produces
-DockerMetrics
+DockerMetrics (root)
     |  stores in
 ConcurrentBag<DockerMetrics> (in-memory)
     |  retrieved via
-GetDockerMetrics delegate
+Monitoring/GetDockerMetrics delegate
 ```
 
 ### Design Patterns
