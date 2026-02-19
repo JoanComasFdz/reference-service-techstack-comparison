@@ -1,3 +1,4 @@
+using PerformanceTester.DockerMonitoring.Connection;
 using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.DockerMonitoring;

@@ -1,6 +1,6 @@
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring;
+namespace PerformanceTester.DockerMonitoring.Connection;
 
 /// <summary>
 /// Pure functions for reconnection backoff and retry decisions.

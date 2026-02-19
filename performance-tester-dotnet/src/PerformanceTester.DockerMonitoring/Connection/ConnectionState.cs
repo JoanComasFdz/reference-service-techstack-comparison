@@ -1,7 +1,7 @@
 using Dunet;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring;
+namespace PerformanceTester.DockerMonitoring.Connection;
 
 /// <summary>
 /// Explicit state machine for Docker streaming connection lifecycle.
