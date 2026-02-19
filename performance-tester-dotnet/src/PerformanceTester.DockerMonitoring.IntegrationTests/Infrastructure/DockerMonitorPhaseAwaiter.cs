@@ -1,3 +1,5 @@
+using PerformanceTester.DockerMonitoring.Monitoring;
+
 namespace PerformanceTester.DockerMonitoring.IntegrationTests.Infrastructure;
 
 /// <summary>

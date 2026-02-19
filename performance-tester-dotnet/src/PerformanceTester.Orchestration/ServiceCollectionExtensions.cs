@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PerformanceTester.ApiLoadTesting;
 using PerformanceTester.DockerMonitoring;
+using PerformanceTester.DockerMonitoring.Monitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure;

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.DockerMonitoring;
+using PerformanceTester.DockerMonitoring.Monitoring;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.ValueObjects;

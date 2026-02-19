@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.DockerMonitoring.Monitoring;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.IntegrationTesting.Logging;
 using SystemBase = PerformanceTester.IntegrationTesting.System;
