@@ -29,8 +29,8 @@ public static class ServiceCollectionExtensions
         PostgresContainerName postgresContainerName)
     {
         NonEmptyString[] containerNames = [rabbitMqContainerName, postgresContainerName];
-        // Shared Docker client (singleton, registered once)
-        services.AddSingleton<DockerClientWrapper>();
+        // Low-level Docker operations (client, cache, delegates)
+        services.AddDockerStats();
 
         // Register one BackgroundService per container (keyed singletons)
         containerNames.ToList().ForEach(name =>
@@ -38,7 +38,10 @@ public static class ServiceCollectionExtensions
             services.AddKeyedSingleton<DockerMonitorService>(name.Value, (sp, _) =>
                 new DockerMonitorService(
                     name,
-                    sp.GetRequiredService<DockerClientWrapper>(),
+                    sp.GetRequiredService<GetContainerIdDelegate>(),
+                    sp.GetRequiredService<StreamMetricsDelegate>(),
+                    sp.GetRequiredService<GetSnapshotDelegate>(),
+                    sp.GetRequiredService<InvalidateContainerCacheDelegate>(),
                     sp.GetRequiredService<ILogger<DockerMonitorService>>()));
 
             services.AddSingleton<IHostedService>(sp =>

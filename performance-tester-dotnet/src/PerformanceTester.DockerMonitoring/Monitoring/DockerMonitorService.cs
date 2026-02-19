@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using PerformanceTester.DockerMonitoring.Connection;
 using PerformanceTester.DockerMonitoring.Stats;
 using PerformanceTester.DockerMonitoring.ValueObjects;
+using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.DockerMonitoring.Monitoring;
@@ -17,7 +18,10 @@ namespace PerformanceTester.DockerMonitoring.Monitoring;
 internal sealed class DockerMonitorService : BackgroundService
 {
     private readonly NonEmptyString _containerName;
-    private readonly DockerClientWrapper _dockerClient;
+    private readonly GetContainerIdDelegate _getContainerId;
+    private readonly StreamMetricsDelegate _streamMetrics;
+    private readonly GetSnapshotDelegate _getSnapshot;
+    private readonly InvalidateContainerCacheDelegate _invalidateCache;
     private readonly ILogger<DockerMonitorService> _logger;
     private readonly ConcurrentBag<DockerMetrics> _collectedMetrics = new();
     private readonly TaskCompletionSource _startSignal = new();
@@ -35,11 +39,17 @@ internal sealed class DockerMonitorService : BackgroundService
 
     public DockerMonitorService(
         NonEmptyString containerName,
-        DockerClientWrapper dockerClient,
+        GetContainerIdDelegate getContainerId,
+        StreamMetricsDelegate streamMetrics,
+        GetSnapshotDelegate getSnapshot,
+        InvalidateContainerCacheDelegate invalidateCache,
         ILogger<DockerMonitorService> logger)
     {
         _containerName = containerName;
-        _dockerClient = dockerClient;
+        _getContainerId = getContainerId;
+        _streamMetrics = streamMetrics;
+        _getSnapshot = getSnapshot;
+        _invalidateCache = invalidateCache;
         _logger = logger;
     }
 
@@ -47,11 +57,11 @@ internal sealed class DockerMonitorService : BackgroundService
     {
         _logger.LogDebug("Warming up Docker API for container {ContainerName}...", _containerName);
 
-        var containerId = await _dockerClient.GetContainerIdAsync(_containerName.Value, cancellationToken);
+        var idResult = await _getContainerId(_containerName.Value, cancellationToken);
 
-        if (containerId != null)
+        if (idResult.IsSuccess)
         {
-            await _dockerClient.GetContainerStatsAsync(_containerName.Value, cancellationToken);
+            await _getSnapshot(idResult.SuccessValue, cancellationToken);
         }
 
         _logger.LogDebug("Docker API warmup complete for container {ContainerName}", _containerName);
@@ -109,32 +119,23 @@ internal sealed class DockerMonitorService : BackgroundService
         }
 
         // Resolve container ID once
-        string? containerId;
-        try
+        var idResult = await _getContainerId(_containerName.Value, stoppingToken);
+
+        if (idResult.IsFailure)
         {
-            containerId = await _dockerClient.GetContainerIdAsync(_containerName.Value, stoppingToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to resolve container {ContainerName}", _containerName);
+            _logger.LogWarning(
+                "Failed to resolve container {ContainerName}: {Error}",
+                _containerName,
+                idResult.FailureError.Message);
             _firstSampleCollected.TrySetResult();
             _progress(DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
                 _containerName,
-                message: $"Failed to resolve container: {ex.Message}"));
+                message: $"Failed to resolve container: {idResult.FailureError.Message}"));
             return;
         }
 
-        if (containerId == null)
-        {
-            _logger.LogWarning("Container {ContainerName} not found, cannot start monitoring", _containerName);
-            _firstSampleCollected.TrySetResult();
-            _progress(DockerMonitorPhaseInfo.Failed(
-                DockerMonitorPhase.StreamFailed,
-                _containerName,
-                message: $"Container '{_containerName}' not found"));
-            return;
-        }
+        var containerId = idResult.SuccessValue;
 
         _logger.LogInformation(
             "Docker monitor starting streaming for container: {ContainerName} (ID: {ContainerId})",
@@ -251,7 +252,7 @@ internal sealed class DockerMonitorService : BackgroundService
 
         try
         {
-            await foreach (var metrics in _dockerClient.StreamMetrics(
+            await foreach (var metrics in _streamMetrics(
                 connectingState.ContainerId.Value, _containerName, cancellationToken))
             {
                 if (currentState is ConnectionState.Connecting)
@@ -292,7 +293,7 @@ internal sealed class DockerMonitorService : BackgroundService
         }
         catch (Exception ex)
         {
-            _dockerClient.InvalidateContainerCache(_containerName.Value);
+            _invalidateCache(_containerName.Value);
 
             var nextState = ConnectionStateMachine.Transition(
                 currentState,
@@ -330,20 +331,19 @@ internal sealed class DockerMonitorService : BackgroundService
 
             await Task.Delay(backoff.DelayToUse, cancellationToken);
 
-            _dockerClient.InvalidateContainerCache(_containerName.Value);
+            _invalidateCache(_containerName.Value);
 
-            var newContainerId = await _dockerClient.GetContainerIdAsync(
-                _containerName.Value, cancellationToken);
+            var idResult = await _getContainerId(_containerName.Value, cancellationToken);
 
-            if (newContainerId == null)
+            if (idResult.IsFailure)
             {
                 _logger.LogWarning(
                     "Container {ContainerName} not found during reconnection",
                     _containerName);
             }
 
-            var resolvedContainerId = newContainerId != null
-                ? ContainerId.FromString(newContainerId)
+            var resolvedContainerId = idResult.IsSuccess
+                ? ContainerId.FromString(idResult.SuccessValue)
                 : disconnectedState.ContainerId;
 
             return new ConnectionState.Connecting(
