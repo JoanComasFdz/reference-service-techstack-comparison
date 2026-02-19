@@ -32,5 +32,5 @@ internal static class ReconnectionPolicy
     /// Returns true if retrying is allowed (failures have not exceeded the limit).
     /// </summary>
     public static bool ShouldRetry(NonNegativeInt consecutiveFailures, NonNegativeInt maxAttempts)
-        => consecutiveFailures.Value <= maxAttempts.Value;
+        => consecutiveFailures <= maxAttempts;
 }

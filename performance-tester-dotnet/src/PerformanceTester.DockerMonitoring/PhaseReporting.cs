@@ -23,7 +23,7 @@ internal static class PhaseReporting
             DockerMonitorPhaseInfo.Starting(
                 DockerMonitorPhase.StreamConnecting,
                 containerName.Value,
-                message: $"Reconnecting to {containerName} (attempt {c.AttemptNumber.Value + 1})..."),
+                message: $"Reconnecting to {containerName} (attempt {c.AttemptNumber + 1})..."),
 
         ConnectionState.Connected =>
             DockerMonitorPhaseInfo.Completed(
