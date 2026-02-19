@@ -1,6 +1,6 @@
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring;
+namespace PerformanceTester.DockerMonitoring.Monitoring;
 
 /// <summary>
 /// Reports docker monitoring phase changes.

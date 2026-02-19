@@ -1,7 +1,7 @@
 using PerformanceTester.DockerMonitoring.Connection;
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring;
+namespace PerformanceTester.DockerMonitoring.Monitoring;
 
 /// <summary>
 /// Pure mapping from <see cref="ConnectionState"/> to <see cref="DockerMonitorPhaseInfo"/>.

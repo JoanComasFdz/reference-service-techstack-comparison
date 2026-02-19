@@ -6,7 +6,7 @@ using PerformanceTester.DockerMonitoring.Stats;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring;
+namespace PerformanceTester.DockerMonitoring.Monitoring;
 
 /// <summary>
 /// BackgroundService that monitors Docker container resource usage using streaming mode.

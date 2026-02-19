@@ -1,4 +1,4 @@
-namespace PerformanceTester.DockerMonitoring;
+namespace PerformanceTester.DockerMonitoring.Monitoring;
 
 /// <summary>
 /// Represents the phases in Docker container monitoring lifecycle.

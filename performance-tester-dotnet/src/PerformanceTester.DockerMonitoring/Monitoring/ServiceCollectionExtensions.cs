@@ -5,7 +5,7 @@ using PerformanceTester.DockerMonitoring.Stats;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring;
+namespace PerformanceTester.DockerMonitoring.Monitoring;
 
 /// <summary>
 /// Extension methods for registering Docker monitoring services.
