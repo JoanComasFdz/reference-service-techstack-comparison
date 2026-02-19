@@ -27,11 +27,11 @@ public sealed record DockerMetrics
     /// CPU usage percentage (0-100% per core, can exceed 100% on multi-core).
     /// Calculated as: (cpu_delta / system_delta) * cpu_count * 100
     /// </summary>
-    public required double CpuPercent { get; init; }
+    public required CpuPercent CpuPercent { get; init; }
 
     /// <summary>
     /// Memory usage in megabytes.
     /// Calculated from stats.MemoryStats.Usage / 1024 / 1024.
     /// </summary>
-    public required double MemoryMB { get; init; }
+    public required MemoryMB MemoryMB { get; init; }
 }

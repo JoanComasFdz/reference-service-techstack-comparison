@@ -32,8 +32,8 @@ internal static class StatsProcessing
             Timestamp = timestamp,
             ContainerId = ContainerId.FromString(stats.ID),
             ContainerName = containerName,
-            CpuPercent = CalculateCpuPercent(stats),
-            MemoryMB = Math.Round(stats.MemoryStats.Usage / 1024.0 / 1024.0, 2)
+            CpuPercent = CpuPercent.FromDouble(CalculateCpuPercent(stats)),
+            MemoryMB = MemoryMB.FromDouble(Math.Round(stats.MemoryStats.Usage / 1024.0 / 1024.0, 2))
         });
     }
 
