@@ -1118,6 +1118,147 @@ var deps = new Dependencies(
 - **Baking in a mutable value** creates stale closures that silently use outdated data
 - **Using a reader delegate for an immutable value** adds unnecessary indirection
 
+### 32. Thin Shell Pattern for Framework-Coupled Classes
+
+Guidelines 1 and 2 say "make it static" and "pass all dependencies explicitly." But some classes _can't_ be static — they inherit from framework base classes (`BackgroundService`, `DbContext`, `ControllerBase`). These classes accumulate mutable state fields, business logic methods, and lifecycle management in one file, making them hard to test and reason about.
+
+**The pattern:** Extract everything out. The framework-inheriting class becomes a **thin shell** with three responsibilities only:
+
+1. **Own the context** — a record holding all mutable state
+2. **Wire lifecycle** — connect framework hooks to static functions
+3. **Expose the public API** — delegate to context or static functions
+
+```csharp
+// 1. Context record — all mutable state, no logic
+internal sealed record MonitorContext(NonEmptyString ContainerName)
+{
+    public ConcurrentBag<DockerMetrics> CollectedMetrics { get; } = new();
+    public TaskCompletionSource StartSignal { get; } = new();
+    public bool StreamingFailed { get; set; }
+}
+
+// 2. Static operations — all logic, explicit parameters, no instance state
+internal static class MonitoringOperations
+{
+    public static async Task RunStreamingLoopAsync(
+        MonitorContext ctx,
+        ContainerId initialContainerId,
+        GetContainerIdDelegate getContainerId,
+        InvalidateContainerCacheDelegate invalidateCache,
+        StreamMetricsDelegate streamMetrics,
+        ReportDockerMonitorProgress progress,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        // State machine loop, reconnection logic, metrics collection
+        // All state access goes through ctx parameter
+    }
+}
+
+// 3. Thin shell — owns context, wires lifecycle, no business logic
+internal sealed class DockerMonitorService : BackgroundService
+{
+    private readonly MonitorContext _ctx;
+    private readonly GetContainerIdDelegate _getContainerId;
+    // ... other delegates ...
+
+    public DockerMonitorService(NonEmptyString containerName, ...)
+    {
+        _ctx = new MonitorContext(containerName);
+        // ... store delegates ...
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        // Lifecycle wiring only: wait for signal, resolve ID, delegate to static function
+        var streamingTask = Task.Run(
+            () => MonitoringOperations.RunStreamingLoopAsync(
+                _ctx, containerId, _getContainerId, ...),
+            stoppingToken);
+        // ... await shutdown ...
+    }
+
+    public IReadOnlyCollection<DockerMetrics> GetCollectedMetrics() => _ctx.CollectedMetrics
+        .OrderBy(m => m.Timestamp)
+        .ToList()
+        .AsReadOnly();
+}
+```
+
+```csharp
+// ❌ Avoid — framework class owns state, logic, and lifecycle together
+internal sealed class DockerMonitorService : BackgroundService
+{
+    private readonly ConcurrentBag<DockerMetrics> _collectedMetrics = new();
+    private readonly TaskCompletionSource _startSignal = new();
+    private volatile bool _streamingFailed;
+    private Task? _streamingTask;
+    private CancellationTokenSource? _streamingCts;
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        // 200+ lines mixing lifecycle management with business logic
+    }
+
+    private async Task RunStreamingLoopAsync(...) { /* business logic buried in instance method */ }
+    private async Task<ConnectionState> ExecuteStreamingSessionAsync(...) { /* more logic */ }
+    private async Task<ConnectionState> ExecuteReconnectAsync(...) { /* more logic */ }
+}
+```
+
+**Same pattern for API wrappers:**
+
+```csharp
+// ✅ Good — static operations + delegates, no wrapper class
+internal static class DockerOperations
+{
+    public static async Task<Result<string>> GetContainerIdAsync(
+        DockerClient client, string containerName, CancellationToken ct) { ... }
+
+    public static async IAsyncEnumerable<DockerMetrics> StreamMetricsAsync(
+        DockerClient client, string containerId, ...) { ... }
+}
+
+// DI registers delegates that close over the shared client:
+services.AddSingleton<GetContainerIdDelegate>(sp =>
+    (name, ct) => DockerOperations.GetContainerIdAsync(sp.GetRequiredService<DockerClient>(), name, ct));
+
+// ❌ Avoid — wrapper class holding client as field
+internal sealed class DockerClientWrapper
+{
+    private readonly DockerClient _client;
+    public async Task<Result<string>> GetContainerIdAsync(...) { ... }
+}
+```
+
+**When to use:**
+
+- A class inherits from a framework base class (`BackgroundService`, `ControllerBase`, `DbContext`)
+- A class wraps an external client/SDK as instance state
+- The class has 3+ private methods containing business logic
+- You want to test the logic without framework lifecycle
+
+**When NOT to use:**
+
+- The class is already simple (1-2 short methods, minimal state)
+- The class has no framework coupling — just make it static (Guideline 1)
+- The "context" would only have one field — not worth the indirection
+
+**File organization:**
+
+| File                          | Content                        |
+| ----------------------------- | ------------------------------ |
+| `MonitorContext.cs`           | Mutable state record           |
+| `MonitoringOperations.cs`    | Static logic functions         |
+| `DockerMonitorService.cs`    | Thin shell (lifecycle only)    |
+
+**Relationship to other guidelines:**
+
+- Extends **Guideline 1** (static classes) to cases where the class itself can't be static
+- Applies **Guideline 2** (explicit parameters) — static functions take context + delegates, not fields
+- Uses **Guideline 12** (named delegates) for the operations that the shell passes to static functions
+- Follows **Guideline 14** (interfaces at DI boundaries, delegates internally) — the shell wires delegates to static functions
+
 ---
 
 ## Summary
@@ -1157,3 +1298,4 @@ var deps = new Dependencies(
 | Dependency composition      | Am I receiving interfaces? Contain them in a dependencies class, expose delegates at the right level          |
 | Static class as module      | Can I co-locate delegates, bundle record, factory, and execution in one static class?                         |
 | Three-bucket rule           | Is this value fixed at construction, produced at runtime, or mutable? Bake in / parameter / reader delegate   |
+| Thin shell pattern          | Does this class inherit from a framework base? Extract state → context record, logic → static functions       |
