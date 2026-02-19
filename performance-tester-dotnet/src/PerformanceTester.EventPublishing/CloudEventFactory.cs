@@ -70,19 +70,16 @@ internal static class CloudEventFactory
     public static CloudEvent CreateRandomEvent()
     {
         var deviceId = DeviceIds[Random.Shared.Next(DeviceIds.Length)];
-        var transition = StatusTransitions[Random.Shared.Next(StatusTransitions.Length)];
+        var (Previous, Current) = StatusTransitions[Random.Shared.Next(StatusTransitions.Length)];
 
         return CreateInstrumentStatusChangedEvent(
             deviceId,
-            transition.Previous,
-            transition.Current);
+            Previous,
+            Current);
     }
 
     /// <summary>
     /// Serializes a CloudEvent to JSON bytes for publishing.
     /// </summary>
-    public static ReadOnlyMemory<byte> Serialize(CloudEvent cloudEvent)
-    {
-        return Formatter.EncodeStructuredModeMessage(cloudEvent, out _);
-    }
+    public static ReadOnlyMemory<byte> Serialize(CloudEvent cloudEvent) => Formatter.EncodeStructuredModeMessage(cloudEvent, out _);
 }
