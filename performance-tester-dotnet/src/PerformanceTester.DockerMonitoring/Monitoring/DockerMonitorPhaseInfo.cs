@@ -1,3 +1,4 @@
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.DockerMonitoring.Monitoring;
@@ -77,7 +78,7 @@ public readonly record struct DockerMonitorPhaseInfo(
     DockerMonitorPhase Phase,
     DockerMonitorPhaseState State,
     NonEmptyString ContainerName,
-    int SampleCount = 0,
+    SampleCount SampleCount,
     string? Message = null,
     DateTimeOffset? Timestamp = null)
 {
@@ -92,9 +93,9 @@ public readonly record struct DockerMonitorPhaseInfo(
     public static DockerMonitorPhaseInfo Starting(
         DockerMonitorPhase phase,
         NonEmptyString containerName,
-        int sampleCount = 0,
         string? message = null)
-        => new(phase, DockerMonitorPhaseState.Starting, containerName, sampleCount, message, DateTimeOffset.UtcNow);
+        => new(phase, DockerMonitorPhaseState.Starting, containerName,
+            SampleCount.FromInt(0), message, DateTimeOffset.UtcNow);
 
     /// <summary>
     /// Creates a DockerMonitorPhaseInfo indicating a phase has completed.
@@ -102,9 +103,20 @@ public readonly record struct DockerMonitorPhaseInfo(
     public static DockerMonitorPhaseInfo Completed(
         DockerMonitorPhase phase,
         NonEmptyString containerName,
-        int sampleCount = 0,
         string? message = null)
-        => new(phase, DockerMonitorPhaseState.Completed, containerName, sampleCount, message, DateTimeOffset.UtcNow);
+        => new(phase, DockerMonitorPhaseState.Completed, containerName,
+            SampleCount.FromInt(0), message, DateTimeOffset.UtcNow);
+
+    /// <summary>
+    /// Creates a DockerMonitorPhaseInfo indicating a phase has completed.
+    /// </summary>
+    public static DockerMonitorPhaseInfo Completed(
+        DockerMonitorPhase phase,
+        NonEmptyString containerName,
+        SampleCount sampleCount,
+        string? message = null)
+        => new(phase, DockerMonitorPhaseState.Completed, containerName,
+            sampleCount, message, DateTimeOffset.UtcNow);
 
     /// <summary>
     /// Creates a DockerMonitorPhaseInfo indicating a phase has failed.
@@ -112,7 +124,7 @@ public readonly record struct DockerMonitorPhaseInfo(
     public static DockerMonitorPhaseInfo Failed(
         DockerMonitorPhase phase,
         NonEmptyString containerName,
-        int sampleCount = 0,
         string? message = null)
-        => new(phase, DockerMonitorPhaseState.Failed, containerName, sampleCount, message, DateTimeOffset.UtcNow);
+        => new(phase, DockerMonitorPhaseState.Failed, containerName,
+            SampleCount.FromInt(0), message, DateTimeOffset.UtcNow);
 }

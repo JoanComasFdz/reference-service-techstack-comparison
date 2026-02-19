@@ -196,7 +196,7 @@ internal sealed class DockerMonitorService : BackgroundService
                 _progress(DockerMonitorPhaseInfo.Completed(
                     DockerMonitorPhase.MonitoringCompleted,
                     _containerName,
-                    sampleCount: _collectedMetrics.Count,
+                    SampleCount.FromInt(_collectedMetrics.Count),
                     message: $"Monitoring completed, collected {_collectedMetrics.Count} samples"));
             }
         }
