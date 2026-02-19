@@ -33,4 +33,11 @@ internal static class StreamingConstants
     /// Resets to 0 when connection succeeds (first valid stats received).
     /// </summary>
     public static readonly AttemptCount MaxReconnectAttempts = AttemptCount.FromInt(10);
+
+    /// <summary>
+    /// Represents the default maximum jitter duration, in milliseconds, used for randomized delays.
+    /// </summary>
+    /// <remarks>This value can be used as a standard upper bound for jitter when introducing randomized
+    /// backoff or delay in operations. The value is set to 500 milliseconds.</remarks>
+    public static readonly JitterMaxMilliseconds JitterMaxMilliseconds = JitterMaxMilliseconds.FromInt(500);
 }

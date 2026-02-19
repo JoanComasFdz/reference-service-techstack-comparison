@@ -211,7 +211,9 @@ internal sealed class DockerMonitorService : BackgroundService
         CancellationToken cancellationToken)
     {
         ConnectionState state = new ConnectionState.Connecting(
-            initialContainerId, AttemptCount.FromInt(0), StreamingConstants.InitialReconnectDelay);
+            initialContainerId,
+            AttemptCount.FromInt(0),
+            StreamingConstants.InitialReconnectDelay);
 
         while (state is not ConnectionState.Failed && !cancellationToken.IsCancellationRequested)
         {

@@ -26,5 +26,4 @@ public delegate Task StartDockerMonitoring(
 /// Retrieves collected metrics for a specific container by name.
 /// Returns metrics in chronological order.
 /// </summary>
-public delegate IReadOnlyCollection<DockerMetrics> GetDockerMetrics(
-    NonEmptyString containerName);
+public delegate IReadOnlyCollection<DockerMetrics> GetDockerMetrics(NonEmptyString containerName);

@@ -1,3 +1,4 @@
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.DockerMonitoring.Connection;
@@ -19,18 +20,20 @@ internal static class ReconnectionPolicy
     /// </summary>
     public static BackoffResult CalculateBackoff(
         TimeSpan currentBackoff,
+        TimeSpan maxBackoff) => CalculateBackoff(currentBackoff, maxBackoff, StreamingConstants.JitterMaxMilliseconds);
+
+    public static BackoffResult CalculateBackoff(
+        TimeSpan currentBackoff,
         TimeSpan maxBackoff,
-        int jitterMaxMs = 500)
+        JitterMaxMilliseconds jitterMaxMs)
     {
-        var jitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, jitterMaxMs));
-        var nextBackoff = TimeSpan.FromTicks(
-            Math.Min(currentBackoff.Ticks * 2, maxBackoff.Ticks)) + jitter;
+        var jitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, jitterMaxMs.Value));
+        var nextBackoff = TimeSpan.FromTicks(Math.Min(currentBackoff.Ticks * 2, maxBackoff.Ticks)) + jitter;
         return new(currentBackoff, nextBackoff);
     }
 
     /// <summary>
     /// Returns true if retrying is allowed (failures have not exceeded the limit).
     /// </summary>
-    public static bool ShouldRetry(NonNegativeInt consecutiveFailures, NonNegativeInt maxAttempts)
-        => consecutiveFailures <= maxAttempts;
+    public static bool ShouldRetry(NonNegativeInt consecutiveFailures, NonNegativeInt maxAttempts) => consecutiveFailures <= maxAttempts;
 }
