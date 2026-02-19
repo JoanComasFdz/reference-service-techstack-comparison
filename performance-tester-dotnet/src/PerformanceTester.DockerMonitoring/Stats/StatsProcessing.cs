@@ -4,7 +4,7 @@ using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.ValueObjects;
 using static PerformanceTester.Functional.Option<PerformanceTester.DockerMonitoring.DockerMetrics>;
 
-namespace PerformanceTester.DockerMonitoring;
+namespace PerformanceTester.DockerMonitoring.Stats;
 
 /// <summary>
 /// Pure functions for converting Docker stats responses into domain metrics.

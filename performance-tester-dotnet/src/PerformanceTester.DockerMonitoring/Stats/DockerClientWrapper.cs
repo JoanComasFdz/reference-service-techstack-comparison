@@ -5,7 +5,7 @@ using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring;
+namespace PerformanceTester.DockerMonitoring.Stats;
 
 /// <summary>
 /// Wrapper around Docker.DotNet client for container stats retrieval.
