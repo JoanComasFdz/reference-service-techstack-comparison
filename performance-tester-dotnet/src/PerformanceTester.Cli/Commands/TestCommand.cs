@@ -20,62 +20,62 @@ public static class TestCommand
 {
     public static Command Create()
     {
-        var eventsOption = new Option<int>(
+        var eventsOption = new System.CommandLine.Option<int>(
             aliases: ["--events", "-e"],
             getDefaultValue: () => 10000,
             description: "Number of events to publish and consume (1-1,000,000)");
 
-        var apiDurationOption = new Option<string>(
+        var apiDurationOption = new System.CommandLine.Option<string>(
             aliases: ["--api-duration", "-d"],
             getDefaultValue: () => "30s",
             description: "API load test duration (e.g., 30s, 5m, 2h)");
 
-        var apiWorkersOption = new Option<int>(
+        var apiWorkersOption = new System.CommandLine.Option<int>(
             aliases: ["--api-workers", "-w"],
             getDefaultValue: () => 1,
             description: "Concurrent virtual users for k6 (1-1000)");
 
-        var portOption = new Option<int>(
+        var portOption = new System.CommandLine.Option<int>(
             aliases: ["--port", "-p"],
             getDefaultValue: () => 8080,
             description: "Service port to test (1-65535)");
 
-        var databaseOption = new Option<string>(
+        var databaseOption = new System.CommandLine.Option<string>(
             aliases: ["--database", "-b"],
             getDefaultValue: () => "defaultdb",
             description: "PostgreSQL database name for the service");
 
-        var resultsFolderOption = new Option<string>(
+        var resultsFolderOption = new System.CommandLine.Option<string>(
             aliases: ["--results-folder", "-r"],
             getDefaultValue: () => "./test-results",
             description: "Directory for test results");
 
-        var warmupEventsOption = new Option<int>(
+        var warmupEventsOption = new System.CommandLine.Option<int>(
             aliases: ["--warmup-events"],
             getDefaultValue: () => 200,
             description: "Events for warmup phase (0-10000)");
 
-        var warmupApiCallsOption = new Option<int>(
+        var warmupApiCallsOption = new System.CommandLine.Option<int>(
             aliases: ["--warmup-api-calls"],
             getDefaultValue: () => 10,
             description: "API calls during warmup (0-1000)");
 
-        var inactivityTimeoutOption = new Option<string>(
+        var inactivityTimeoutOption = new System.CommandLine.Option<string>(
             aliases: ["--inactivity-timeout"],
             getDefaultValue: () => "120s",
             description: "Consumer inactivity timeout (e.g., 120s, 2m)");
 
-        var warmupInactivityTimeoutOption = new Option<string>(
+        var warmupInactivityTimeoutOption = new System.CommandLine.Option<string>(
             aliases: ["--warmup-inactivity-timeout"],
             getDefaultValue: () => "30s",
             description: "Warmup consumer inactivity timeout (e.g., 30s, 1m)");
 
-        var rabbitMqContainerOption = new Option<string>(
+        var rabbitMqContainerOption = new System.CommandLine.Option<string>(
             aliases: ["--rabbitmq-container"],
             getDefaultValue: () => "performancetest-rabbitmq",
             description: "RabbitMQ Docker container name");
 
-        var postgresContainerOption = new Option<string>(
+        var postgresContainerOption = new System.CommandLine.Option<string>(
             aliases: ["--postgres-container"],
             getDefaultValue: () => "performancetest-postgres",
             description: "PostgreSQL Docker container name");
