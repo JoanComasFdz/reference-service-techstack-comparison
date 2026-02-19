@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.DockerMonitoring;
 
@@ -124,12 +125,69 @@ internal sealed class DockerClientWrapper : IDisposable
     }
 
     /// <summary>
-    /// Validates that ContainerStatsResponse has valid PreCPUStats for CPU calculation.
-    /// The first stats from a stream often have zeroed PreCPUStats.
+    /// Streams raw Docker stats as an async enumerable.
+    /// Bridges Docker.DotNet's IProgress callback to IAsyncEnumerable via Channel.
     /// </summary>
-    public static bool HasValidPreCpuStats(ContainerStatsResponse stats)
+    public async IAsyncEnumerable<ContainerStatsResponse> StreamStatsRawAsync(
+        string containerId,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        return stats.PreCPUStats.SystemUsage > 0;
+        var channel = System.Threading.Channels.Channel.CreateUnbounded<ContainerStatsResponse>(
+            new System.Threading.Channels.UnboundedChannelOptions { SingleWriter = true });
+
+        var progress = new Progress<ContainerStatsResponse>(stats =>
+            channel.Writer.TryWrite(stats));
+
+        // Start streaming in background — completes when cancelled or errored
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _client.Containers.GetContainerStatsAsync(
+                    containerId,
+                    new ContainerStatsParameters { Stream = true },
+                    progress,
+                    cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(
+                    ex,
+                    "Stats stream error for container {ContainerId}",
+                    containerId[..12]);
+            }
+            finally
+            {
+                channel.Writer.Complete();
+            }
+        }, cancellationToken);
+
+        await foreach (var stats in channel.Reader.ReadAllAsync(cancellationToken))
+        {
+            yield return stats;
+        }
+    }
+
+    /// <summary>
+    /// Streams validated Docker metrics as an async enumerable.
+    /// Composes raw stats stream with <see cref="StatsProcessing.TryConvertToMetrics"/>,
+    /// filtering out invalid stats (zeroed PreCPUStats).
+    /// </summary>
+    public async IAsyncEnumerable<DockerMetrics> StreamMetrics(
+        string containerId,
+        NonEmptyString containerName,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await foreach (var stats in StreamStatsRawAsync(containerId, cancellationToken))
+        {
+            var option = StatsProcessing.TryConvertToMetrics(
+                stats, containerName, DateTime.UtcNow);
+
+            if (option.IsSome)
+            {
+                yield return option.SomeValue;
+            }
+        }
     }
 
     /// <summary>
@@ -197,51 +255,6 @@ internal sealed class DockerClientWrapper : IDisposable
             _logger.LogError(ex, "Error getting stats for container {ContainerName}", containerName);
             throw;
         }
-    }
-
-    /// <summary>
-    /// Calculates CPU percentage from Docker stats.
-    /// Formula: (cpu_delta / system_delta) * cpu_count * 100
-    /// </summary>
-    /// <remarks>
-    /// <para><strong>Container-Level CPU Calculation</strong></para>
-    /// <para>
-    /// This method matches Docker's native stats API and Python reference implementation.
-    /// It measures container CPU usage by comparing container CPU time against system-wide
-    /// CPU time progression, scaled by available cores to show total capacity used.
-    /// </para>
-    /// <para><strong>Why This Differs from Process-Level CPU:</strong></para>
-    /// <para>
-    /// Container monitoring scales by multiplying by core count (total capacity).
-    /// Process monitoring normalizes by dividing by core count (per-core average).
-    /// See <c>ProcessCpuCalculator.Sample</c> in PerformanceTester.ProcessMonitoring
-    /// for process-level CPU calculation. The formulas differ because containers use
-    /// cgroup accounting (system CPU time) while processes use wall-clock time.
-    /// </para>
-    /// <para><strong>Stateless Design:</strong></para>
-    /// <para>
-    /// Unlike ProcessCpuCalculator, this method is stateless because Docker API provides
-    /// both current stats (cpu_stats) and previous stats (precpu_stats) in a single response.
-    /// No need to maintain state between calls.
-    /// </para>
-    /// </remarks>
-    public static double CalculateCpuPercent(ContainerStatsResponse stats)
-    {
-        var cpuDelta = stats.CPUStats.CPUUsage.TotalUsage -
-                       stats.PreCPUStats.CPUUsage.TotalUsage;
-
-        var systemDelta = stats.CPUStats.SystemUsage -
-                          stats.PreCPUStats.SystemUsage;
-
-        var cpuCount = stats.CPUStats.OnlineCPUs;
-
-        if (systemDelta > 0 && cpuDelta > 0)
-        {
-            var cpuPercent = (double)cpuDelta / systemDelta * cpuCount * 100.0;
-            return Math.Round(cpuPercent, 2);
-        }
-
-        return 0.0;
     }
 
     public void Dispose()

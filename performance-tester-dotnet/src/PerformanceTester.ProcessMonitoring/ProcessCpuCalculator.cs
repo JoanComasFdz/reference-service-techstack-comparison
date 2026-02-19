@@ -15,7 +15,7 @@ namespace PerformanceTester.ProcessMonitoring;
 /// </para>
 /// <para><strong>Not for Docker Containers:</strong></para>
 /// <para>
-/// For Docker container CPU calculation, see <c>DockerClientWrapper.CalculateCpuPercent</c>
+/// For Docker container CPU calculation, see <c>StatsProcessing.CalculateCpuPercent</c>
 /// in the PerformanceTester.DockerMonitoring slice. Container CPU calculation uses a different
 /// formula that scales by core count (not normalizes) and compares against system CPU time
 /// (not wall-clock time) to match Docker's cgroup accounting.

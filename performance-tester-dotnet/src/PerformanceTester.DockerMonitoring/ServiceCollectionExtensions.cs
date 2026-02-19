@@ -36,7 +36,7 @@ public static class ServiceCollectionExtensions
         {
             services.AddKeyedSingleton<DockerMonitorService>(name.Value, (sp, _) =>
                 new DockerMonitorService(
-                    name.Value,
+                    name,
                     sp.GetRequiredService<DockerClientWrapper>(),
                     sp.GetRequiredService<ILogger<DockerMonitorService>>()));
 

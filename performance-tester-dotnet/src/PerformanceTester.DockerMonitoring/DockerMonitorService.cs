@@ -1,19 +1,19 @@
 using System.Collections.Concurrent;
-using Docker.DotNet.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
 /// BackgroundService that monitors Docker container resource usage using streaming mode.
-/// Each Docker stats push is collected directly as a sample (event-driven, no polling).
+/// Uses explicit ConnectionState machine for reconnection logic and IAsyncEnumerable for streaming.
 /// Named delegates in DI provide public access to collected metrics.
-/// Supports deferred start pattern - waits for StartMonitoring() before collecting metrics.
+/// Supports deferred start pattern — waits for StartMonitoring() before collecting metrics.
 /// </summary>
 internal sealed class DockerMonitorService : BackgroundService
 {
-    private readonly string _containerName;
+    private readonly NonEmptyString _containerName;
     private readonly DockerClientWrapper _dockerClient;
     private readonly ILogger<DockerMonitorService> _logger;
     private readonly ConcurrentBag<DockerMetrics> _collectedMetrics = new();
@@ -21,26 +21,17 @@ internal sealed class DockerMonitorService : BackgroundService
     private readonly TaskCompletionSource _firstSampleCollected = new();
     private readonly TaskCompletionSource _firstValidStatsReceived = new();
 
-    // Connection success signaling (for streaming loop to detect success)
-    private TaskCompletionSource? _pendingConnectionSuccess;
-
-    // Reconnection state
-    private volatile int _consecutiveFailures;
-    private TimeSpan _currentBackoffDelay = StreamingConstants.InitialReconnectDelay;
-    private readonly Lock _backoffLock = new();
-
     private Task? _streamingTask;
     private CancellationTokenSource? _streamingCts;
-    private volatile bool _hasReceivedValidStats;
     private volatile bool _streamingFailed;
 
-    private ReportDockerMonitorProgress? _progress;
+    private ReportDockerMonitorProgress _progress = null!;
     private bool _started;
 
-    public string ContainerName => _containerName;
+    public string ContainerName => _containerName.Value;
 
     public DockerMonitorService(
-        string containerName,
+        NonEmptyString containerName,
         DockerClientWrapper dockerClient,
         ILogger<DockerMonitorService> logger)
     {
@@ -53,20 +44,18 @@ internal sealed class DockerMonitorService : BackgroundService
     {
         _logger.LogDebug("Warming up Docker API for container {ContainerName}...", _containerName);
 
-        // Warm up container ID resolution (will be cached)
-        var containerId = await _dockerClient.GetContainerIdAsync(_containerName, cancellationToken);
+        var containerId = await _dockerClient.GetContainerIdAsync(_containerName.Value, cancellationToken);
 
         if (containerId != null)
         {
-            // Make a test snapshot call to warm up the Docker client connection
-            await _dockerClient.GetContainerStatsAsync(_containerName, cancellationToken);
+            await _dockerClient.GetContainerStatsAsync(_containerName.Value, cancellationToken);
         }
 
         _logger.LogDebug("Docker API warmup complete for container {ContainerName}", _containerName);
     }
 
     public async Task StartMonitoringAsync(
-        ReportDockerMonitorProgress? progress = null,
+        ReportDockerMonitorProgress progress,
         CancellationToken cancellationToken = default)
     {
         if (_started)
@@ -77,16 +66,16 @@ internal sealed class DockerMonitorService : BackgroundService
         _started = true;
         _progress = progress;
 
-        _progress?.Invoke(DockerMonitorPhaseInfo.Starting(
+        _progress(DockerMonitorPhaseInfo.Starting(
             DockerMonitorPhase.MonitoringRequested,
-            _containerName,
+            _containerName.Value,
             message: $"Starting streaming monitor for container {_containerName}"));
 
         _startSignal.TrySetResult();
         _logger.LogInformation(
-            "StartMonitoring called for container {ContainerName}, waiting for first sample...", _containerName);
+            "StartMonitoring called for container {ContainerName}, waiting for first sample...",
+            _containerName);
 
-        // Wait for the first sample to be collected
         await _firstSampleCollected.Task.WaitAsync(cancellationToken);
 
         _logger.LogInformation("First sample collected for container {ContainerName}", _containerName);
@@ -110,7 +99,8 @@ internal sealed class DockerMonitorService : BackgroundService
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Docker monitor stopped before StartMonitoring() was called for container: {ContainerName}",
+            _logger.LogInformation(
+                "Docker monitor stopped before StartMonitoring() was called for container: {ContainerName}",
                 _containerName);
             return;
         }
@@ -119,15 +109,15 @@ internal sealed class DockerMonitorService : BackgroundService
         string? containerId;
         try
         {
-            containerId = await _dockerClient.GetContainerIdAsync(_containerName, stoppingToken);
+            containerId = await _dockerClient.GetContainerIdAsync(_containerName.Value, stoppingToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to resolve container {ContainerName}", _containerName);
-            _firstSampleCollected.TrySetResult(); // Unblock caller
-            _progress?.Invoke(DockerMonitorPhaseInfo.Failed(
+            _firstSampleCollected.TrySetResult();
+            _progress(DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
-                _containerName,
+                _containerName.Value,
                 message: $"Failed to resolve container: {ex.Message}"));
             return;
         }
@@ -135,22 +125,23 @@ internal sealed class DockerMonitorService : BackgroundService
         if (containerId == null)
         {
             _logger.LogWarning("Container {ContainerName} not found, cannot start monitoring", _containerName);
-            _firstSampleCollected.TrySetResult(); // Unblock caller
-            _progress?.Invoke(DockerMonitorPhaseInfo.Failed(
+            _firstSampleCollected.TrySetResult();
+            _progress(DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
-                _containerName,
+                _containerName.Value,
                 message: $"Container '{_containerName}' not found"));
             return;
         }
 
         _logger.LogInformation(
             "Docker monitor starting streaming for container: {ContainerName} (ID: {ContainerId})",
-            _containerName, containerId[..12]);
+            _containerName,
+            containerId[..12]);
 
-        // Start streaming in background task with reconnection support
+        // Start streaming in background task with state machine reconnection
         _streamingCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         _streamingTask = Task.Run(
-            () => RunStreamingLoopWithReconnectionAsync(containerId, _streamingCts.Token),
+            () => RunStreamingLoopAsync(containerId, _streamingCts.Token),
             stoppingToken);
 
         // Wait for first valid stats from stream
@@ -162,10 +153,11 @@ internal sealed class DockerMonitorService : BackgroundService
         {
             _logger.LogWarning(
                 "Timeout waiting for first valid stats from container {ContainerName} after {Timeout}s",
-                _containerName, StreamingConstants.FirstStatsTimeout.TotalSeconds);
+                _containerName,
+                StreamingConstants.FirstStatsTimeout.TotalSeconds);
         }
 
-        // Wait for cancellation (streaming loop runs independently, samples collected in OnStatsReceived)
+        // Wait for cancellation (streaming loop runs independently)
         try
         {
             await Task.Delay(Timeout.Infinite, stoppingToken);
@@ -178,7 +170,6 @@ internal sealed class DockerMonitorService : BackgroundService
         }
         finally
         {
-            // Stop streaming and dispose CTS
             _streamingCts?.Cancel();
 
             try
@@ -194,14 +185,14 @@ internal sealed class DockerMonitorService : BackgroundService
 
             _logger.LogInformation(
                 "Docker monitor completed for container: {ContainerName}, collected {Count} samples",
-                _containerName, _collectedMetrics.Count);
+                _containerName,
+                _collectedMetrics.Count);
 
-            // Report completion (success case only - failures reported elsewhere)
             if (!_streamingFailed)
             {
-                _progress?.Invoke(DockerMonitorPhaseInfo.Completed(
+                _progress(DockerMonitorPhaseInfo.Completed(
                     DockerMonitorPhase.MonitoringCompleted,
-                    _containerName,
+                    _containerName.Value,
                     sampleCount: _collectedMetrics.Count,
                     message: $"Monitoring completed, collected {_collectedMetrics.Count} samples"));
             }
@@ -209,240 +200,151 @@ internal sealed class DockerMonitorService : BackgroundService
     }
 
     /// <summary>
-    /// Background task that manages the streaming connection with automatic reconnection.
-    /// This method owns all connection lifecycle phase reporting.
+    /// State machine interpreter loop. Pure <see cref="ConnectionStateMachine.Transition"/>
+    /// decides state changes; this method interprets states as effects.
     /// </summary>
-    private async Task RunStreamingLoopWithReconnectionAsync(
+    private async Task RunStreamingLoopAsync(
         string initialContainerId,
         CancellationToken cancellationToken)
     {
-        var currentContainerId = initialContainerId;
+        ConnectionState state = new ConnectionState.Connecting(
+            initialContainerId, 0, StreamingConstants.InitialReconnectDelay);
 
-        while (!cancellationToken.IsCancellationRequested)
+        while (state is not ConnectionState.Failed && !cancellationToken.IsCancellationRequested)
         {
-            // === REPORT: Connecting ===
-            _progress?.Invoke(DockerMonitorPhaseInfo.Starting(
-                DockerMonitorPhase.StreamConnecting,
-                _containerName,
-                message: _consecutiveFailures > 0
-                    ? $"Reconnecting to {_containerName} (attempt {_consecutiveFailures + 1})..."
-                    : $"Connecting to {_containerName}..."));
+            _progress(PhaseReporting.ToPhaseInfo(state, _containerName));
 
-            // Create fresh TCS for this connection attempt
-            var connectionSuccessTcs = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            _pendingConnectionSuccess = connectionSuccessTcs;
-            _hasReceivedValidStats = false;
-
-            try
+            state = state switch
             {
-                // Start streaming in nested task so we can race against success signal
-                using var streamCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-                var streamTask = Task.Run(async () =>
-                {
-                    await _dockerClient.StartStatsStreamAsync(
-                        currentContainerId,
-                        OnStatsReceived,
-                        streamCts.Token);
-                }, cancellationToken);
-
-                // Race: connection success vs stream failure
-                var completedTask = await Task.WhenAny(
-                    connectionSuccessTcs.Task,
-                    streamTask);
-
-                if (completedTask == connectionSuccessTcs.Task
-                    && connectionSuccessTcs.Task.IsCompletedSuccessfully)
-                {
-                    HandleConnectionSuccess();
-                    await streamTask;
-                    // Stream ended without exception (unexpected for Stream=true)
-                    _logger.LogWarning(
-                        "Stats stream ended unexpectedly for container {ContainerName}",
-                        _containerName);
-                    break;
-                }
-                else
-                {
-                    // Stream task completed before success signal - must be error
-                    await streamTask; // Re-throws the exception
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogDebug("Streaming cancelled for container {ContainerName}", _containerName);
-                break;
-            }
-            catch (Exception ex)
-            {
-                if (!ShouldRetry(ex))
-                {
-                    break;
-                }
-
-                currentContainerId = await AttemptReconnectionAsync(ex, currentContainerId, cancellationToken);
-            }
+                ConnectionState.Connecting c => await ExecuteStreamingSessionAsync(c, cancellationToken),
+                ConnectionState.Disconnected d => await ExecuteReconnectAsync(d, cancellationToken),
+                _ => state
+            };
         }
-    }
 
-    /// <summary>
-    /// Reports successful connection and resets failure tracking state.
-    /// Called when the connection success TCS completes, indicating valid stats were received.
-    /// </summary>
-    private void HandleConnectionSuccess()
-    {
-        // === REPORT: Connected ===
-        var wasReconnecting = _consecutiveFailures > 0;
-        _progress?.Invoke(DockerMonitorPhaseInfo.Completed(
-            DockerMonitorPhase.StreamConnected,
-            _containerName,
-            message: wasReconnecting
-                ? $"Reconnected to {_containerName}"
-                : $"Connected to {_containerName}"));
-
-        // Reset failure tracking on successful connection
-        _consecutiveFailures = 0;
-        lock (_backoffLock)
+        if (state is ConnectionState.Failed)
         {
-            _currentBackoffDelay = StreamingConstants.InitialReconnectDelay;
+            _progress(PhaseReporting.ToPhaseInfo(state, _containerName));
+            _streamingFailed = true;
+
+            _logger.LogError(
+                "Streaming failed permanently for container {ContainerName}",
+                _containerName);
         }
     }
 
     /// <summary>
-    /// Determines whether a reconnection should be attempted after a streaming failure.
-    /// Increments the failure counter, invalidates the container cache, and reports permanent
-    /// failure if the maximum retry count has been exceeded.
+    /// Starts a streaming session: iterates the IAsyncEnumerable metrics stream,
+    /// signals connection success on first valid item, collects all metrics.
+    /// Returns the next state based on how the stream ended.
     /// </summary>
-    /// <returns>true if a reconnection attempt should be made; false if the loop should exit.</returns>
-    private bool ShouldRetry(Exception ex)
-    {
-        _consecutiveFailures++;
-        _dockerClient.InvalidateContainerCache(_containerName);
-
-        if (_consecutiveFailures <= StreamingConstants.MaxReconnectAttempts)
-        {
-            return true;
-        }
-
-        // === REPORT: Failed Permanently ===
-        _logger.LogError(ex,
-            "Streaming failed permanently after {Failures} attempts for container {ContainerName}",
-            _consecutiveFailures, _containerName);
-
-        _progress?.Invoke(DockerMonitorPhaseInfo.Failed(
-            DockerMonitorPhase.StreamFailed,
-            _containerName,
-            message: $"Connection failed permanently after {_consecutiveFailures} attempts"));
-
-        _streamingFailed = true;
-        return false;
-    }
-
-    /// <summary>
-    /// Calculates the next reconnection delay using exponential backoff with jitter.
-    /// Thread-safe: uses <see cref="_backoffLock"/> to protect shared backoff state.
-    /// </summary>
-    /// <returns>The delay to wait before the next reconnection attempt.</returns>
-    private TimeSpan CalculateReconnectionDelay()
-    {
-        lock (_backoffLock)
-        {
-            var delayToUse = _currentBackoffDelay;
-            var jitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 500));
-            _currentBackoffDelay = TimeSpan.FromTicks(Math.Min(
-                _currentBackoffDelay.Ticks * 2,
-                StreamingConstants.MaxReconnectDelay.Ticks)) + jitter;
-            return delayToUse;
-        }
-    }
-
-    /// <summary>
-    /// Performs a reconnection attempt: waits for the backoff delay, then resolves the current
-    /// container ID (which may have changed if the container was restarted).
-    /// </summary>
-    /// <returns>The resolved container ID to use for the next connection attempt.</returns>
-    private async Task<string> AttemptReconnectionAsync(
-        Exception ex,
-        string currentContainerId,
+    private async Task<ConnectionState> ExecuteStreamingSessionAsync(
+        ConnectionState.Connecting connectingState,
         CancellationToken cancellationToken)
     {
-        var delayToUse = CalculateReconnectionDelay();
+        ConnectionState currentState = connectingState;
 
-        // === REPORT: Disconnected (will retry) ===
-        _logger.LogWarning(ex,
-            "Stream disconnected for container {ContainerName}, " +
-            "reconnecting in {Delay:F1}s (attempt {Count}/{Max})",
-            _containerName, delayToUse.TotalSeconds,
-            _consecutiveFailures, StreamingConstants.MaxReconnectAttempts);
-
-        _progress?.Invoke(DockerMonitorPhaseInfo.Failed(
-            DockerMonitorPhase.StreamDisconnected,
-            _containerName,
-            message: $"Disconnected, retrying in {delayToUse.TotalSeconds:F1}s " +
-                     $"(attempt {_consecutiveFailures}/{StreamingConstants.MaxReconnectAttempts})"));
-
-        await Task.Delay(delayToUse, cancellationToken);
-
-        // Try to resolve new container ID (may have restarted)
-        var newContainerId = await _dockerClient.GetContainerIdAsync(
-            _containerName, cancellationToken);
-
-        if (newContainerId == null)
+        try
         {
-            _logger.LogWarning(
-                "Container {ContainerName} not found during reconnection",
-                _containerName);
-            // Return current ID - loop will increment failure count on next iteration
-            return currentContainerId;
-        }
+            await foreach (var metrics in _dockerClient.StreamMetrics(
+                connectingState.ContainerId, _containerName, cancellationToken))
+            {
+                if (currentState is ConnectionState.Connecting)
+                {
+                    // First valid stats → transition to Connected
+                    currentState = ConnectionStateMachine.Transition(
+                        currentState,
+                        new StreamEvent.StatsReceived(),
+                        StreamingConstants.MaxReconnectAttempts,
+                        StreamingConstants.MaxReconnectDelay);
 
-        return newContainerId;
+                    _progress(PhaseReporting.ToPhaseInfo(currentState, _containerName));
+                    _firstValidStatsReceived.TrySetResult();
+                }
+
+                _collectedMetrics.Add(metrics);
+                _firstSampleCollected.TrySetResult();
+
+                _logger.LogDebug(
+                    "Sample #{Count} for container {ContainerName} - CPU: {Cpu}%, Memory: {Memory}MB",
+                    _collectedMetrics.Count,
+                    _containerName,
+                    metrics.CpuPercent,
+                    metrics.MemoryMB);
+            }
+
+            // Stream ended without error (unexpected for Stream=true)
+            _logger.LogWarning(
+                "Stats stream ended unexpectedly for container {ContainerName}",
+                _containerName);
+
+            return currentState;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug("Streaming cancelled for container {ContainerName}", _containerName);
+            return currentState;
+        }
+        catch (Exception ex)
+        {
+            _dockerClient.InvalidateContainerCache(_containerName.Value);
+
+            var nextState = ConnectionStateMachine.Transition(
+                currentState,
+                new StreamEvent.Error(ex),
+                StreamingConstants.MaxReconnectAttempts,
+                StreamingConstants.MaxReconnectDelay);
+
+            if (nextState is ConnectionState.Disconnected d)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Stream disconnected for container {ContainerName}, retrying in {Delay:F1}s (attempt {Count}/{Max})",
+                    _containerName,
+                    d.NextBackoff.TotalSeconds,
+                    d.ConsecutiveFailures,
+                    StreamingConstants.MaxReconnectAttempts);
+            }
+
+            return nextState;
+        }
     }
 
     /// <summary>
-    /// Handles stats pushed by Docker. Collects a sample directly from each push (event-driven).
-    /// Signals connection success via TCS.
-    /// Does NOT report phases - that's the streaming loop's responsibility.
+    /// Waits for the backoff delay, re-resolves the container ID (handles restarts),
+    /// and transitions to a new Connecting state.
     /// </summary>
-    private void OnStatsReceived(ContainerStatsResponse stats)
+    private async Task<ConnectionState> ExecuteReconnectAsync(
+        ConnectionState.Disconnected disconnectedState,
+        CancellationToken cancellationToken)
     {
-        // Validate first stats (PreCPUStats must be valid for CPU calculation)
-        if (!_hasReceivedValidStats)
+        try
         {
-            if (!DockerClientWrapper.HasValidPreCpuStats(stats))
+            var backoff = ReconnectionPolicy.CalculateBackoff(
+                disconnectedState.NextBackoff, StreamingConstants.MaxReconnectDelay);
+
+            await Task.Delay(backoff.DelayToUse, cancellationToken);
+
+            _dockerClient.InvalidateContainerCache(_containerName.Value);
+
+            var newContainerId = await _dockerClient.GetContainerIdAsync(
+                _containerName.Value, cancellationToken);
+
+            if (newContainerId == null)
             {
-                _logger.LogDebug(
-                    "Skipping stats with invalid PreCPUStats for container {ContainerName}",
+                _logger.LogWarning(
+                    "Container {ContainerName} not found during reconnection",
                     _containerName);
-                return;
             }
 
-            _hasReceivedValidStats = true;
-
-            // Signal to ExecuteAsync that we can start sampling
-            _firstValidStatsReceived.TrySetResult();
-
-            // Signal to streaming loop that connection succeeded
-            // (streaming loop will report the StreamConnected phase)
-            _pendingConnectionSuccess?.TrySetResult();
+            return new ConnectionState.Connecting(
+                newContainerId ?? disconnectedState.ContainerId,
+                disconnectedState.ConsecutiveFailures,
+                backoff.NextBackoff);
         }
-
-        // Calculate and collect the sample directly (no intermediate storage)
-        var metrics = new DockerMetrics
+        catch (OperationCanceledException)
         {
-            Timestamp = DateTime.UtcNow,
-            ContainerId = stats.ID,
-            ContainerName = _containerName,
-            CpuPercent = DockerClientWrapper.CalculateCpuPercent(stats),
-            MemoryMB = Math.Round(stats.MemoryStats.Usage / 1024.0 / 1024.0, 2)
-        };
-
-        _collectedMetrics.Add(metrics);
-        _firstSampleCollected.TrySetResult();
-
-        _logger.LogDebug(
-            "Sample #{Count} for container {ContainerName} - CPU: {Cpu}%, Memory: {Memory}MB",
-            _collectedMetrics.Count, _containerName, metrics.CpuPercent, metrics.MemoryMB);
+            return disconnectedState;
+        }
     }
 }

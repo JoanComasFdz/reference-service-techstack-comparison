@@ -13,9 +13,15 @@
 **Proposal:** [2026-02-18-docker-monitoring-service-fp-refactor-proposal.md](./2026-02-18-docker-monitoring-service-fp-refactor-proposal.md)
 
 **Adaptations from proposal:**
-- Abstract sealed records instead of Dunet `[Union]` for `ConnectionState`/`StreamEvent` (tuple pattern matching in transition function is incompatible with Dunet's `Match()`)
-- `DockerMetrics?` instead of `Option<T>` (no Option type exists in codebase; nullable is simpler and sufficient for one function)
+
+- Dunet `[Union]` for `ConnectionState`/`StreamEvent`, but the state machine transition function uses native C# `switch` expression with tuple patterns instead of Dunet's `Match()` (tuple pattern matching on two values simultaneously with `when` guards is not expressible via `Match()`)
+- `Option<DockerMetrics>` from `PerformanceTester.Functional` for `TryConvertToMetrics` return type (aligns with the proposal's original intent now that `Option<T>` exists in the codebase)
+- `NonEmptyString` for `containerName` parameters throughout — `DockerMonitorService`, `StatsProcessing`, `PhaseReporting`, `StreamMetrics` all accept `NonEmptyString`, using `.Value` only at boundary calls to existing APIs that take `string`
 - `HasValidPreCpuStats` and `CalculateCpuPercent` move from `DockerClientWrapper` to `StatsProcessing` (they are pure stats processing logic, not Docker client concerns)
+
+**Out of scope (follow-up):**
+
+- `DockerMetrics.ContainerName` remains `string` — changing it to `NonEmptyString` would cascade to `ServiceCollectionExtensions` and test infrastructure. Consider as a separate follow-up to value-object-ify `DockerMetrics` fields.
 - Backoff stored in `Disconnected.NextBackoff` is the delay to **wait** (not the pre-calculated next value), matching the original `CalculateReconnectionDelay` behavior (1s → 2s → 4s)
 
 ---
@@ -23,6 +29,7 @@
 ## Task 1: ReconnectionPolicy — Pure Extraction
 
 **Files:**
+
 - Create: `src/PerformanceTester.DockerMonitoring/ReconnectionPolicy.cs`
 
 **Step 1: Write implementation**
@@ -83,6 +90,7 @@ git commit -m "refactor: extract pure ReconnectionPolicy from DockerMonitorServi
 ## Task 2: StatsProcessing — Pure Extraction
 
 **Files:**
+
 - Create: `src/PerformanceTester.DockerMonitoring/StatsProcessing.cs`
 
 **Step 1: Write implementation**
@@ -91,6 +99,9 @@ Create `src/PerformanceTester.DockerMonitoring/StatsProcessing.cs`:
 
 ```csharp
 using Docker.DotNet.Models;
+using PerformanceTester.Functional;
+using PerformanceTester.Infrastructure.ValueObjects;
+using static PerformanceTester.Functional.Option<PerformanceTester.DockerMonitoring.DockerMetrics>;
 
 namespace PerformanceTester.DockerMonitoring;
 
@@ -103,34 +114,33 @@ internal static class StatsProcessing
 {
     /// <summary>
     /// Converts a raw Docker stats response into a <see cref="DockerMetrics"/> if the stats are valid.
-    /// Returns null when PreCPUStats are invalid (first stats push from Docker has zeroed values).
+    /// Returns None when PreCPUStats are invalid (first stats push from Docker has zeroed values).
     /// </summary>
-    public static DockerMetrics? TryConvertToMetrics(
+    public static Option<DockerMetrics> TryConvertToMetrics(
         ContainerStatsResponse stats,
-        string containerName,
+        NonEmptyString containerName,
         DateTime timestamp)
     {
         if (!HasValidPreCpuStats(stats))
         {
-            return null;
+            return new None();
         }
 
-        return new DockerMetrics
+        return new Some(new DockerMetrics
         {
             Timestamp = timestamp,
             ContainerId = stats.ID,
-            ContainerName = containerName,
+            ContainerName = containerName.Value,
             CpuPercent = CalculateCpuPercent(stats),
             MemoryMB = Math.Round(stats.MemoryStats.Usage / 1024.0 / 1024.0, 2)
-        };
+        });
     }
 
     /// <summary>
     /// Validates that ContainerStatsResponse has valid PreCPUStats for CPU calculation.
     /// The first stats from a stream often have zeroed PreCPUStats.
     /// </summary>
-    public static bool HasValidPreCpuStats(ContainerStatsResponse stats)
-        => stats.PreCPUStats.SystemUsage > 0;
+    public static bool HasValidPreCpuStats(ContainerStatsResponse stats) => stats.PreCPUStats.SystemUsage > 0;
 
     /// <summary>
     /// Calculates CPU percentage from Docker stats.
@@ -178,14 +188,29 @@ git commit -m "refactor: extract pure StatsProcessing from DockerClientWrapper"
 ## Task 3: ConnectionState + StreamEvent — Discriminated Unions
 
 **Files:**
+
+- Modify: `src/PerformanceTester.DockerMonitoring/PerformanceTester.DockerMonitoring.csproj`
 - Create: `src/PerformanceTester.DockerMonitoring/ConnectionState.cs`
 - Create: `src/PerformanceTester.DockerMonitoring/StreamEvent.cs`
 
-**Step 1: Create ConnectionState**
+**Step 1: Add Dunet package reference**
+
+Add the Dunet source generator to `src/PerformanceTester.DockerMonitoring/PerformanceTester.DockerMonitoring.csproj` (same configuration as `PerformanceTester.Functional.csproj`):
+
+```xml
+<PackageReference Include="dunet" Version="1.11.0">
+  <PrivateAssets>all</PrivateAssets>
+  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive; compile</IncludeAssets>
+</PackageReference>
+```
+
+**Step 2: Create ConnectionState**
 
 Create `src/PerformanceTester.DockerMonitoring/ConnectionState.cs`:
 
 ```csharp
+using Dunet;
+
 namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
@@ -193,74 +218,86 @@ namespace PerformanceTester.DockerMonitoring;
 /// Replaces implicit state in volatile fields (_consecutiveFailures, _hasReceivedValidStats,
 /// _streamingFailed, _currentBackoffDelay).
 /// </summary>
-internal abstract record ConnectionState
+/// <remarks>
+/// Uses Dunet [Union] for exhaustive Match() support in single-dispatch contexts.
+/// The state machine transition function (<see cref="ConnectionStateMachine.Transition"/>)
+/// uses native C# switch expressions instead of Match() because it matches on
+/// (state, event) tuples with 'when' guards — a pattern that Match() cannot express.
+/// </remarks>
+[Union]
+internal partial record ConnectionState
 {
     /// <summary>
     /// Attempting to connect to Docker stats stream.
     /// </summary>
-    public sealed record Connecting(
+    partial record Connecting(
         string ContainerId,
         int AttemptNumber,
-        TimeSpan NextBackoff) : ConnectionState;
+        TimeSpan NextBackoff);
 
     /// <summary>
     /// Successfully receiving stats from Docker.
     /// </summary>
-    public sealed record Connected(
-        string ContainerId) : ConnectionState;
+    partial record Connected(
+        string ContainerId);
 
     /// <summary>
     /// Connection lost, will retry after waiting <see cref="NextBackoff"/>.
     /// </summary>
-    public sealed record Disconnected(
+    partial record Disconnected(
         string ContainerId,
         int ConsecutiveFailures,
         TimeSpan NextBackoff,
-        Exception LastError) : ConnectionState;
+        Exception LastError);
 
     /// <summary>
     /// Connection failed permanently (max retries exceeded).
     /// </summary>
-    public sealed record Failed(
+    partial record Failed(
         int TotalAttempts,
-        Exception LastError) : ConnectionState;
+        Exception LastError);
 }
 ```
 
-**Step 2: Create StreamEvent**
+**Step 3: Create StreamEvent**
 
 Create `src/PerformanceTester.DockerMonitoring/StreamEvent.cs`:
 
 ```csharp
+using Dunet;
+
 namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
 /// Events that can occur during a Docker stats streaming session.
 /// Used as input to <see cref="ConnectionStateMachine.Transition"/>.
 /// </summary>
-internal abstract record StreamEvent
+[Union]
+internal partial record StreamEvent
 {
     /// <summary>Valid stats were received from the stream.</summary>
-    public sealed record StatsReceived : StreamEvent;
+    partial record StatsReceived;
 
     /// <summary>An error occurred in the stream.</summary>
-    public sealed record Error(Exception Exception) : StreamEvent;
+    partial record Error(Exception Exception);
 
     /// <summary>The stream was cancelled (normal shutdown).</summary>
-    public sealed record Cancelled : StreamEvent;
+    partial record Cancelled;
 }
 ```
 
-**Step 3: Verify build**
+**Step 4: Verify build**
 
 Run: `dotnet build src/PerformanceTester.DockerMonitoring`
 Expected: `Build succeeded. 0 Warning(s). 0 Error(s).`
 
-**Step 4: Commit**
+**Step 5: Commit**
 
 ```bash
-git add src/PerformanceTester.DockerMonitoring/ConnectionState.cs src/PerformanceTester.DockerMonitoring/StreamEvent.cs
-git commit -m "refactor: add ConnectionState and StreamEvent discriminated unions"
+git add src/PerformanceTester.DockerMonitoring/PerformanceTester.DockerMonitoring.csproj \
+        src/PerformanceTester.DockerMonitoring/ConnectionState.cs \
+        src/PerformanceTester.DockerMonitoring/StreamEvent.cs
+git commit -m "refactor: add ConnectionState and StreamEvent discriminated unions (dunet)"
 ```
 
 ---
@@ -268,6 +305,7 @@ git commit -m "refactor: add ConnectionState and StreamEvent discriminated union
 ## Task 4: ConnectionStateMachine — Pure Transition Function
 
 **Files:**
+
 - Create: `src/PerformanceTester.DockerMonitoring/ConnectionStateMachine.cs`
 
 **Step 1: Write implementation**
@@ -286,6 +324,14 @@ internal static class ConnectionStateMachine
     /// <summary>
     /// Computes the next connection state given the current state and a stream event.
     /// </summary>
+    /// <remarks>
+    /// Uses native C# switch expression instead of Dunet's Match() because:
+    /// 1. Tuple pattern matching — matches (state, event) pairs simultaneously
+    /// 2. 'when' guards — splits same (state, event) pair by runtime condition
+    /// 3. Flat transition table — each line is one rule, reads like a state diagram
+    /// Match() would require nested calls (state.Match → event.Match) with ternaries
+    /// replacing guards, obscuring the state machine structure.
+    /// </remarks>
     public static ConnectionState Transition(
         ConnectionState current,
         StreamEvent streamEvent,
@@ -293,12 +339,10 @@ internal static class ConnectionStateMachine
         TimeSpan maxReconnectDelay) => (current, streamEvent) switch
     {
         // Connecting + valid stats → Connected
-        (ConnectionState.Connecting c, StreamEvent.StatsReceived) =>
-            new ConnectionState.Connected(c.ContainerId),
+        (ConnectionState.Connecting c, StreamEvent.StatsReceived) => new ConnectionState.Connected(c.ContainerId),
 
         // Connecting + error (under limit) → Disconnected
-        (ConnectionState.Connecting c, StreamEvent.Error e)
-            when ReconnectionPolicy.ShouldRetry(c.AttemptNumber + 1, maxReconnectAttempts) =>
+        (ConnectionState.Connecting c, StreamEvent.Error e) when ReconnectionPolicy.ShouldRetry(c.AttemptNumber + 1, maxReconnectAttempts) =>
             new ConnectionState.Disconnected(
                 c.ContainerId,
                 c.AttemptNumber + 1,
@@ -306,12 +350,10 @@ internal static class ConnectionStateMachine
                 e.Exception),
 
         // Connecting + error (at limit) → Failed
-        (ConnectionState.Connecting c, StreamEvent.Error e) =>
-            new ConnectionState.Failed(c.AttemptNumber + 1, e.Exception),
+        (ConnectionState.Connecting c, StreamEvent.Error e) => new ConnectionState.Failed(c.AttemptNumber + 1, e.Exception),
 
         // Connected + error → Disconnected (reset to count=1, initial backoff)
-        (ConnectionState.Connected c, StreamEvent.Error e) =>
-            new ConnectionState.Disconnected(
+        (ConnectionState.Connected c, StreamEvent.Error e) => new ConnectionState.Disconnected(
                 c.ContainerId,
                 1,
                 StreamingConstants.InitialReconnectDelay,
@@ -362,6 +404,7 @@ git commit -m "refactor: add pure ConnectionStateMachine transition function"
 ## Task 5: PhaseReporting — Pure Mapping
 
 **Files:**
+
 - Create: `src/PerformanceTester.DockerMonitoring/PhaseReporting.cs`
 
 **Step 1: Write implementation**
@@ -369,6 +412,8 @@ git commit -m "refactor: add pure ConnectionStateMachine transition function"
 Create `src/PerformanceTester.DockerMonitoring/PhaseReporting.cs`:
 
 ```csharp
+using PerformanceTester.Infrastructure.ValueObjects;
+
 namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
@@ -380,37 +425,37 @@ internal static class PhaseReporting
 {
     public static DockerMonitorPhaseInfo ToPhaseInfo(
         ConnectionState state,
-        string containerName) => state switch
+        NonEmptyString containerName) => state switch
     {
         ConnectionState.Connecting { AttemptNumber: 0 } =>
             DockerMonitorPhaseInfo.Starting(
                 DockerMonitorPhase.StreamConnecting,
-                containerName,
+                containerName.Value,
                 message: $"Connecting to {containerName}..."),
 
         ConnectionState.Connecting c =>
             DockerMonitorPhaseInfo.Starting(
                 DockerMonitorPhase.StreamConnecting,
-                containerName,
+                containerName.Value,
                 message: $"Reconnecting to {containerName} (attempt {c.AttemptNumber + 1})..."),
 
         ConnectionState.Connected =>
             DockerMonitorPhaseInfo.Completed(
                 DockerMonitorPhase.StreamConnected,
-                containerName,
+                containerName.Value,
                 message: $"Connected to {containerName}"),
 
         ConnectionState.Disconnected d =>
             DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamDisconnected,
-                containerName,
+                containerName.Value,
                 message: $"Disconnected, retrying in {d.NextBackoff.TotalSeconds:F1}s " +
                          $"(attempt {d.ConsecutiveFailures}/{StreamingConstants.MaxReconnectAttempts})"),
 
         ConnectionState.Failed f =>
             DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
-                containerName,
+                containerName.Value,
                 message: $"Connection failed permanently after {f.TotalAttempts} attempts"),
 
         _ => throw new ArgumentOutOfRangeException(nameof(state))
@@ -435,6 +480,7 @@ git commit -m "refactor: add pure PhaseReporting state-to-phase mapping"
 ## Task 6: IAsyncEnumerable StreamMetrics Pipeline
 
 **Files:**
+
 - Modify: `src/PerformanceTester.DockerMonitoring/DockerClientWrapper.cs`
 
 **Step 1: Add StreamStatsRawAsync method (Channel bridge)**
@@ -499,17 +545,17 @@ Add to `DockerClientWrapper.cs`, after `StreamStatsRawAsync`:
     /// </summary>
     public async IAsyncEnumerable<DockerMetrics> StreamMetrics(
         string containerId,
-        string containerName,
+        NonEmptyString containerName,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         await foreach (var stats in StreamStatsRawAsync(containerId, cancellationToken))
         {
-            var metrics = StatsProcessing.TryConvertToMetrics(
+            var option = StatsProcessing.TryConvertToMetrics(
                 stats, containerName, DateTime.UtcNow);
 
-            if (metrics != null)
+            if (option.IsSome)
             {
-                yield return metrics;
+                yield return option.SomeValue;
             }
         }
     }
@@ -534,6 +580,7 @@ git commit -m "refactor: add IAsyncEnumerable StreamMetrics pipeline to DockerCl
 This is the high-risk integration step. It replaces the callback-based streaming loop with the state machine interpreter, removes old mutable fields, and integrates all pure modules.
 
 **Files:**
+
 - Modify: `src/PerformanceTester.DockerMonitoring/DockerMonitorService.cs`
 - Modify: `src/PerformanceTester.DockerMonitoring/DockerClientWrapper.cs` (remove moved static methods)
 
@@ -551,6 +598,7 @@ Replace the entire content of `src/PerformanceTester.DockerMonitoring/DockerMoni
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.DockerMonitoring;
 
@@ -562,7 +610,7 @@ namespace PerformanceTester.DockerMonitoring;
 /// </summary>
 internal sealed class DockerMonitorService : BackgroundService
 {
-    private readonly string _containerName;
+    private readonly NonEmptyString _containerName;
     private readonly DockerClientWrapper _dockerClient;
     private readonly ILogger<DockerMonitorService> _logger;
     private readonly ConcurrentBag<DockerMetrics> _collectedMetrics = new();
@@ -574,13 +622,13 @@ internal sealed class DockerMonitorService : BackgroundService
     private CancellationTokenSource? _streamingCts;
     private volatile bool _streamingFailed;
 
-    private ReportDockerMonitorProgress? _progress;
+    private ReportDockerMonitorProgress _progress = null!;
     private bool _started;
 
-    public string ContainerName => _containerName;
+    public string ContainerName => _containerName.Value;
 
     public DockerMonitorService(
-        string containerName,
+        NonEmptyString containerName,
         DockerClientWrapper dockerClient,
         ILogger<DockerMonitorService> logger)
     {
@@ -593,18 +641,18 @@ internal sealed class DockerMonitorService : BackgroundService
     {
         _logger.LogDebug("Warming up Docker API for container {ContainerName}...", _containerName);
 
-        var containerId = await _dockerClient.GetContainerIdAsync(_containerName, cancellationToken);
+        var containerId = await _dockerClient.GetContainerIdAsync(_containerName.Value, cancellationToken);
 
         if (containerId != null)
         {
-            await _dockerClient.GetContainerStatsAsync(_containerName, cancellationToken);
+            await _dockerClient.GetContainerStatsAsync(_containerName.Value, cancellationToken);
         }
 
         _logger.LogDebug("Docker API warmup complete for container {ContainerName}", _containerName);
     }
 
     public async Task StartMonitoringAsync(
-        ReportDockerMonitorProgress? progress = null,
+        ReportDockerMonitorProgress progress,
         CancellationToken cancellationToken = default)
     {
         if (_started)
@@ -615,9 +663,9 @@ internal sealed class DockerMonitorService : BackgroundService
         _started = true;
         _progress = progress;
 
-        _progress?.Invoke(DockerMonitorPhaseInfo.Starting(
+        _progress(DockerMonitorPhaseInfo.Starting(
             DockerMonitorPhase.MonitoringRequested,
-            _containerName,
+            _containerName.Value,
             message: $"Starting streaming monitor for container {_containerName}"));
 
         _startSignal.TrySetResult();
@@ -658,15 +706,15 @@ internal sealed class DockerMonitorService : BackgroundService
         string? containerId;
         try
         {
-            containerId = await _dockerClient.GetContainerIdAsync(_containerName, stoppingToken);
+            containerId = await _dockerClient.GetContainerIdAsync(_containerName.Value, stoppingToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to resolve container {ContainerName}", _containerName);
             _firstSampleCollected.TrySetResult();
-            _progress?.Invoke(DockerMonitorPhaseInfo.Failed(
+            _progress(DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
-                _containerName,
+                _containerName.Value,
                 message: $"Failed to resolve container: {ex.Message}"));
             return;
         }
@@ -675,9 +723,9 @@ internal sealed class DockerMonitorService : BackgroundService
         {
             _logger.LogWarning("Container {ContainerName} not found, cannot start monitoring", _containerName);
             _firstSampleCollected.TrySetResult();
-            _progress?.Invoke(DockerMonitorPhaseInfo.Failed(
+            _progress(DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
-                _containerName,
+                _containerName.Value,
                 message: $"Container '{_containerName}' not found"));
             return;
         }
@@ -739,9 +787,9 @@ internal sealed class DockerMonitorService : BackgroundService
 
             if (!_streamingFailed)
             {
-                _progress?.Invoke(DockerMonitorPhaseInfo.Completed(
+                _progress(DockerMonitorPhaseInfo.Completed(
                     DockerMonitorPhase.MonitoringCompleted,
-                    _containerName,
+                    _containerName.Value,
                     sampleCount: _collectedMetrics.Count,
                     message: $"Monitoring completed, collected {_collectedMetrics.Count} samples"));
             }
@@ -761,7 +809,7 @@ internal sealed class DockerMonitorService : BackgroundService
 
         while (state is not ConnectionState.Failed && !cancellationToken.IsCancellationRequested)
         {
-            _progress?.Invoke(PhaseReporting.ToPhaseInfo(state, _containerName));
+            _progress(PhaseReporting.ToPhaseInfo(state, _containerName));
 
             state = state switch
             {
@@ -773,7 +821,7 @@ internal sealed class DockerMonitorService : BackgroundService
 
         if (state is ConnectionState.Failed)
         {
-            _progress?.Invoke(PhaseReporting.ToPhaseInfo(state, _containerName));
+            _progress(PhaseReporting.ToPhaseInfo(state, _containerName));
             _streamingFailed = true;
 
             _logger.LogError(
@@ -807,7 +855,7 @@ internal sealed class DockerMonitorService : BackgroundService
                         StreamingConstants.MaxReconnectAttempts,
                         StreamingConstants.MaxReconnectDelay);
 
-                    _progress?.Invoke(PhaseReporting.ToPhaseInfo(currentState, _containerName));
+                    _progress(PhaseReporting.ToPhaseInfo(currentState, _containerName));
                     _firstValidStatsReceived.TrySetResult();
                 }
 
@@ -836,7 +884,7 @@ internal sealed class DockerMonitorService : BackgroundService
         }
         catch (Exception ex)
         {
-            _dockerClient.InvalidateContainerCache(_containerName);
+            _dockerClient.InvalidateContainerCache(_containerName.Value);
 
             var nextState = ConnectionStateMachine.Transition(
                 currentState,
@@ -874,10 +922,10 @@ internal sealed class DockerMonitorService : BackgroundService
 
             await Task.Delay(backoff.DelayToUse, cancellationToken);
 
-            _dockerClient.InvalidateContainerCache(_containerName);
+            _dockerClient.InvalidateContainerCache(_containerName.Value);
 
             var newContainerId = await _dockerClient.GetContainerIdAsync(
-                _containerName, cancellationToken);
+                _containerName.Value, cancellationToken);
 
             if (newContainerId == null)
             {
@@ -918,12 +966,14 @@ git commit -m "refactor: rewrite DockerMonitorService streaming loop as state ma
 ## Task 8: Integration Test Verification
 
 **Files:**
+
 - No new files — verification only.
 
 **Step 1: Run DockerMonitoring integration tests**
 
 Run: `dotnet test src/PerformanceTester.DockerMonitoring.IntegrationTests --logger "console;verbosity=detailed"`
 Expected: All 9 tests pass. This validates that the refactoring preserves behavior:
+
 - Container streaming still works
 - Phase reporting sequence is preserved
 - Metrics collection works
@@ -933,9 +983,10 @@ Expected: All 9 tests pass. This validates that the refactoring preserves behavi
 **Step 2: Fix any failures**
 
 If integration tests fail, the most likely causes are:
+
 1. Phase reporting order changed — check `PhaseReporting.ToPhaseInfo` matches expected phases
 2. `_firstSampleCollected` or `_firstValidStatsReceived` not signaled — check `ExecuteStreamingSessionAsync`
-3. `StreamMetrics` pipeline drops items — check `StatsProcessing.TryConvertToMetrics` null handling
+3. `StreamMetrics` pipeline drops items — check `StatsProcessing.TryConvertToMetrics` Option handling
 
 **Step 3: Run full solution build and test**
 
@@ -970,7 +1021,7 @@ REMOVED:
 - RunStreamingLoopWithReconnectionAsync() method
 
 KEPT:
-- _containerName, _dockerClient, _logger (DI dependencies)
+- _containerName (NonEmptyString), _dockerClient, _logger (DI dependencies)
 - _collectedMetrics (ConcurrentBag — metrics storage)
 - _startSignal, _firstSampleCollected, _firstValidStatsReceived (lifecycle TCS)
 - _streamingTask, _streamingCts (streaming lifecycle)
@@ -1001,13 +1052,13 @@ ADDED to DockerClientWrapper:
 
 ## New Files Created
 
-| File | Type | Purpose |
-|------|------|---------|
-| `ReconnectionPolicy.cs` | Internal static class | Pure backoff calculation and retry decisions |
-| `StatsProcessing.cs` | Internal static class | Pure stats → metrics transformation |
-| `ConnectionState.cs` | Internal abstract record | Explicit connection state machine |
-| `StreamEvent.cs` | Internal abstract record | Stream lifecycle events |
-| `ConnectionStateMachine.cs` | Internal static class | Pure state transition function |
-| `PhaseReporting.cs` | Internal static class | Pure state → phase info mapping |
+| File                        | Type                     | Purpose                                      |
+| --------------------------- | ------------------------ | -------------------------------------------- |
+| `ReconnectionPolicy.cs`     | Internal static class    | Pure backoff calculation and retry decisions |
+| `StatsProcessing.cs`        | Internal static class    | Pure stats → metrics transformation          |
+| `ConnectionState.cs`        | Internal abstract record | Explicit connection state machine            |
+| `StreamEvent.cs`            | Internal abstract record | Stream lifecycle events                      |
+| `ConnectionStateMachine.cs` | Internal static class    | Pure state transition function               |
+| `PhaseReporting.cs`         | Internal static class    | Pure state → phase info mapping              |
 
 **Testing:** No unit tests added. All pure extractions are validated through the existing DockerMonitoring integration tests (Task 8), per the project's [integration-first testing strategy](../01.TESTING_STRATEGY.md).
