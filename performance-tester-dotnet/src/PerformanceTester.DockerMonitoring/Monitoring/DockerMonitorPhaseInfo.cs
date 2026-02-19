@@ -1,3 +1,5 @@
+using PerformanceTester.Infrastructure.ValueObjects;
+
 namespace PerformanceTester.DockerMonitoring.Monitoring;
 
 /// <summary>
@@ -74,7 +76,7 @@ public enum DockerMonitorPhaseState
 public readonly record struct DockerMonitorPhaseInfo(
     DockerMonitorPhase Phase,
     DockerMonitorPhaseState State,
-    string ContainerName,
+    NonEmptyString ContainerName,
     int SampleCount = 0,
     string? Message = null,
     DateTimeOffset? Timestamp = null)
@@ -89,7 +91,7 @@ public readonly record struct DockerMonitorPhaseInfo(
     /// </summary>
     public static DockerMonitorPhaseInfo Starting(
         DockerMonitorPhase phase,
-        string containerName,
+        NonEmptyString containerName,
         int sampleCount = 0,
         string? message = null)
         => new(phase, DockerMonitorPhaseState.Starting, containerName, sampleCount, message, DateTimeOffset.UtcNow);
@@ -99,7 +101,7 @@ public readonly record struct DockerMonitorPhaseInfo(
     /// </summary>
     public static DockerMonitorPhaseInfo Completed(
         DockerMonitorPhase phase,
-        string containerName,
+        NonEmptyString containerName,
         int sampleCount = 0,
         string? message = null)
         => new(phase, DockerMonitorPhaseState.Completed, containerName, sampleCount, message, DateTimeOffset.UtcNow);
@@ -109,7 +111,7 @@ public readonly record struct DockerMonitorPhaseInfo(
     /// </summary>
     public static DockerMonitorPhaseInfo Failed(
         DockerMonitorPhase phase,
-        string containerName,
+        NonEmptyString containerName,
         int sampleCount = 0,
         string? message = null)
         => new(phase, DockerMonitorPhaseState.Failed, containerName, sampleCount, message, DateTimeOffset.UtcNow);

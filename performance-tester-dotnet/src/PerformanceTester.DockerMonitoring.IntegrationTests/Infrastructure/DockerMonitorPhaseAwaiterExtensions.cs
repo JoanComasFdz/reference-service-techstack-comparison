@@ -54,7 +54,7 @@ public static class DockerMonitorPhaseAwaiterExtensions
         params (DockerMonitorPhase Phase, DockerMonitorPhaseState State)[] expectedPhases)
     {
         var received = awaiter.ReceivedPhases
-            .Where(p => p.ContainerName == containerName)
+            .Where(p => p.ContainerName.Value == containerName)
             .ToList();
 
         int receivedIndex = 0;
@@ -91,13 +91,13 @@ public static class DockerMonitorPhaseAwaiterExtensions
         DockerMonitorPhase phase)
     {
         var found = awaiter.ReceivedPhases.Any(p =>
-            p.ContainerName == containerName &&
+            p.ContainerName.Value == containerName &&
             p.Phase == phase);
 
         if (!found)
         {
             var actualPhases = string.Join(", ", awaiter.ReceivedPhases
-                .Where(p => p.ContainerName == containerName)
+                .Where(p => p.ContainerName.Value == containerName)
                 .Select(p => $"{p.Phase}/{p.State}"));
 
             throw new Xunit.Sdk.XunitException(
@@ -116,14 +116,14 @@ public static class DockerMonitorPhaseAwaiterExtensions
         DockerMonitorPhaseState state)
     {
         var found = awaiter.ReceivedPhases.Any(p =>
-            p.ContainerName == containerName &&
+            p.ContainerName.Value == containerName &&
             p.Phase == phase &&
             p.State == state);
 
         if (!found)
         {
             var actualPhases = string.Join(", ", awaiter.ReceivedPhases
-                .Where(p => p.ContainerName == containerName)
+                .Where(p => p.ContainerName.Value == containerName)
                 .Select(p => $"{p.Phase}/{p.State}"));
 
             throw new Xunit.Sdk.XunitException(

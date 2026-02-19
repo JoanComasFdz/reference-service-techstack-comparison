@@ -71,7 +71,7 @@ internal sealed class DockerMonitorService : BackgroundService
 
         _progress(DockerMonitorPhaseInfo.Starting(
             DockerMonitorPhase.MonitoringRequested,
-            _containerName.Value,
+            _containerName,
             message: $"Starting streaming monitor for container {_containerName}"));
 
         _startSignal.TrySetResult();
@@ -120,7 +120,7 @@ internal sealed class DockerMonitorService : BackgroundService
             _firstSampleCollected.TrySetResult();
             _progress(DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
-                _containerName.Value,
+                _containerName,
                 message: $"Failed to resolve container: {ex.Message}"));
             return;
         }
@@ -131,7 +131,7 @@ internal sealed class DockerMonitorService : BackgroundService
             _firstSampleCollected.TrySetResult();
             _progress(DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
-                _containerName.Value,
+                _containerName,
                 message: $"Container '{_containerName}' not found"));
             return;
         }
@@ -195,7 +195,7 @@ internal sealed class DockerMonitorService : BackgroundService
             {
                 _progress(DockerMonitorPhaseInfo.Completed(
                     DockerMonitorPhase.MonitoringCompleted,
-                    _containerName.Value,
+                    _containerName,
                     sampleCount: _collectedMetrics.Count,
                     message: $"Monitoring completed, collected {_collectedMetrics.Count} samples"));
             }

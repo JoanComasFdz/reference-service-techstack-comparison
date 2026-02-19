@@ -47,7 +47,7 @@ public sealed class DockerMonitorPhaseAwaiter
 
         lock (_lock)
         {
-            if (_receivedPhases.Any(p => p.ContainerName == containerName && p.Phase == phase && p.State == state))
+            if (_receivedPhases.Any(p => p.ContainerName.Value == containerName && p.Phase == phase && p.State == state))
             {
                 return;
             }
@@ -82,7 +82,7 @@ public sealed class DockerMonitorPhaseAwaiter
         {
             _receivedPhases.Add(value);
 
-            var phaseKey = (value.ContainerName, value.Phase, value.State);
+            var phaseKey = (value.ContainerName.Value, value.Phase, value.State);
             if (_phaseAwaiters.TryGetValue(phaseKey, out var phaseTcs))
             {
                 phaseTcs.TrySetResult();

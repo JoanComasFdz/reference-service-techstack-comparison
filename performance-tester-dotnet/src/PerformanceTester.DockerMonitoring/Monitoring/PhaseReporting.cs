@@ -17,32 +17,32 @@ internal static class PhaseReporting
         ConnectionState.Connecting { AttemptNumber.Value: 0 } =>
             DockerMonitorPhaseInfo.Starting(
                 DockerMonitorPhase.StreamConnecting,
-                containerName.Value,
+                containerName,
                 message: $"Connecting to {containerName}..."),
 
         ConnectionState.Connecting c =>
             DockerMonitorPhaseInfo.Starting(
                 DockerMonitorPhase.StreamConnecting,
-                containerName.Value,
+                containerName,
                 message: $"Reconnecting to {containerName} (attempt {c.AttemptNumber + 1})..."),
 
         ConnectionState.Connected =>
             DockerMonitorPhaseInfo.Completed(
                 DockerMonitorPhase.StreamConnected,
-                containerName.Value,
+                containerName,
                 message: $"Connected to {containerName}"),
 
         ConnectionState.Disconnected d =>
             DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamDisconnected,
-                containerName.Value,
+                containerName,
                 message: $"Disconnected, retrying in {d.NextBackoff.TotalSeconds:F1}s " +
                          $"(attempt {d.ConsecutiveFailures}/{StreamingConstants.MaxReconnectAttempts})"),
 
         ConnectionState.Failed f =>
             DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
-                containerName.Value,
+                containerName,
                 message: $"Connection failed permanently after {f.TotalAttempts} attempts"),
 
         _ => throw new ArgumentOutOfRangeException(nameof(state))
