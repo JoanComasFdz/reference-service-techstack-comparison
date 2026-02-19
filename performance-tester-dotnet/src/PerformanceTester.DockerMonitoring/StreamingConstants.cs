@@ -1,3 +1,5 @@
+using PerformanceTester.DockerMonitoring.ValueObjects;
+
 namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
@@ -30,5 +32,5 @@ internal static class StreamingConstants
     /// Maximum consecutive failures before giving up.
     /// Resets to 0 when connection succeeds (first valid stats received).
     /// </summary>
-    public const int MaxReconnectAttempts = 10;
+    public static readonly AttemptCount MaxReconnectAttempts = AttemptCount.FromInt(10);
 }

@@ -13,7 +13,7 @@ internal static class PhaseReporting
         ConnectionState state,
         NonEmptyString containerName) => state switch
     {
-        ConnectionState.Connecting { AttemptNumber: 0 } =>
+        ConnectionState.Connecting { AttemptNumber.Value: 0 } =>
             DockerMonitorPhaseInfo.Starting(
                 DockerMonitorPhase.StreamConnecting,
                 containerName.Value,
@@ -23,7 +23,7 @@ internal static class PhaseReporting
             DockerMonitorPhaseInfo.Starting(
                 DockerMonitorPhase.StreamConnecting,
                 containerName.Value,
-                message: $"Reconnecting to {containerName} (attempt {c.AttemptNumber + 1})..."),
+                message: $"Reconnecting to {containerName} (attempt {c.AttemptNumber.Value + 1})..."),
 
         ConnectionState.Connected =>
             DockerMonitorPhaseInfo.Completed(

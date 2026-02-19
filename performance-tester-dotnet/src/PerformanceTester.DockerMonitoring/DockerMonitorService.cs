@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.DockerMonitoring;
@@ -141,7 +142,7 @@ internal sealed class DockerMonitorService : BackgroundService
         // Start streaming in background task with state machine reconnection
         _streamingCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         _streamingTask = Task.Run(
-            () => RunStreamingLoopAsync(containerId, _streamingCts.Token),
+            () => RunStreamingLoopAsync(ContainerId.FromString(containerId), _streamingCts.Token),
             stoppingToken);
 
         // Wait for first valid stats from stream
@@ -204,11 +205,11 @@ internal sealed class DockerMonitorService : BackgroundService
     /// decides state changes; this method interprets states as effects.
     /// </summary>
     private async Task RunStreamingLoopAsync(
-        string initialContainerId,
+        ContainerId initialContainerId,
         CancellationToken cancellationToken)
     {
         ConnectionState state = new ConnectionState.Connecting(
-            initialContainerId, 0, StreamingConstants.InitialReconnectDelay);
+            initialContainerId, AttemptCount.FromInt(0), StreamingConstants.InitialReconnectDelay);
 
         while (state is not ConnectionState.Failed && !cancellationToken.IsCancellationRequested)
         {
@@ -247,7 +248,7 @@ internal sealed class DockerMonitorService : BackgroundService
         try
         {
             await foreach (var metrics in _dockerClient.StreamMetrics(
-                connectingState.ContainerId, _containerName, cancellationToken))
+                connectingState.ContainerId.Value, _containerName, cancellationToken))
             {
                 if (currentState is ConnectionState.Connecting)
                 {
@@ -337,8 +338,12 @@ internal sealed class DockerMonitorService : BackgroundService
                     _containerName);
             }
 
+            var resolvedContainerId = newContainerId != null
+                ? ContainerId.FromString(newContainerId)
+                : disconnectedState.ContainerId;
+
             return new ConnectionState.Connecting(
-                newContainerId ?? disconnectedState.ContainerId,
+                resolvedContainerId,
                 disconnectedState.ConsecutiveFailures,
                 backoff.NextBackoff);
         }

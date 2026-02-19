@@ -1,3 +1,5 @@
+using PerformanceTester.Infrastructure.ValueObjects;
+
 namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
@@ -29,6 +31,6 @@ internal static class ReconnectionPolicy
     /// <summary>
     /// Returns true if retrying is allowed (failures have not exceeded the limit).
     /// </summary>
-    public static bool ShouldRetry(int consecutiveFailures, int maxAttempts)
-        => consecutiveFailures <= maxAttempts;
+    public static bool ShouldRetry(NonNegativeInt consecutiveFailures, NonNegativeInt maxAttempts)
+        => consecutiveFailures.Value <= maxAttempts.Value;
 }

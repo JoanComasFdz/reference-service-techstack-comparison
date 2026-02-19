@@ -1,3 +1,6 @@
+using PerformanceTester.DockerMonitoring.ValueObjects;
+using PerformanceTester.Infrastructure.ValueObjects;
+
 namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
@@ -20,27 +23,28 @@ internal static class ConnectionStateMachine
     public static ConnectionState Transition(
         ConnectionState current,
         StreamEvent streamEvent,
-        int maxReconnectAttempts,
+        NonNegativeInt maxReconnectAttempts,
         TimeSpan maxReconnectDelay) => (current, streamEvent) switch
     {
         // Connecting + valid stats → Connected
         (ConnectionState.Connecting c, StreamEvent.StatsReceived) => new ConnectionState.Connected(c.ContainerId),
 
         // Connecting + error (under limit) → Disconnected
-        (ConnectionState.Connecting c, StreamEvent.Error e) when ReconnectionPolicy.ShouldRetry(c.AttemptNumber + 1, maxReconnectAttempts) =>
+        (ConnectionState.Connecting c, StreamEvent.Error e) when ReconnectionPolicy.ShouldRetry(AttemptCount.FromInt(c.AttemptNumber.Value + 1), maxReconnectAttempts) =>
             new ConnectionState.Disconnected(
                 c.ContainerId,
-                c.AttemptNumber + 1,
+                AttemptCount.FromInt(c.AttemptNumber.Value + 1),
                 c.NextBackoff,
                 e.Exception),
 
         // Connecting + error (at limit) → Failed
-        (ConnectionState.Connecting c, StreamEvent.Error e) => new ConnectionState.Failed(c.AttemptNumber + 1, e.Exception),
+        (ConnectionState.Connecting c, StreamEvent.Error e) =>
+            new ConnectionState.Failed(AttemptCount.FromInt(c.AttemptNumber.Value + 1), e.Exception),
 
         // Connected + error → Disconnected (reset to count=1, initial backoff)
         (ConnectionState.Connected c, StreamEvent.Error e) => new ConnectionState.Disconnected(
                 c.ContainerId,
-                1,
+                AttemptCount.FromInt(1),
                 StreamingConstants.InitialReconnectDelay,
                 e.Exception),
 
@@ -50,18 +54,17 @@ internal static class ConnectionStateMachine
 
         // Disconnected + error (under limit) → Disconnected with incremented count
         (ConnectionState.Disconnected d, StreamEvent.Error e)
-            when ReconnectionPolicy.ShouldRetry(d.ConsecutiveFailures + 1, maxReconnectAttempts) =>
+            when ReconnectionPolicy.ShouldRetry(AttemptCount.FromInt(d.ConsecutiveFailures.Value + 1), maxReconnectAttempts) =>
             d with
             {
-                ConsecutiveFailures = d.ConsecutiveFailures + 1,
-                NextBackoff = ReconnectionPolicy.CalculateBackoff(
-                    d.NextBackoff, maxReconnectDelay).NextBackoff,
+                ConsecutiveFailures = AttemptCount.FromInt(d.ConsecutiveFailures.Value + 1),
+                NextBackoff = ReconnectionPolicy.CalculateBackoff(d.NextBackoff, maxReconnectDelay).NextBackoff,
                 LastError = e.Exception
             },
 
         // Disconnected + error (at limit) → Failed
         (ConnectionState.Disconnected d, StreamEvent.Error e) =>
-            new ConnectionState.Failed(d.ConsecutiveFailures + 1, e.Exception),
+            new ConnectionState.Failed(AttemptCount.FromInt(d.ConsecutiveFailures.Value + 1), e.Exception),
 
         // Any state + Cancelled → no-op
         (_, StreamEvent.Cancelled) => current,

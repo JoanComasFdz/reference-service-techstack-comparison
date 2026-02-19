@@ -1,4 +1,5 @@
 using Dunet;
+using PerformanceTester.DockerMonitoring.ValueObjects;
 
 namespace PerformanceTester.DockerMonitoring;
 
@@ -20,22 +21,22 @@ internal partial record ConnectionState
     /// Attempting to connect to Docker stats stream.
     /// </summary>
     partial record Connecting(
-        string ContainerId,
-        int AttemptNumber,
+        ContainerId ContainerId,
+        AttemptCount AttemptNumber,
         TimeSpan NextBackoff);
 
     /// <summary>
     /// Successfully receiving stats from Docker.
     /// </summary>
     partial record Connected(
-        string ContainerId);
+        ContainerId ContainerId);
 
     /// <summary>
     /// Connection lost, will retry after waiting <see cref="NextBackoff"/>.
     /// </summary>
     partial record Disconnected(
-        string ContainerId,
-        int ConsecutiveFailures,
+        ContainerId ContainerId,
+        AttemptCount ConsecutiveFailures,
         TimeSpan NextBackoff,
         Exception LastError);
 
@@ -43,6 +44,6 @@ internal partial record ConnectionState
     /// Connection failed permanently (max retries exceeded).
     /// </summary>
     partial record Failed(
-        int TotalAttempts,
+        AttemptCount TotalAttempts,
         Exception LastError);
 }
