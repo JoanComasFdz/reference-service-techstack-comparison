@@ -43,9 +43,12 @@ public static class ServiceCollectionExtensions
             throw new ArgumentException("RabbitMQ connection string cannot be null or empty", nameof(rabbitMqConnectionString));
         }
 
+        // Wrap string → RabbitMqConnectionString at DI boundary (fail-fast validation)
+        var connectionString = new RabbitMqConnectionString(rabbitMqConnectionString);
+
         // Register internal dependencies
         services.AddSingleton<RabbitMqPublisher>(sp => new RabbitMqPublisher(
-            rabbitMqConnectionString,
+            connectionString,
             sp.GetRequiredService<ILogger<RabbitMqPublisher>>()));
 
         // Register public API

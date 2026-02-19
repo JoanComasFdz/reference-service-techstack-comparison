@@ -14,7 +14,7 @@ namespace PerformanceTester.EventPublishing;
 internal sealed class RabbitMqPublisher : IAsyncDisposable
 {
     private readonly PublisherContext _ctx = new();
-    private readonly string _connectionString;
+    private readonly RabbitMqConnectionString _connectionString;
     private readonly ILogger<RabbitMqPublisher> _logger;
     private readonly AsyncRetryPolicy _retryPolicy;
 
@@ -23,9 +23,9 @@ internal sealed class RabbitMqPublisher : IAsyncDisposable
     /// </summary>
     /// <param name="connectionString">RabbitMQ connection string.</param>
     /// <param name="logger">Logger instance.</param>
-    public RabbitMqPublisher(string connectionString, ILogger<RabbitMqPublisher> logger)
+    public RabbitMqPublisher(RabbitMqConnectionString connectionString, ILogger<RabbitMqPublisher> logger)
     {
-        _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
+        _connectionString = connectionString;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Configure Polly retry policy for transient failures

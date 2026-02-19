@@ -17,7 +17,7 @@ internal static class PublisherOperations
 
     public static async Task ConnectAsync(
         PublisherContext ctx,
-        string connectionString,
+        RabbitMqConnectionString connectionString,
         ILogger logger,
         CancellationToken cancellationToken = default)
     {
@@ -30,15 +30,12 @@ internal static class PublisherOperations
                 return;
             }
 
-            // Mask connection string inline (G3 — single-use, no wrapper function)
-            var uri = new Uri(connectionString);
-            var userInfo = !string.IsNullOrEmpty(uri.UserInfo) ? "***:***" : "";
             logger.LogInformation(
                 "Connecting to RabbitMQ at {ConnectionString}",
-                $"{uri.Scheme}://{userInfo}@{uri.Host}:{uri.Port}");
+                connectionString.ToMaskedString());
 
             // Build connection + channel as locals; only store atomically on success
-            var factory = new ConnectionFactory { Uri = new Uri(connectionString) };
+            var factory = new ConnectionFactory { Uri = connectionString.ToUri() };
             var connection = await factory.CreateConnectionAsync(cancellationToken);
             IChannel? channel = null;
 
