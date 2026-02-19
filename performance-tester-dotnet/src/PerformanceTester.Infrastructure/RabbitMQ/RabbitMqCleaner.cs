@@ -63,10 +63,9 @@ internal static class RabbitMqCleaner
                 string.Join(", ", queues));
 
             // Purge each queue sequentially, collecting per-queue outcomes
-            var purgeResults = await queues
-                .ToAsyncEnumerable()
-                .Select(async (q, ct) => await TryPurgeQueueAsync(api, q, logger, ct))
-                .ToListAsync(cancellationToken);
+            var purgeResults = await Task.WhenAll(
+                queues.Select(q => TryPurgeQueueAsync(api, q, logger, cancellationToken))
+                );
 
             var failureCount = purgeResults.Count(succeeded => !succeeded);
 
