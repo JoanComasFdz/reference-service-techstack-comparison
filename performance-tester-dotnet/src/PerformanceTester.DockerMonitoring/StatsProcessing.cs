@@ -1,4 +1,5 @@
 using Docker.DotNet.Models;
+using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.ValueObjects;
 using static PerformanceTester.Functional.Option<PerformanceTester.DockerMonitoring.DockerMetrics>;
@@ -29,8 +30,8 @@ internal static class StatsProcessing
         return new Some(new DockerMetrics
         {
             Timestamp = timestamp,
-            ContainerId = stats.ID,
-            ContainerName = containerName.Value,
+            ContainerId = ContainerId.FromString(stats.ID),
+            ContainerName = containerName,
             CpuPercent = CalculateCpuPercent(stats),
             MemoryMB = Math.Round(stats.MemoryStats.Usage / 1024.0 / 1024.0, 2)
         });

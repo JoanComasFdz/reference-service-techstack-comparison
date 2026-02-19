@@ -1,3 +1,6 @@
+using PerformanceTester.DockerMonitoring.ValueObjects;
+using PerformanceTester.Infrastructure.ValueObjects;
+
 namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
@@ -13,12 +16,12 @@ public sealed record DockerMetrics
     /// <summary>
     /// Docker container ID (full SHA256).
     /// </summary>
-    public required string ContainerId { get; init; }
+    public required ContainerId ContainerId { get; init; }
 
     /// <summary>
     /// Human-readable container name.
     /// </summary>
-    public required string ContainerName { get; init; }
+    public required NonEmptyString ContainerName { get; init; }
 
     /// <summary>
     /// CPU usage percentage (0-100% per core, can exceed 100% on multi-core).
