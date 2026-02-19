@@ -1413,4 +1413,6 @@ internal sealed class DockerClientWrapper
 | Dependency composition      | Am I receiving interfaces? Contain them in a dependencies class, expose delegates at the right level          |
 | Static class as module      | Can I co-locate delegates, bundle record, factory, and execution in one static class?                         |
 | Three-bucket rule           | Is this value fixed at construction, produced at runtime, or mutable? Bake in / parameter / reader delegate   |
-| Thin shell pattern          | Does this class inherit from a framework base? Extract state → context record, logic → static functions       |
+| Context record pattern      | Does this class have mutable state? Extract it into a context record, pass explicitly to static functions     |
+| Immutable state threading   | Is this a single-threaded pipeline? Return new records via `with` / `Aggregate`, no mutation                  |
+| Thin shell pattern          | Does this class inherit from a framework base? Own context, wire lifecycle, delegate to static functions      |
