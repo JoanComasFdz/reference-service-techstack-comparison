@@ -15,4 +15,14 @@ internal sealed record AttemptCount : NonNegativeInt
     public static Result<AttemptCount, string> Create(int value) => Create(value, "Attempt count", v => new AttemptCount(v));
 
     public static AttemptCount FromInt(int value) => new(value);
+
+    // -- Type-preserving arithmetic (shadows base NonNegativeInt operators) --
+
+    public static AttemptCount operator +(AttemptCount left, int right) => new(Math.Max(0, left.Value + right));
+
+    public static AttemptCount operator -(AttemptCount left, int right) => new(Math.Max(0, left.Value - right));
+
+    public static AttemptCount operator ++(AttemptCount value) => new(value.Value + 1);
+
+    public static AttemptCount operator --(AttemptCount value) => new(Math.Max(0, value.Value - 1));
 }
