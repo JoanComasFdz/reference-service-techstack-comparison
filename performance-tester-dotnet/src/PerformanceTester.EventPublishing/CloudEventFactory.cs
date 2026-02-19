@@ -14,33 +14,33 @@ internal static class CloudEventFactory
     private const string ContentType = "application/json";
     private static readonly Uri SchemaUrl = new("https://github.com/jcomasfz/performance-tester/schemas/instrument-status-changed-v1.json");
 
-    private static readonly string[] DeviceIds = Enumerable.Range(1, 999)
-        .Select(i => $"DEVICE-{i:D3}")
+    private static readonly DeviceId[] DeviceIds = Enumerable.Range(1, 999)
+        .Select(DeviceId.FromIndex)
         .ToArray();
 
-    private static readonly (string Previous, string Current)[] StatusTransitions =
-    {
-        ("IDLE", "RUNNING"),
-        ("RUNNING", "IDLE"),
-        ("IDLE", "ERROR"),
-        ("ERROR", "IDLE"),
-        ("RUNNING", "ERROR"),
-        ("ERROR", "RUNNING")
-    };
+    private static readonly StatusTransition[] StatusTransitions =
+    [
+        new(new InstrumentStatus.Idle(), new InstrumentStatus.Running()),
+        new(new InstrumentStatus.Running(), new InstrumentStatus.Idle()),
+        new(new InstrumentStatus.Idle(), new InstrumentStatus.Error()),
+        new(new InstrumentStatus.Error(), new InstrumentStatus.Idle()),
+        new(new InstrumentStatus.Running(), new InstrumentStatus.Error()),
+        new(new InstrumentStatus.Error(), new InstrumentStatus.Running())
+    ];
 
     private static readonly CloudEventFormatter Formatter = new JsonEventFormatter();
 
     /// <summary>
     /// Creates a CloudEvent with specified device ID and status transition.
     /// </summary>
-    /// <param name="deviceId">Device identifier (e.g., "DEVICE-001").</param>
+    /// <param name="deviceId">Device identifier.</param>
     /// <param name="previousStatus">Previous status.</param>
     /// <param name="currentStatus">Current status.</param>
     /// <returns>CloudEvent instance conforming to v1.0 specification.</returns>
     public static CloudEvent CreateInstrumentStatusChangedEvent(
-        string deviceId,
-        string previousStatus,
-        string currentStatus)
+        DeviceId deviceId,
+        InstrumentStatus previousStatus,
+        InstrumentStatus currentStatus)
     {
         var cloudEvent = new CloudEvent
         {
@@ -52,9 +52,9 @@ internal static class CloudEventFactory
             DataSchema = SchemaUrl,
             Data = new
             {
-                deviceId,
-                previousStatus,
-                currentStatus,
+                deviceId = deviceId.Value,
+                previousStatus = previousStatus.ToValue(),
+                currentStatus = currentStatus.ToValue(),
                 timestamp = DateTimeOffset.UtcNow.ToString("O")
             }
         };
@@ -70,12 +70,12 @@ internal static class CloudEventFactory
     public static CloudEvent CreateRandomEvent()
     {
         var deviceId = DeviceIds[Random.Shared.Next(DeviceIds.Length)];
-        var (Previous, Current) = StatusTransitions[Random.Shared.Next(StatusTransitions.Length)];
+        var transition = StatusTransitions[Random.Shared.Next(StatusTransitions.Length)];
 
         return CreateInstrumentStatusChangedEvent(
             deviceId,
-            Previous,
-            Current);
+            transition.Previous,
+            transition.Current);
     }
 
     /// <summary>
