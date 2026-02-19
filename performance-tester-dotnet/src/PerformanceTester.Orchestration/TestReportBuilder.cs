@@ -54,16 +54,16 @@ internal static class TestReportBuilder
         {
             Timestamp = m.Timestamp,
             ElapsedSeconds = (m.Timestamp - testStartTime).TotalSeconds,
-            CpuPercent = m.CpuPercent,
-            MemoryMb = m.MemoryMB
+            CpuPercent = m.CpuPercent.Value,
+            MemoryMb = m.MemoryMB.Value
         }).ToList();
 
         var postgresResourceSamples = postgresMetrics.Select(m => new ContainerResourceSample
         {
             Timestamp = m.Timestamp,
             ElapsedSeconds = (m.Timestamp - testStartTime).TotalSeconds,
-            CpuPercent = m.CpuPercent,
-            MemoryMb = m.MemoryMB
+            CpuPercent = m.CpuPercent.Value,
+            MemoryMb = m.MemoryMB.Value
         }).ToList();
 
         // Convert system metrics to SystemResourceSample

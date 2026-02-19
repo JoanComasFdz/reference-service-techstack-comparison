@@ -51,10 +51,10 @@ public static class DockerMonitoringAssertions
         foreach (var metric in metrics)
         {
             Assert.True(
-                metric.CpuPercent >= 0,
+                metric.CpuPercent.Value >= 0,
                 $"{containerName} CPU% must be >= 0, got {metric.CpuPercent}");
             Assert.True(
-                metric.CpuPercent <= 1000,
+                metric.CpuPercent.Value <= 1000,
                 $"{containerName} CPU% exceeds reasonable bound, got {metric.CpuPercent}");
         }
 
@@ -70,10 +70,10 @@ public static class DockerMonitoringAssertions
         foreach (var metric in metrics)
         {
             Assert.True(
-                metric.MemoryMB > 0,
+                metric.MemoryMB.Value > 0,
                 $"{containerName} Memory must be > 0 MB, got {metric.MemoryMB}");
             Assert.True(
-                metric.MemoryMB <= 100_000,
+                metric.MemoryMB.Value <= 100_000,
                 $"{containerName} Memory exceeds reasonable bound, got {metric.MemoryMB} MB");
         }
 
