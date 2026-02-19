@@ -1,4 +1,12 @@
-# Design: Restructure Guideline 32 into Three Guidelines
+# Restructure Guideline 32 into Three Guidelines — Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Replace the monolithic Guideline 32 (Thin Shell Pattern) with three focused guidelines covering context records, immutable state threading, and thin shells.
+
+**Architecture:** Single-file edit to `CODING_GUIDELINES.md`. Replace lines 1121–1261 (current Guideline 32) with three new guidelines, and replace one summary table row with three.
+
+**Tech Stack:** Markdown only.
 
 **Date:** 2026-02-19
 **Status:** Approved
@@ -170,9 +178,54 @@ Same pattern applies to API wrappers — use static operations + DI-registered d
 
 **File organization:** `Context.cs` (state record) + `Operations.cs` (static logic) + `Service.cs` (thin shell).
 
-## Changes to Existing Content
+---
 
-- **Delete** current Guideline 32 entirely
-- **Add** Guidelines 32, 33, 34 as described above
-- **Update** summary table at bottom of `CODING_GUIDELINES.md` to reflect three new rows replacing one
-- **No changes** to Guidelines 1–31
+## Implementation Tasks
+
+### Task 1: Replace current Guideline 32 with new Guidelines 32, 33, 34
+
+**Files:**
+- Modify: `CODING_GUIDELINES.md:1121-1261`
+
+**Step 1: Replace the guideline section**
+
+Replace everything from line 1121 (`### 32. Thin Shell Pattern for Framework-Coupled Classes`) through line 1261 (end of "Relationship to other guidelines" list) with the three new guidelines as defined in the design sections above. Preserve the `---` separator on line 1262.
+
+**Step 2: Verify markdown renders correctly**
+
+Skim the replaced section for broken formatting (unclosed code fences, mismatched headings, table alignment).
+
+**Step 3: Commit**
+
+```bash
+git add CODING_GUIDELINES.md
+git commit -m "docs: replace Guideline 32 with Guidelines 32 (context record), 33 (immutable state), 34 (thin shell)"
+```
+
+---
+
+### Task 2: Update the summary table
+
+**Files:**
+- Modify: `CODING_GUIDELINES.md` — summary table at end of file
+
+**Step 1: Replace the summary table row**
+
+Replace the single row:
+```
+| Thin shell pattern          | Does this class inherit from a framework base? Extract state → context record, logic → static functions       |
+```
+
+With three rows:
+```
+| Context record pattern      | Does this class have mutable state? Extract it into a context record, pass explicitly to static functions     |
+| Immutable state threading   | Is this a single-threaded pipeline? Return new records via `with` / `Aggregate`, no mutation                  |
+| Thin shell pattern          | Does this class inherit from a framework base? Own context, wire lifecycle, delegate to static functions      |
+```
+
+**Step 2: Commit**
+
+```bash
+git add CODING_GUIDELINES.md
+git commit -m "docs: update summary table for Guidelines 32-34"
+```
