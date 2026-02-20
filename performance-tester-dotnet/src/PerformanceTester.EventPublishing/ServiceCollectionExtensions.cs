@@ -9,24 +9,25 @@ namespace PerformanceTester.EventPublishing;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds EventPublishing services to the service collection.
+    /// Adds EventPublishing delegates to the service collection.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="rabbitMqConnectionString">RabbitMQ connection string (format: amqp://user:password@host:port).</param>
     /// <returns>The service collection for chaining.</returns>
     /// <remarks>
-    /// Important: IEventPublisher requires explicit connection initialization.
-    /// After resolving IEventPublisher from the container, call ConnectAsync()
-    /// before publishing events, and DisconnectAsync() for graceful shutdown.
+    /// Important: <see cref="ConnectPublisherDelegate"/> must be called before <see cref="PublishEventsDelegate"/>.
+    /// Call <see cref="DisconnectPublisherDelegate"/> for graceful shutdown.
     ///
     /// Example usage:
     /// <code>
     /// var host = builder.Build();
-    /// var publisher = host.Services.GetRequiredService&lt;IEventPublisher&gt;();
+    /// var connect = host.Services.GetRequiredService&lt;ConnectPublisherDelegate&gt;();
+    /// var publish = host.Services.GetRequiredService&lt;PublishEventsDelegate&gt;();
+    /// var disconnect = host.Services.GetRequiredService&lt;DisconnectPublisherDelegate&gt;();
     ///
-    /// await publisher.ConnectAsync(cancellationToken);
-    /// await publisher.PublishEventsAsync(1000, cancellationToken);
-    /// await publisher.DisconnectAsync(cancellationToken);
+    /// await connect(cancellationToken);
+    /// await publish(1000, cancellationToken);
+    /// await disconnect(cancellationToken);
     /// </code>
     /// </remarks>
     public static IServiceCollection AddEventPublishing(
@@ -46,23 +47,31 @@ public static class ServiceCollectionExtensions
         // Wrap string → RabbitMqConnectionString at DI boundary (fail-fast validation)
         var connectionString = new RabbitMqConnectionString(rabbitMqConnectionString);
 
-        // Register internal dependencies
+        // Internal dependency — thin shell owning connection state (G34)
         services.AddSingleton<RabbitMqPublisher>(sp => new RabbitMqPublisher(
             connectionString,
             sp.GetRequiredService<ILogger<RabbitMqPublisher>>()));
 
-        // Register public API
-        services.AddSingleton<IEventPublisher, EventPublisher>();
-
-        // Named delegates (new public API — wraps IEventPublisher during migration)
+        // No adapter class — the closure IS the implementation (G12)
         services.AddSingleton<ConnectPublisherDelegate>(sp =>
-            sp.GetRequiredService<IEventPublisher>().ConnectAsync);
+        {
+            var publisher = sp.GetRequiredService<RabbitMqPublisher>();
+            return publisher.ConnectAsync;
+        });
 
         services.AddSingleton<DisconnectPublisherDelegate>(sp =>
-            sp.GetRequiredService<IEventPublisher>().DisconnectAsync);
+        {
+            var publisher = sp.GetRequiredService<RabbitMqPublisher>();
+            return publisher.DisconnectAsync;
+        });
 
         services.AddSingleton<PublishEventsDelegate>(sp =>
-            sp.GetRequiredService<IEventPublisher>().PublishEventsAsync);
+        {
+            var publisher = sp.GetRequiredService<RabbitMqPublisher>();
+            var logger = sp.GetRequiredService<ILoggerFactory>()
+                .CreateLogger(typeof(EventPublisher).FullName!);
+            return (count, ct) => EventPublisher.PublishEventsAsync(publisher, count, logger, ct);
+        });
 
         return services;
     }
