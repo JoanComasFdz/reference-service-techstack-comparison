@@ -15,7 +15,7 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
         const int eventCount = 10;
 
         // Act
-        var metrics = await System.EventPublishing.Publisher.PublishEventsAsync(eventCount);
+        var metrics = await System.EventPublishing.PublishEvents(eventCount);
 
         // Assert
         Asserting.That(metrics).HasPublishedSuccessfully(eventCount);
@@ -28,7 +28,7 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
         const int eventCount = 500;
 
         // Act
-        var metrics = await System.EventPublishing.Publisher.PublishEventsAsync(eventCount);
+        var metrics = await System.EventPublishing.PublishEvents(eventCount);
 
         // Assert - Should publish at least 500 events/sec with pipelined publishing
         Asserting.That(metrics)
@@ -43,7 +43,7 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
         const int invalidCount = 0;
 
         // Act & Assert
-        Asserting.That(System.EventPublishing.Publisher).ThrowsArgumentOutOfRangeForInvalidCount(invalidCount);
+        Asserting.That(System.EventPublishing.PublishEvents).ThrowsArgumentOutOfRangeForInvalidCount(invalidCount);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
         const int invalidCount = -1;
 
         // Act & Assert
-        Asserting.That(System.EventPublishing.Publisher).ThrowsArgumentOutOfRangeForInvalidCount(invalidCount);
+        Asserting.That(System.EventPublishing.PublishEvents).ThrowsArgumentOutOfRangeForInvalidCount(invalidCount);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
         await channel.QueuePurgeAsync(queueName);
 
         // Act
-        await System.EventPublishing.Publisher.PublishEventsAsync(eventCount);
+        await System.EventPublishing.PublishEvents(eventCount);
 
         // Wait a bit for messages to route
         await Task.Delay(100);
@@ -106,7 +106,7 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
         // Use ThrowsAnyAsync to accept OperationCanceledException or derived types (e.g., TaskCanceledException)
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await System.EventPublishing.Publisher.PublishEventsAsync(largeEventCount, cts.Token);
+            await System.EventPublishing.PublishEvents(largeEventCount, cts.Token);
         });
     }
 }

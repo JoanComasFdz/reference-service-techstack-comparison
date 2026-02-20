@@ -7,18 +7,18 @@ using Xunit.Abstractions;
 namespace PerformanceTester.EventPublishing.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// Facade class that wraps DI container and exposes EventPublishing services for testing.
-/// This class encapsulates all DI setup logic and provides easy access to production services.
+/// Facade class that wraps DI container and exposes EventPublishing delegates for testing.
 /// Automatically connects to RabbitMQ during initialization.
 /// </summary>
 public sealed class EventPublishing : IAsyncDisposable
 {
     private IHost? _host;
+    private readonly DisconnectPublisherDelegate _disconnectPublisher;
 
     /// <summary>
-    /// Event publisher for publishing CloudEvents to RabbitMQ.
+    /// Publishes CloudEvents to RabbitMQ.
     /// </summary>
-    public IEventPublisher Publisher { get; private set; } = null!;
+    public PublishEventsDelegate PublishEvents { get; }
 
     public EventPublishing(
         string rabbitMQConnectionString,
@@ -41,19 +41,18 @@ public sealed class EventPublishing : IAsyncDisposable
 
         _host = builder.Build();
 
-        // Resolve services from DI container
-        Publisher = _host.Services.GetRequiredService<IEventPublisher>();
+        // Resolve delegates from DI container
+        var connectPublisher = _host.Services.GetRequiredService<ConnectPublisherDelegate>();
+        _disconnectPublisher = _host.Services.GetRequiredService<DisconnectPublisherDelegate>();
+        PublishEvents = _host.Services.GetRequiredService<PublishEventsDelegate>();
 
-        // Explicitly connect to RabbitMQ using public API (synchronous wait is acceptable in test setup)
-        Publisher.ConnectAsync().GetAwaiter().GetResult();
+        // Explicitly connect to RabbitMQ (synchronous wait is acceptable in test setup)
+        connectPublisher().GetAwaiter().GetResult();
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (Publisher != null)
-        {
-            await Publisher.DisconnectAsync();
-        }
+        await _disconnectPublisher();
         _host?.Dispose();
     }
 

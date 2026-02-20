@@ -38,14 +38,14 @@ public static class EventPublishingAssertions
     }
 
     /// <summary>
-    /// Asserts that calling PublishEventsAsync with invalid count throws ArgumentOutOfRangeException.
+    /// Asserts that calling PublishEvents with invalid count throws ArgumentOutOfRangeException.
     /// </summary>
-    public static AssertingThat<IEventPublisher> ThrowsArgumentOutOfRangeForInvalidCount(
-        this AssertingThat<IEventPublisher> assertingThat,
+    public static AssertingThat<PublishEventsDelegate> ThrowsArgumentOutOfRangeForInvalidCount(
+        this AssertingThat<PublishEventsDelegate> assertingThat,
         int invalidCount)
     {
         Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            async () => await assertingThat.InstanceToAssert.PublishEventsAsync(invalidCount))
+            async () => await assertingThat.InstanceToAssert(invalidCount))
             .Wait();
         return assertingThat;
     }
