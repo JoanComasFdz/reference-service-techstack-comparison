@@ -66,6 +66,16 @@ else
     # Don't exit - user can manually connect or use host.docker.internal
 fi
 
+log "Step 5: Starting claude-devtools container..."
+if bash /workspace/.devcontainer/start-claude-devtools.sh >> "$LOGFILE" 2>&1; then
+    log "✓ claude-devtools started at http://localhost:3456"
+else
+    EXIT_CODE=$?
+    log "⚠ claude-devtools start FAILED with exit code $EXIT_CODE (non-fatal)"
+    log "  To retry: bash /workspace/.devcontainer/start-claude-devtools.sh"
+    # Don't exit - this is not critical
+fi
+
 log "========================================="
 log "ALL POSTSTART SCRIPTS COMPLETED SUCCESSFULLY"
 log "========================================="
