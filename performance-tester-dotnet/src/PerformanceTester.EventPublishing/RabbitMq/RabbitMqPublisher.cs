@@ -4,7 +4,7 @@ using Polly;
 using Polly.Retry;
 using RabbitMQ.Client;
 
-namespace PerformanceTester.EventPublishing;
+namespace PerformanceTester.EventPublishing.RabbitMq;
 
 /// <summary>
 /// Thin shell for RabbitMQ connection management and message publishing.

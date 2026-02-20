@@ -1,6 +1,6 @@
 using RabbitMQ.Client;
 
-namespace PerformanceTester.EventPublishing;
+namespace PerformanceTester.EventPublishing.RabbitMq;
 
 /// <summary>
 /// Atomic connection state: connection and channel are always created and destroyed together.

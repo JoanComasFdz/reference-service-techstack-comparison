@@ -1,4 +1,4 @@
-namespace PerformanceTester.EventPublishing;
+namespace PerformanceTester.EventPublishing.RabbitMq;
 
 /// <summary>
 /// Value object for a RabbitMQ AMQP connection string.

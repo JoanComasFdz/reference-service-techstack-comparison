@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 
-namespace PerformanceTester.EventPublishing;
+namespace PerformanceTester.EventPublishing.RabbitMq;
 
 /// <summary>
 /// Static operations for RabbitMQ connection management.
