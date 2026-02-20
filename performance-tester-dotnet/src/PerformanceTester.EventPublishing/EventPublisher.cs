@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.EventPublishing.CloudEvents;
+using PerformanceTester.EventPublishing.RabbitMq;
 using RabbitMQ.Client;
 
 namespace PerformanceTester.EventPublishing;

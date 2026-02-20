@@ -1,5 +1,6 @@
 using CloudNative.CloudEvents;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.EventPublishing.CloudEvents;
 using Polly;
 using Polly.Retry;
 using RabbitMQ.Client;
