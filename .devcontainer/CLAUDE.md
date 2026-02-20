@@ -15,6 +15,8 @@ The devcontainer configuration has been refactored to separate concerns and impr
 ├── postcreate-wrapper.sh       # Runs ONCE after container creation
 ├── poststart-wrapper.sh        # Runs EVERY TIME container starts
 ├── setup-claudecode.sh         # Claude Code installation and plugin setup
+├── setup-claude-devtools.sh   # Build claude-devtools Docker image from source
+├── start-claude-devtools.sh   # Start/restart claude-devtools container
 ├── ccstatusline.settings.json  # Status line configuration for Claude Code
 ├── install-k6.sh              # k6 load testing tool installation
 ├── prepull-images.sh          # Pre-pull Docker images for performance
@@ -36,7 +38,9 @@ The devcontainer configuration has been refactored to separate concerns and impr
 2. Sets up Claude Code
 3. Installs k6 performance testing tool
 4. Pre-pulls Docker images for faster startup
-5. Adds DEVCONTAINER=true environment variable to shell configs
+5. Builds claude-devtools Docker image (non-fatal)
+6. Adds DEVCONTAINER=true environment variable to shell configs
+7. Configures mise to skip dotnet installation (system dotnet present)
 
 **Log file:** `/tmp/postcreate.log`
 
@@ -49,6 +53,8 @@ The devcontainer configuration has been refactored to separate concerns and impr
 1. Runs `init-firewall.sh` - Sets up firewall rules with allowed domains
 2. Runs `fix-docker-iptables.sh` - Configures Docker iptables chains
 3. Runs `connect-to-testcontainers-network.sh` - Connects container to testcontainers network
+4. Runs `connect-to-infrastructure-network.sh` - Connects devcontainer to infrastructure network
+5. Runs `start-claude-devtools.sh` - Starts claude-devtools web UI container
 
 **Log file:** `/tmp/poststart.log`
 
@@ -146,6 +152,48 @@ The devcontainer uses Docker-in-Docker to run the performance testing infrastruc
 2. The devcontainer is connected to the testcontainers network
 3. Docker iptables chains are properly configured
 4. Firewall allows Docker bridge network traffic
+
+## Claude DevTools
+
+[claude-devtools](https://github.com/matt1398/claude-devtools) provides a web-based visualization
+of Claude Code session traces. It reads session logs from `~/.claude/` and displays:
+- Context reconstruction (token attribution across 7 categories)
+- Tool call inspector (syntax-highlighted reads, diffs for edits, bash output)
+- Compaction visualization (context window fill/refill cycles)
+- Subagent/teammate execution trees
+- Cross-session search (Cmd+K)
+
+**How it works:**
+- Runs as a sibling Docker container named `reference-service-techstack-comparison-claude-devtools`
+- Shares the Claude config volume (`/home/node/.claude`) as read-only
+- Image is built from source during `postcreate` (one-time, cached on host Docker daemon)
+- Container is started during `poststart` (every restart)
+
+**Access:** `http://localhost:3456`
+
+**Useful commands:**
+```bash
+# Check if running
+docker ps | grep claude-devtools
+
+# View logs
+docker logs reference-service-techstack-comparison-claude-devtools
+
+# Restart
+docker restart reference-service-techstack-comparison-claude-devtools
+
+# Rebuild image (e.g., to update to latest version)
+docker rmi claude-devtools:local
+bash /workspace/.devcontainer/setup-claude-devtools.sh
+bash /workspace/.devcontainer/start-claude-devtools.sh
+
+# Stop (temporary)
+docker stop reference-service-techstack-comparison-claude-devtools
+
+# Remove completely
+docker rm -f reference-service-techstack-comparison-claude-devtools
+docker rmi claude-devtools:local
+```
 
 ## Maintenance Checklist
 
