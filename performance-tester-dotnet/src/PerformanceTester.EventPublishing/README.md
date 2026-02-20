@@ -33,30 +33,30 @@ dotnet add reference ../PerformanceTester.EventPublishing/PerformanceTester.Even
 using PerformanceTester.EventPublishing;
 
 var builder = Host.CreateApplicationBuilder();
-
 builder.Services.AddEventPublishing(
     rabbitMqConnectionString: "amqp://admin:admin@localhost:5672"
 );
-
 var host = builder.Build();
 ```
 
 ### Publishing Events
 
 ```csharp
-var publisher = host.Services.GetRequiredService<IEventPublisher>();
+var connect = host.Services.GetRequiredService<ConnectPublisherDelegate>();
+var publish = host.Services.GetRequiredService<PublishEventsDelegate>();
+var disconnect = host.Services.GetRequiredService<DisconnectPublisherDelegate>();
 
 // Connect to RabbitMQ (must be called before publishing)
-await publisher.ConnectAsync();
+await connect(cancellationToken);
 
 // Publish 1000 events as fast as possible
-var metrics = await publisher.PublishEventsAsync(count: 1000);
+var metrics = await publish(1000, cancellationToken);
 
 Console.WriteLine($"Published {metrics.EventCount} events in {metrics.Duration.TotalSeconds:F2}s");
 Console.WriteLine($"Throughput: {metrics.EventsPerSecond:F2} events/sec");
 
 // Gracefully disconnect when done
-await publisher.DisconnectAsync();
+await disconnect(cancellationToken);
 ```
 
 ## Integration Testing
@@ -75,9 +75,29 @@ Tests use real RabbitMQ container (via Testcontainers) to ensure functionality w
 
 ## Architecture
 
+### Folder Structure
+
+```
+PerformanceTester.EventPublishing/
+├── CloudEvents/                    # Event model creation & serialization
+│   ├── CloudEventFactory.cs        # Creates random CloudEvents for testing
+│   ├── DeviceId.cs                 # DEVICE-NNN value object
+│   ├── InstrumentStatus.cs         # Idle|Running|Error discriminated union
+│   └── StatusTransition.cs         # Previous→Current status pair
+├── RabbitMq/                       # Transport infrastructure
+│   ├── PublisherContext.cs          # Mutable connection state (G32)
+│   ├── PublisherOperations.cs       # Static connection operations (G1, G2)
+│   ├── RabbitMqConnectionString.cs  # Connection string value object
+│   └── RabbitMqPublisher.cs         # Thin shell publisher (G34)
+├── EventPublisher.cs               # Batch publishing orchestrator
+├── EventPublishingDelegates.cs     # Public delegate contracts (G12)
+├── PublishMetrics.cs               # Public metrics return type
+└── ServiceCollectionExtensions.cs  # DI registration
+```
+
 ### Vertical Slice Architecture (VSA)
 - EventPublishing slice owns CloudEvent generation and RabbitMQ publishing
-- Exposes single interface: `IEventPublisher`
+- Public API: three named delegates (`ConnectPublisherDelegate`, `DisconnectPublisherDelegate`, `PublishEventsDelegate`)
 - Producer-owned contract: CloudEvent model defined by this slice
 
 ### Design Decisions
