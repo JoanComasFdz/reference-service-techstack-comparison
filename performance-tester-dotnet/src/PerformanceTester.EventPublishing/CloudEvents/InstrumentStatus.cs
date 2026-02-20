@@ -1,6 +1,6 @@
 using Dunet;
 
-namespace PerformanceTester.EventPublishing;
+namespace PerformanceTester.EventPublishing.CloudEvents;
 
 /// <summary>
 /// Discriminated union representing an instrument status.

@@ -1,4 +1,4 @@
-namespace PerformanceTester.EventPublishing;
+namespace PerformanceTester.EventPublishing.CloudEvents;
 
 /// <summary>
 /// Value object representing a transition between two instrument statuses.

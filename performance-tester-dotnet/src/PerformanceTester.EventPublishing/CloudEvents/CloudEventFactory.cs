@@ -1,7 +1,7 @@
 using CloudNative.CloudEvents;
 using CloudNative.CloudEvents.SystemTextJson;
 
-namespace PerformanceTester.EventPublishing;
+namespace PerformanceTester.EventPublishing.CloudEvents;
 
 /// <summary>
 /// Factory for creating CloudEvents v1.0 compliant test events.

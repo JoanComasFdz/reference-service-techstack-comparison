@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.EventPublishing;
+namespace PerformanceTester.EventPublishing.CloudEvents;
 
 /// <summary>
 /// Value object representing a device identifier (e.g., DEVICE-001).
