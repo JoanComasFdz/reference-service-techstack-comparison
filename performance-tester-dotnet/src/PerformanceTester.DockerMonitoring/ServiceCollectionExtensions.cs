@@ -1,11 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.DockerMonitoring.Monitoring;
 using PerformanceTester.DockerMonitoring.Stats;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring.Monitoring;
+namespace PerformanceTester.DockerMonitoring;
 
 /// <summary>
 /// Extension methods for registering Docker monitoring services.

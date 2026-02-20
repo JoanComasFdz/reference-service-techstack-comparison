@@ -1,7 +1,6 @@
 using JoanComasFdz.AssertingThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using PerformanceTester.DockerMonitoring;
 using PerformanceTester.DockerMonitoring.IntegrationTests.Infrastructure;
 using PerformanceTester.DockerMonitoring.Monitoring;
 using PerformanceTester.DockerMonitoring.ValueObjects;
