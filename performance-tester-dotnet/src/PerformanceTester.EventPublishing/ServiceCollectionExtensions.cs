@@ -48,30 +48,27 @@ public static class ServiceCollectionExtensions
         // Wrap string → RabbitMqConnectionString at DI boundary (fail-fast validation)
         var connectionString = new RabbitMqConnectionString(rabbitMqConnectionString);
 
-        // Internal dependency — thin shell owning connection state (G34)
-        services.AddSingleton<RabbitMqPublisher>(sp => new RabbitMqPublisher(
-            connectionString,
-            sp.GetRequiredService<ILogger<RabbitMqPublisher>>()));
-
-        // No adapter class — the closure IS the implementation (G12)
-        services.AddSingleton<ConnectPublisherDelegate>(sp =>
+        // Build publisher module: context created inside, operations closed over it (G30)
+        services.AddSingleton(sp =>
         {
-            var publisher = sp.GetRequiredService<RabbitMqPublisher>();
-            return publisher.ConnectAsync;
+            var logger = sp.GetRequiredService<ILoggerFactory>()
+                .CreateLogger(typeof(PublisherOperations).FullName!);
+            return PublisherOperations.BuildDependencies(connectionString, logger);
         });
+
+        // Extract public delegates from the module's Dependencies record (G14)
+        services.AddSingleton<ConnectPublisherDelegate>(sp =>
+            sp.GetRequiredService<PublisherOperations.Dependencies>().Connect);
 
         services.AddSingleton<DisconnectPublisherDelegate>(sp =>
-        {
-            var publisher = sp.GetRequiredService<RabbitMqPublisher>();
-            return publisher.DisconnectAsync;
-        });
+            sp.GetRequiredService<PublisherOperations.Dependencies>().Disconnect);
 
         services.AddSingleton<PublishEventsDelegate>(sp =>
         {
-            var publisher = sp.GetRequiredService<RabbitMqPublisher>();
+            var publishDirect = sp.GetRequiredService<PublisherOperations.Dependencies>().PublishDirect;
             var logger = sp.GetRequiredService<ILoggerFactory>()
                 .CreateLogger(typeof(EventPublisher).FullName!);
-            return (count, ct) => EventPublisher.PublishEventsAsync(publisher, count, logger, ct);
+            return (count, ct) => EventPublisher.PublishEventsAsync(publishDirect, count, logger, ct);
         });
 
         return services;

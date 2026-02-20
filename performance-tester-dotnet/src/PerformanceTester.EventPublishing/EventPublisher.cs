@@ -13,7 +13,7 @@ namespace PerformanceTester.EventPublishing;
 internal static class EventPublisher
 {
     public static async Task<PublishMetrics> PublishEventsAsync(
-        RabbitMqPublisher publisher,
+        PublishDirectDelegate publishDirect,
         int count,
         ILogger logger,
         CancellationToken cancellationToken = default)
@@ -45,7 +45,7 @@ internal static class EventPublisher
                 var cloudEvent = CloudEventFactory.CreateRandomEvent();
                 var body = CloudEventFactory.Serialize(cloudEvent);
 
-                publishTasks.Add(publisher.PublishDirectAsync(properties, body, cancellationToken));
+                publishTasks.Add(publishDirect(properties, body, cancellationToken));
 
                 if (publishTasks.Count >= batchSize)
                 {

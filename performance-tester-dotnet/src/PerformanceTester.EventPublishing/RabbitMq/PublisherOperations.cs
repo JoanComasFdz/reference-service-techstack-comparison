@@ -1,11 +1,21 @@
 using Microsoft.Extensions.Logging;
+using PerformanceTester.EventPublishing;
 using RabbitMQ.Client;
 
 namespace PerformanceTester.EventPublishing.RabbitMq;
 
 /// <summary>
-/// Static operations for RabbitMQ connection management.
-/// All state is passed explicitly via PublisherContext (G34 — Thin Shell Pattern).
+/// Publishes a pre-serialized message directly to a channel without retry wrapping.
+/// Returns a raw ValueTask for pipelining (collect and await in batches).
+/// </summary>
+internal delegate ValueTask PublishDirectDelegate(
+    BasicProperties properties,
+    ReadOnlyMemory<byte> body,
+    CancellationToken cancellationToken = default);
+
+/// <summary>
+/// Static module for RabbitMQ connection management and message publishing (G30).
+/// All state lives in PublisherContext, created and closed over by BuildDependencies.
 /// </summary>
 internal static class PublisherOperations
 {
@@ -14,6 +24,37 @@ internal static class PublisherOperations
 
     internal static readonly CachedString CachedExchangeName = new(ExchangeName);
     internal static readonly CachedString CachedRoutingKey = new(RoutingKey);
+
+    // -- Dependencies record (G30) ------------------------------------------------
+
+    /// <summary>
+    /// Bundled publisher delegates with context pre-bound.
+    /// Built by <see cref="BuildDependencies"/> and consumed by DI registration.
+    /// </summary>
+    internal record Dependencies(
+        ConnectPublisherDelegate Connect,
+        DisconnectPublisherDelegate Disconnect,
+        PublishDirectDelegate PublishDirect);
+
+    // -- Factory (G30) ------------------------------------------------------------
+
+    /// <summary>
+    /// Creates publisher context and binds all operations into delegates.
+    /// Connection string and logger are baked in (G31 — immutable at construction time).
+    /// </summary>
+    public static Dependencies BuildDependencies(
+        RabbitMqConnectionString connectionString,
+        ILogger logger)
+    {
+        var ctx = new PublisherContext();
+
+        return new Dependencies(
+            Connect: (ct) => ConnectAsync(ctx, connectionString, logger, ct),
+            Disconnect: (ct) => DisconnectAsync(ctx, logger, ct),
+            PublishDirect: (properties, body, ct) => PublishDirectAsync(ctx, properties, body, ct));
+    }
+
+    // -- Operations ---------------------------------------------------------------
 
     public static async Task ConnectAsync(
         PublisherContext ctx,
@@ -132,4 +173,25 @@ internal static class PublisherOperations
         ctx.ActiveConnection?.Channel
         ?? throw new InvalidOperationException(
             "Not connected to RabbitMQ. Call ConnectAsync() before publishing.");
+
+    /// <summary>
+    /// Publishes a pre-serialized message directly to the channel without retry wrapping.
+    /// Returns the raw ValueTask for pipelining (collect and await in batches).
+    /// </summary>
+    public static ValueTask PublishDirectAsync(
+        PublisherContext ctx,
+        BasicProperties properties,
+        ReadOnlyMemory<byte> body,
+        CancellationToken cancellationToken = default)
+    {
+        var channel = EnsureConnected(ctx);
+
+        return channel.BasicPublishAsync(
+            exchange: CachedExchangeName,
+            routingKey: CachedRoutingKey,
+            mandatory: false,
+            basicProperties: properties,
+            body: body,
+            cancellationToken: cancellationToken);
+    }
 }

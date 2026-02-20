@@ -55,7 +55,18 @@ PREPULL_OUTPUT=$(bash /workspace/.devcontainer/prepull-images.sh 2>&1) && {
     exit $EXIT_CODE
 }
 
-log "Step 5: Adding DEVCONTAINER=true to shell configs..."
+log "Step 5: Building claude-devtools Docker image..."
+if bash /workspace/.devcontainer/setup-claude-devtools.sh >> "$LOGFILE" 2>&1; then
+    log "✓ claude-devtools image build completed"
+else
+    EXIT_CODE=$?
+    log "⚠ claude-devtools image build FAILED with exit code $EXIT_CODE (non-fatal)"
+    log "  claude-devtools is optional - devcontainer will work without it"
+    log "  To retry: bash /workspace/.devcontainer/setup-claude-devtools.sh"
+    # Don't exit - this is not critical
+fi
+
+log "Step 6: Adding DEVCONTAINER=true to shell configs..."
 if echo 'export DEVCONTAINER=true' >> /home/node/.zshrc && \
    echo 'export DEVCONTAINER=true' >> /home/node/.bashrc; then
     log "✓ Shell environment variables configured"
@@ -65,7 +76,7 @@ else
     exit $EXIT_CODE
 fi
 
-log "Step 6: Configuring mise to use system dotnet..."
+log "Step 7: Configuring mise to use system dotnet..."
 # The devcontainer Dockerfile pre-installs dotnet. Tell mise to skip it
 # so auto_install doesn't redundantly download ~500MB.
 MISE_LOCAL="/workspace/.mise.local.toml"
