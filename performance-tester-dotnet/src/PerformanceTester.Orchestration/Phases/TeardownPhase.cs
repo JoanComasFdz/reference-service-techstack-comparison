@@ -39,11 +39,11 @@ internal static class TeardownPhase
 
     public static Dependencies BuildDependencies(IServiceProvider services, CancellationToken ct)
     {
-        var eventPublisher = services.GetRequiredService<IEventPublisher>();
+        var disconnectPublisher = services.GetRequiredService<DisconnectPublisherDelegate>();
         var host = services.GetRequiredService<IHost>();
 
         return new Dependencies(
-            DisconnectEventPublisher: (ct) => eventPublisher.DisconnectAsync(ct),
+            DisconnectEventPublisher: (ct) => disconnectPublisher(ct),
             StopMonitoring: (ct) => host.StopAsync(ct));
     }
 

@@ -103,7 +103,7 @@ internal static class TestOrchestrator
         // Resolve interfaces needed for shared operation-level delegates
         var clearDatabaseAsync = services.GetRequiredService<Infrastructure.Database.ClearDatabase>();
         var clearAllQueuesOp = services.GetRequiredService<ClearAllQueues>();
-        var eventPublisher = services.GetRequiredService<IEventPublisher>();
+        var publishEventsOp = services.GetRequiredService<PublishEventsDelegate>();
         var eventConsumer = services.GetRequiredService<IEventConsumer>();
 
         // Shared operation-level delegates (reused across phases)
@@ -116,7 +116,7 @@ internal static class TestOrchestrator
             return result;
         };
 
-        PhasesToolbox.PublishEvents publishEvents = (count) => eventPublisher.PublishEventsAsync(count, ct);
+        PhasesToolbox.PublishEvents publishEvents = (count) => publishEventsOp(count, ct);
 
         PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, ct);
 

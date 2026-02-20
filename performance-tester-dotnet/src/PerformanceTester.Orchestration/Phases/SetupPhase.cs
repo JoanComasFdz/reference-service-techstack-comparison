@@ -70,7 +70,7 @@ internal static class SetupPhase
         var hostLifetime = services.GetRequiredService<IHostApplicationLifetime>();
         var host = services.GetRequiredService<IHost>();
         var warmupDockerMonitors = services.GetRequiredService<WarmupDockerMonitors>();
-        var eventPublisher = services.GetRequiredService<IEventPublisher>();
+        var connectPublisher = services.GetRequiredService<ConnectPublisherDelegate>();
 
         return new Dependencies(
             FindServiceProcessId: () => findServiceProcessId(config.ServicePort, TimeSpan.FromSeconds(30), ct),
@@ -79,7 +79,7 @@ internal static class SetupPhase
             WarmupDockerApi: () => warmupDockerMonitors(ct),
             ClearDatabase: clearDatabase,
             ClearAllQueues: clearAllQueues,
-            ConnectEventPublisher: () => eventPublisher.ConnectAsync(ct));
+            ConnectEventPublisher: () => connectPublisher(ct));
     }
 
     public static async Task<Result<ProcessId, string>> ExecuteAsync(
