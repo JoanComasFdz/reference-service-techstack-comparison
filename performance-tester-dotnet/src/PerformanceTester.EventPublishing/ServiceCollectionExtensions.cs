@@ -54,6 +54,16 @@ public static class ServiceCollectionExtensions
         // Register public API
         services.AddSingleton<IEventPublisher, EventPublisher>();
 
+        // Named delegates (new public API — wraps IEventPublisher during migration)
+        services.AddSingleton<ConnectPublisherDelegate>(sp =>
+            sp.GetRequiredService<IEventPublisher>().ConnectAsync);
+
+        services.AddSingleton<DisconnectPublisherDelegate>(sp =>
+            sp.GetRequiredService<IEventPublisher>().DisconnectAsync);
+
+        services.AddSingleton<PublishEventsDelegate>(sp =>
+            sp.GetRequiredService<IEventPublisher>().PublishEventsAsync);
+
         return services;
     }
 }
