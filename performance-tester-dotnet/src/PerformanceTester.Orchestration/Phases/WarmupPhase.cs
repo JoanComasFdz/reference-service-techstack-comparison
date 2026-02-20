@@ -2,6 +2,7 @@ using PerformanceTester.Functional;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.Orchestration.ValueObjects;
 using Serilog.Context;
 using static PerformanceTester.Functional.Result<PerformanceTester.Functional.Unit, string>;
@@ -64,7 +65,7 @@ internal static class WarmupPhase
                 progress: null);
 
             // Publish warmup events
-            var publishMetrics = await deps.PublishEvents(config.WarmupEventCount.Value);
+            var publishMetrics = await deps.PublishEvents(EventCount.Create(config.WarmupEventCount.Value).SuccessValue);
 
             logger.LogInformation(
                 "Warmup: Published {Count} events in {Duration:F2}s ({Rate:F2} events/s)",

@@ -1,3 +1,5 @@
+using PerformanceTester.Infrastructure.ValueObjects;
+
 namespace PerformanceTester.EventPublishing;
 
 /// <summary>
@@ -16,4 +18,4 @@ public delegate Task DisconnectPublisherDelegate(CancellationToken cancellationT
 /// Publishes multiple CloudEvents to RabbitMQ as fast as possible.
 /// Returns publishing metrics including total duration and throughput.
 /// </summary>
-public delegate Task<PublishMetrics> PublishEventsDelegate(int count, CancellationToken cancellationToken = default);
+public delegate Task<PublishMetrics> PublishEventsDelegate(EventCount count, CancellationToken cancellationToken = default);

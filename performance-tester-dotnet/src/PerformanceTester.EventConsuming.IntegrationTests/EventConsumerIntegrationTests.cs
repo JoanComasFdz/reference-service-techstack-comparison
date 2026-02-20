@@ -1,6 +1,7 @@
 using JoanComasFdz.AssertingThat;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventConsuming.IntegrationTests.Infrastructure;
+using PerformanceTester.Infrastructure.ValueObjects;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -43,7 +44,7 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
             inactivityTimeout: TimeSpan.FromSeconds(30));
 
         // Act - Publish CloudEvents to exchange
-        await System.PublishEvents(eventCount);
+        await System.PublishEvents(EventCount.Create(eventCount).SuccessValue);
 
         // Wait for tracking to complete
         await trackingTask;
@@ -119,7 +120,7 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
         // Act - Publish events slowly (one every 2 seconds) but within inactivity timeout
         for (int i = 0; i < eventCount; i++)
         {
-            await System.PublishEvents(1);
+            await System.PublishEvents(EventCount.Create(1).SuccessValue);
 
             // Wait for event to be received before continuing
             // This ensures the inactivity timer is properly reset
@@ -208,7 +209,7 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
         await phaseAwaiter.WaitForTrackingStartedAsync(timeout: TimeSpan.FromSeconds(10));
 
         // Publish CloudEvents
-        await System.PublishEvents(eventCount);
+        await System.PublishEvents(EventCount.Create(eventCount).SuccessValue);
 
         // Wait for completion using phase event (not timing assumption)
         await phaseAwaiter.WaitForTargetReachedAsync(timeout: TimeSpan.FromSeconds(30));

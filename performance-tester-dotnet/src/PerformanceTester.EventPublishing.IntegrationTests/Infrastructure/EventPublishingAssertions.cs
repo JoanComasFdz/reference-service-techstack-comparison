@@ -36,17 +36,4 @@ public static class EventPublishingAssertions
             $"Expected throughput >= {minimumEventsPerSecond} events/sec, but was {assertingThat.InstanceToAssert.EventsPerSecond:F2}");
         return assertingThat;
     }
-
-    /// <summary>
-    /// Asserts that calling PublishEvents with invalid count throws ArgumentOutOfRangeException.
-    /// </summary>
-    public static AssertingThat<PublishEventsDelegate> ThrowsArgumentOutOfRangeForInvalidCount(
-        this AssertingThat<PublishEventsDelegate> assertingThat,
-        int invalidCount)
-    {
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            async () => await assertingThat.InstanceToAssert(invalidCount))
-            .Wait();
-        return assertingThat;
-    }
 }

@@ -2,6 +2,7 @@ using PerformanceTester.Functional;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
+using PerformanceTester.Infrastructure.ValueObjects;
 
 namespace PerformanceTester.Orchestration;
 
@@ -25,7 +26,7 @@ internal static class PhasesToolbox
     /// <summary>
     /// Publishes the specified number of events and returns publish metrics.
     /// </summary>
-    public delegate Task<PublishMetrics> PublishEventsDelegate(int eventCount);
+    public delegate Task<PublishMetrics> PublishEventsDelegate(EventCount eventCount);
 
     /// <summary>
     /// Tracks consumed events until expected count is reached or inactivity timeout expires.

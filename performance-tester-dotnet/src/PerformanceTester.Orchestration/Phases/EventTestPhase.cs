@@ -138,7 +138,7 @@ internal static class EventTestPhase
                 config.InactivityTimeout.Value,
                 deps.ConsumerProgress);
 
-            var publisherTask = deps.PublishEvents(config.EventCount.Value);
+            var publisherTask = deps.PublishEvents(config.EventCount);
 
             // Wait for both to complete
             await Task.WhenAll(consumerTask, publisherTask);

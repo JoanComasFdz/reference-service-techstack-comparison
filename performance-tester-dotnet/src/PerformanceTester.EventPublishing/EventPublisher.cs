@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.EventPublishing.CloudEvents;
 using PerformanceTester.EventPublishing.RabbitMq;
+using PerformanceTester.Infrastructure.ValueObjects;
 using RabbitMQ.Client;
 
 namespace PerformanceTester.EventPublishing;
@@ -14,15 +15,10 @@ internal static class EventPublisher
 {
     public static async Task<PublishMetrics> PublishEventsAsync(
         PublishDirectDelegate publishDirect,
-        int count,
+        EventCount count,
         ILogger logger,
         CancellationToken cancellationToken = default)
     {
-        if (count < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(count), count, "Count must be at least 1");
-        }
-
         logger.LogInformation("=== Publishing {Count} events ===", count);
 
         var stopwatch = Stopwatch.StartNew();
@@ -38,7 +34,7 @@ internal static class EventPublisher
 
             var publishTasks = new List<ValueTask>(batchSize);
 
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < count.Value; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -72,7 +68,7 @@ internal static class EventPublisher
 
             stopwatch.Stop();
 
-            var eventsPerSecond = count / stopwatch.Elapsed.TotalSeconds;
+            var eventsPerSecond = count.Value / stopwatch.Elapsed.TotalSeconds;
 
             logger.LogInformation(
                 "Published {Count} events in {Duration:F2}s ({Throughput:F2} events/sec)",
@@ -81,7 +77,7 @@ internal static class EventPublisher
                 eventsPerSecond);
 
             return new PublishMetrics(
-                EventCount: count,
+                EventCount: count.Value,
                 Duration: stopwatch.Elapsed,
                 EventsPerSecond: eventsPerSecond);
         }

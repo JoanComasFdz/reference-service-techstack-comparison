@@ -1,5 +1,6 @@
 using JoanComasFdz.AssertingThat;
 using PerformanceTester.EventPublishing.IntegrationTests.Infrastructure;
+using PerformanceTester.Infrastructure.ValueObjects;
 using RabbitMQ.Client;
 using Xunit;
 using Xunit.Abstractions;
@@ -12,55 +13,51 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
     public async Task PublishEventsAsync_WhenPublishing10Events_ShouldSucceed()
     {
         // Arrange
-        const int eventCount = 10;
+        var eventCount = EventCount.Create(10).SuccessValue;
 
         // Act
         var metrics = await System.EventPublishing.PublishEvents(eventCount);
 
         // Assert
-        Asserting.That(metrics).HasPublishedSuccessfully(eventCount);
+        Asserting.That(metrics).HasPublishedSuccessfully(eventCount.Value);
     }
 
     [Fact]
     public async Task PublishEventsAsync_WhenPublishing100Events_ShouldHaveReasonableThroughput()
     {
         // Arrange
-        const int eventCount = 500;
+        var eventCount = EventCount.Create(500).SuccessValue;
 
         // Act
         var metrics = await System.EventPublishing.PublishEvents(eventCount);
 
         // Assert - Should publish at least 500 events/sec with pipelined publishing
         Asserting.That(metrics)
-            .HasPublishedSuccessfully(eventCount)
+            .HasPublishedSuccessfully(eventCount.Value)
             .HasMinimumThroughput(500.0);
     }
 
     [Fact]
-    public void PublishEventsAsync_WhenCountIsZero_ShouldThrow()
+    public void PublishEventsAsync_WhenCountIsZero_ShouldBeRejectedByEventCount()
     {
-        // Arrange
-        const int invalidCount = 0;
-
-        // Act & Assert
-        Asserting.That(System.EventPublishing.PublishEvents).ThrowsArgumentOutOfRangeForInvalidCount(invalidCount);
+        // Act & Assert — EventCount.Create rejects zero at construction
+        var result = EventCount.Create(0);
+        Assert.True(result.IsFailure);
     }
 
     [Fact]
-    public void PublishEventsAsync_WhenCountIsNegative_ShouldThrow()
+    public void PublishEventsAsync_WhenCountIsNegative_ShouldBeRejectedByEventCount()
     {
-        // Arrange
-        const int invalidCount = -1;
-
-        // Act & Assert
-        Asserting.That(System.EventPublishing.PublishEvents).ThrowsArgumentOutOfRangeForInvalidCount(invalidCount);
+        // Act & Assert — EventCount.Create rejects negative values at construction
+        var result = EventCount.Create(-1);
+        Assert.True(result.IsFailure);
     }
 
     [Fact]
     public async Task PublishEventsAsync_WhenPublishing_ShouldCreateMessagesInRabbitMQ()
     {
         // Arrange
-        const int eventCount = 5;
+        var eventCount = EventCount.Create(5).SuccessValue;
         const string queueName = "instrument.status.changed";
         const string exchangeName = "referenceservice.comparison";
         const string routingKey = "instrument.status.changed";
@@ -89,7 +86,7 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
         // Assert - Verify messages appeared in queue
         var queueInfo = await channel.QueueDeclarePassiveAsync(queueName);
         Assert.True(
-            queueInfo.MessageCount >= eventCount,
+            queueInfo.MessageCount >= eventCount.Value,
             $"Expected at least {eventCount} messages in queue, but found {queueInfo.MessageCount}");
     }
 
@@ -97,7 +94,7 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
     public async Task PublishEventsAsync_WhenCancelled_ShouldThrowOperationCanceledException()
     {
         // Arrange
-        const int largeEventCount = 10000; // Large count to ensure cancellation happens during publishing
+        var largeEventCount = EventCount.Create(10000).SuccessValue; // Large count to ensure cancellation happens during publishing
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromMilliseconds(100)); // Cancel after 100ms
 

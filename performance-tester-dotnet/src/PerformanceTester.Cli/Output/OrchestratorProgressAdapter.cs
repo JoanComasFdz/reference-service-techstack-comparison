@@ -1,3 +1,4 @@
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.Orchestration;
 using PerformanceTester.Orchestration.ValueObjects;
 
