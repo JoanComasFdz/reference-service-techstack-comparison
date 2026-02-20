@@ -23,10 +23,10 @@ public sealed class EventConsumingSystem : IntegrationTesting.VhostIsolatedSyste
     public EventConsuming EventConsuming { get; private set; } = null!;
 
     /// <summary>
-    /// EventPublisher for test setup (publishing CloudEvents to consume).
-    /// Accessed as: System.EventPublisher
+    /// Publishes CloudEvents to RabbitMQ for test setup.
+    /// Accessed as: System.PublishEvents
     /// </summary>
-    public IEventPublisher EventPublisher { get; private set; } = null!;
+    public PublishEventsDelegate PublishEvents { get; private set; } = null!;
 
     /// <summary>
     /// Creates an EventConsuming facade with the specified queue name.
@@ -62,11 +62,12 @@ public sealed class EventConsumingSystem : IntegrationTesting.VhostIsolatedSyste
 
         _eventPublisherHost = builder.Build();
 
-        // Resolve services from DI container
-        this.EventPublisher = _eventPublisherHost.Services.GetRequiredService<IEventPublisher>();
+        // Resolve delegates from DI container
+        var connectPublisher = _eventPublisherHost.Services.GetRequiredService<ConnectPublisherDelegate>();
+        this.PublishEvents = _eventPublisherHost.Services.GetRequiredService<PublishEventsDelegate>();
 
-        // Connect to RabbitMQ using public API (now properly awaited)
-        await this.EventPublisher.ConnectAsync();
+        // Connect to RabbitMQ using delegate
+        await connectPublisher();
     }
 
     public override void Dispose()
