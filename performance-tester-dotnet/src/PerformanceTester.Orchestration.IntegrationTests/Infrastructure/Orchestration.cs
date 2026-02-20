@@ -71,11 +71,11 @@ public sealed class Orchestration : IDisposable
     /// Builds phase delegates and runs the full test orchestration.
     /// Wraps TestOrchestrator.BuildDependencies() + TestOrchestrator.RunTestAsync().
     /// </summary>
-    private static readonly ReportPhaseProgress NoOpProgress = static (_) => { };
+    private static readonly ReportPhaseProgressDelegate NoOpProgress = static (_) => { };
 
     public Task<Result<TestReport, TestRunFailure>> RunTestAsync(
         TestConfiguration config,
-        ReportPhaseProgress? progress = null,
+        ReportPhaseProgressDelegate? progress = null,
         CancellationToken cancellationToken = default)
     {
         if (_host == null)

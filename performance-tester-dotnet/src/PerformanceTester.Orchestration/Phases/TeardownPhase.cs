@@ -22,18 +22,18 @@ internal static class TeardownPhase
     /// <summary>
     /// Disconnects the RabbitMQ event publisher connection.
     /// </summary>
-    public delegate Task DisconnectEventPublisher(CancellationToken ct);
+    public delegate Task DisconnectEventPublisherDelegate(CancellationToken ct);
 
     /// <summary>
     /// Stops all monitoring BackgroundServices (process, system, Docker).
     /// </summary>
-    public delegate Task StopMonitoring(CancellationToken ct);
+    public delegate Task StopMonitoringDelegate(CancellationToken ct);
 
     // -- Dependencies record (bundle of what I need) -------------------------------
 
     public record Dependencies(
-        DisconnectEventPublisher DisconnectEventPublisher,
-        StopMonitoring StopMonitoring);
+        DisconnectEventPublisherDelegate DisconnectEventPublisher,
+        StopMonitoringDelegate StopMonitoring);
 
     // -- Factory (how to build what I need from DI) --------------------------------
 

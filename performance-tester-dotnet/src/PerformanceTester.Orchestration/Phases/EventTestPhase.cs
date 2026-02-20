@@ -22,25 +22,25 @@ internal static class EventTestPhase
     /// <summary>
     /// Clears all collected throughput samples before the measured test starts.
     /// </summary>
-    public delegate void ClearSamples();
+    public delegate void ClearSamplesDelegate();
 
     /// <summary>
     /// Starts process resource monitoring for the given PID.
     /// Returns when the first sample has been collected.
     /// </summary>
-    public delegate Task StartProcessMonitoring(int processId);
+    public delegate Task StartProcessMonitoringDelegate(int processId);
 
     /// <summary>
     /// Starts system-wide CPU and memory monitoring.
     /// Returns when the first sample has been collected.
     /// </summary>
-    public delegate Task StartSystemMonitoring();
+    public delegate Task StartSystemMonitoringDelegate();
 
     /// <summary>
     /// Starts all Docker container monitors.
     /// Returns when first samples have been collected from all containers.
     /// </summary>
-    public delegate Task StartDockerMonitoring(ReportDockerMonitorProgress reportProgress);
+    public delegate Task StartDockerMonitoringDelegate(ReportDockerMonitorProgressDelegate reportProgress);
 
     /// <summary>
     /// Success output of the event test phase.
@@ -56,12 +56,12 @@ internal static class EventTestPhase
     public record Dependencies(
         int SystemCpuCount,
         bool SystemIsWsl2,
-        ClearSamples ClearSamples,
-        StartProcessMonitoring StartProcessMonitoring,
-        StartSystemMonitoring StartSystemMonitoring,
-        StartDockerMonitoring StartDockerMonitoring,
-        PhasesToolbox.TrackEvents TrackEvents,
-        PhasesToolbox.PublishEvents PublishEvents,
+        ClearSamplesDelegate ClearSamples,
+        StartProcessMonitoringDelegate StartProcessMonitoring,
+        StartSystemMonitoringDelegate StartSystemMonitoring,
+        StartDockerMonitoringDelegate StartDockerMonitoring,
+        PhasesToolbox.TrackEventsDelegate TrackEvents,
+        PhasesToolbox.PublishEventsDelegate PublishEvents,
         IProgress<ConsumerPhaseInfo> ConsumerProgress);
 
     /// <summary>
@@ -69,16 +69,16 @@ internal static class EventTestPhase
     /// </summary>
     public static Dependencies BuildDependencies(
         IServiceProvider services,
-        PhasesToolbox.TrackEvents trackEvents,
-        PhasesToolbox.PublishEvents publishEvents,
+        PhasesToolbox.TrackEventsDelegate trackEvents,
+        PhasesToolbox.PublishEventsDelegate publishEvents,
         TestConfiguration config,
-        ReportPhaseProgress reportProgress,
+        ReportPhaseProgressDelegate reportProgress,
         CancellationToken ct)
     {
         var systemMonitor = services.GetRequiredService<ISystemMonitor>();
         var metricsCollector = services.GetRequiredService<IMetricsCollector>();
         var processMonitor = services.GetRequiredService<IProcessMonitor>();
-        var startDockerMonitoring = services.GetRequiredService<DockerMonitoring.Monitoring.StartDockerMonitoring>();
+        var startDockerMonitoring = services.GetRequiredService<DockerMonitoring.Monitoring.StartDockerMonitoringDelegate>();
 
         return new Dependencies(
             SystemCpuCount: systemMonitor.CpuCount,
@@ -179,7 +179,7 @@ internal static class EventTestPhase
     // whose parameter type is IProgress<ConsumerPhaseInfo>?, so the interface dispatch remains.
 #pragma warning disable CA1859
     private static IProgress<ConsumerPhaseInfo> CreateConsumerProgressCallback(
-        ReportPhaseProgress reportProgress,
+        ReportPhaseProgressDelegate reportProgress,
         int totalEventCount)
     {
         // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)

@@ -19,7 +19,7 @@ internal static class ServiceDiscovery
     public static async Task<Result<ProcessId, string>> FindServiceProcessIdAsync(
         Port port,
         TimeSpan timeout,
-        FindProcessOnPort findProcessOnPort,
+        FindProcessOnPortDelegate findProcessOnPort,
         ILogger logger,
         CancellationToken cancellationToken = default)
     {

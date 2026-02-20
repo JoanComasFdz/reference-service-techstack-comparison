@@ -37,7 +37,7 @@ internal sealed partial class K6Executor
     public async Task<K6ExecutionResult> ExecuteAsync(
         string scriptPath,
         TimeSpan totalDuration,
-        ReportApiLoadProgress reportApiLoadProgress,
+        ReportApiLoadProgressDelegate reportApiLoadProgress,
         CancellationToken cancellationToken)
     {
         ValidateK6Binary();

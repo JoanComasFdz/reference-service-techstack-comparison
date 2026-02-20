@@ -18,7 +18,7 @@ public static class DockerMonitorTestExtensions
     /// <param name="timeout">Timeout (default: 30 seconds).</param>
     /// <exception cref="TimeoutException">Thrown if timeout expires before reaching sample count.</exception>
     public static async Task WaitForSampleCountAsync(
-        this GetDockerMetrics getDockerMetrics,
+        this GetDockerMetricsDelegate getDockerMetrics,
         NonEmptyString containerName,
         int minimumCount,
         TimeSpan? timeout = null)

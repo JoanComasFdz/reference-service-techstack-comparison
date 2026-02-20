@@ -14,5 +14,5 @@ public readonly record struct ApiLoadProgress(
 /// <summary>
 /// Delegate for reporting API load progress updates.
 /// </summary>
-public delegate void ReportApiLoadProgress(ApiLoadProgress apiLoadProgress);
+public delegate void ReportApiLoadProgressDelegate(ApiLoadProgress apiLoadProgress);
 

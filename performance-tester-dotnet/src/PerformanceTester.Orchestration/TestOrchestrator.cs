@@ -28,44 +28,44 @@ internal static class TestOrchestrator
     /// Runs Setup phase: service discovery, infrastructure init, database/queue clearing.
     /// testRunId is generated at runtime by the orchestrator.
     /// </summary>
-    public delegate Task<Result<ProcessId, string>> RunSetup(Guid testRunId);
+    public delegate Task<Result<ProcessId, string>> RunSetupDelegate(Guid testRunId);
 
     /// <summary>
     /// Runs Warmup phase: non-measured warmup events and API calls.
     /// All parameters (config, logger, CT, internal delegates) are pre-bound.
     /// </summary>
-    public delegate Task<Result<Unit, string>> RunWarmup();
+    public delegate Task<Result<Unit, string>> RunWarmupDelegate();
 
     /// <summary>
     /// Runs Event Test phase: concurrent publish/consume with monitoring.
     /// serviceProcessId comes from Setup output.
     /// </summary>
-    public delegate Task<Result<EventTestPhase.Output, string>> RunEventTest(ProcessId serviceProcessId);
+    public delegate Task<Result<EventTestPhase.Output, string>> RunEventTestDelegate(ProcessId serviceProcessId);
 
     /// <summary>
     /// Runs API Load Test phase: k6 load test execution.
     /// </summary>
-    public delegate Task<Result<ApiTestPhase.Output, string>> RunApiTest();
+    public delegate Task<Result<ApiTestPhase.Output, string>> RunApiTestDelegate();
 
     /// <summary>
     /// Runs Teardown phase: disconnect event publisher, stop monitoring services.
     /// Pre-bound with the active CancellationToken -- cancellable during normal flow.
     /// Must complete before reporting can collect metrics.
     /// </summary>
-    public delegate Task<Result<Unit, string>> RunTeardown();
+    public delegate Task<Result<Unit, string>> RunTeardownDelegate();
 
     /// <summary>
     /// Best-effort resource cleanup for the finally block.
     /// Pre-bound with CancellationToken.None -- must complete even after cancellation or failure.
     /// Runs the same operations as <see cref="RunTeardown"/> but is not cancellable.
     /// </summary>
-    public delegate Task CleanupResources();
+    public delegate Task CleanupResourcesDelegate();
 
     /// <summary>
     /// Runs Reporting phase: metrics collection, report and chart generation.
     /// testResult is assembled at runtime from all phase outputs.
     /// </summary>
-    public delegate Task<Result<TestReport, string>> RunReporting(TestResult testResult);
+    public delegate Task<Result<TestReport, string>> RunReportingDelegate(TestResult testResult);
 
     // -- Dependencies record (bundle of what I need) -------------------------------
 
@@ -76,14 +76,14 @@ internal static class TestOrchestrator
     /// The orchestrator sequences these and threads inter-phase data.
     /// </summary>
     public record Dependencies(
-        RunSetup RunSetup,
-        RunWarmup RunWarmup,
-        RunEventTest RunEventTest,
-        RunApiTest RunApiTest,
-        RunTeardown RunTeardown,
-        RunReporting RunReporting,
-        CleanupResources CleanupResources,
-        ReportPhaseProgress ReportProgress
+        RunSetupDelegate RunSetup,
+        RunWarmupDelegate RunWarmup,
+        RunEventTestDelegate RunEventTest,
+        RunApiTestDelegate RunApiTest,
+        RunTeardownDelegate RunTeardown,
+        RunReportingDelegate RunReporting,
+        CleanupResourcesDelegate CleanupResources,
+        ReportPhaseProgressDelegate ReportProgress
         );
 
     // -- Factory (how to build what I need from DI) --------------------------------
@@ -96,29 +96,29 @@ internal static class TestOrchestrator
     public static Dependencies BuildDependencies(
         IServiceProvider services,
         TestConfiguration config,
-        ReportPhaseProgress reportProgress,
+        ReportPhaseProgressDelegate reportProgress,
         ILogger logger,
         CancellationToken ct)
     {
         // Resolve interfaces needed for shared operation-level delegates
-        var clearDatabaseAsync = services.GetRequiredService<Infrastructure.Database.ClearDatabase>();
-        var clearAllQueuesOp = services.GetRequiredService<ClearAllQueues>();
+        var clearDatabaseAsync = services.GetRequiredService<Infrastructure.Database.ClearDatabaseDelegate>();
+        var clearAllQueuesOp = services.GetRequiredService<ClearAllQueuesDelegate>();
         var publishEventsOp = services.GetRequiredService<PublishEventsDelegate>();
         var eventConsumer = services.GetRequiredService<IEventConsumer>();
 
         // Shared operation-level delegates (reused across phases)
-        PhasesToolbox.ClearDatabase clearDatabase = () => clearDatabaseAsync(config.DatabaseName, ct);
+        PhasesToolbox.ClearDatabaseDelegate clearDatabase = () => clearDatabaseAsync(config.DatabaseName, ct);
 
-        PhasesToolbox.ClearAllQueues clearAllQueues = async () =>
+        PhasesToolbox.ClearAllQueuesDelegate clearAllQueues = async () =>
         {
             var result = await clearAllQueuesOp(ct);
             await Task.Delay(TimeSpan.FromMilliseconds(500), ct);
             return result;
         };
 
-        PhasesToolbox.PublishEvents publishEvents = (count) => publishEventsOp(count, ct);
+        PhasesToolbox.PublishEventsDelegate publishEvents = (count) => publishEventsOp(count, ct);
 
-        PhasesToolbox.TrackEvents trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, ct);
+        PhasesToolbox.TrackEventsDelegate trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, ct);
 
         var teardownDeps = TeardownPhase.BuildDependencies(services, ct);
 
@@ -134,10 +134,10 @@ internal static class TestOrchestrator
             );
     }
 
-    private static RunSetup BuildRunSetup(
+    private static RunSetupDelegate BuildRunSetup(
         IServiceProvider services,
-        PhasesToolbox.ClearDatabase clearDatabase,
-        PhasesToolbox.ClearAllQueues clearAllQueues,
+        PhasesToolbox.ClearDatabaseDelegate clearDatabase,
+        PhasesToolbox.ClearAllQueuesDelegate clearAllQueues,
         TestConfiguration config,
         ILogger logger,
         CancellationToken ct)
@@ -146,11 +146,11 @@ internal static class TestOrchestrator
         return (testRunId) => SetupPhase.ExecuteAsync(testRunId, deps, logger);
     }
 
-    private static RunWarmup BuildRunWarmup(
-        PhasesToolbox.TrackEvents trackEvents,
-        PhasesToolbox.PublishEvents publishEvents,
-        PhasesToolbox.ClearDatabase clearDatabase,
-        PhasesToolbox.ClearAllQueues clearAllQueues,
+    private static RunWarmupDelegate BuildRunWarmup(
+        PhasesToolbox.TrackEventsDelegate trackEvents,
+        PhasesToolbox.PublishEventsDelegate publishEvents,
+        PhasesToolbox.ClearDatabaseDelegate clearDatabase,
+        PhasesToolbox.ClearAllQueuesDelegate clearAllQueues,
         TestConfiguration config,
         ILogger logger,
         CancellationToken ct)
@@ -159,12 +159,12 @@ internal static class TestOrchestrator
         return () => WarmupPhase.ExecuteAsync(config, deps, logger, ct);
     }
 
-    private static RunEventTest BuildRunEventTest(
+    private static RunEventTestDelegate BuildRunEventTest(
         IServiceProvider services,
-        PhasesToolbox.TrackEvents trackEvents,
-        PhasesToolbox.PublishEvents publishEvents,
+        PhasesToolbox.TrackEventsDelegate trackEvents,
+        PhasesToolbox.PublishEventsDelegate publishEvents,
         TestConfiguration config,
-        ReportPhaseProgress reportProgress,
+        ReportPhaseProgressDelegate reportProgress,
         ILogger logger,
         CancellationToken ct)
     {
@@ -172,10 +172,10 @@ internal static class TestOrchestrator
         return (serviceProcessId) => EventTestPhase.ExecuteAsync(serviceProcessId, config, deps, logger);
     }
 
-    private static RunApiTest BuildRunApiTest(
+    private static RunApiTestDelegate BuildRunApiTest(
         IServiceProvider services,
         TestConfiguration config,
-        ReportPhaseProgress reportProgress,
+        ReportPhaseProgressDelegate reportProgress,
         ILogger logger,
         CancellationToken ct)
     {
@@ -183,7 +183,7 @@ internal static class TestOrchestrator
         return () => ApiTestPhase.ExecuteAsync(config, deps, logger);
     }
 
-    private static RunReporting BuildRunReporting(
+    private static RunReportingDelegate BuildRunReporting(
         IServiceProvider services,
         TestConfiguration config,
         ILogger logger,

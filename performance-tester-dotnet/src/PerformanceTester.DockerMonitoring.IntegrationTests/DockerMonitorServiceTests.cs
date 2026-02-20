@@ -104,8 +104,8 @@ public sealed class DockerMonitorServiceTests : IntegrationTest
         builder.Services.AddDockerMonitoring(nonexistentRmq, nonexistentPg);
         var host = builder.Build();
 
-        var startDockerMonitoring = host.Services.GetRequiredService<StartDockerMonitoring>();
-        var getDockerMetrics = host.Services.GetRequiredService<GetDockerMetrics>();
+        var startDockerMonitoring = host.Services.GetRequiredService<StartDockerMonitoringDelegate>();
+        var getDockerMetrics = host.Services.GetRequiredService<GetDockerMetricsDelegate>();
 
         // Act - should not throw
         await host.StartAsync();

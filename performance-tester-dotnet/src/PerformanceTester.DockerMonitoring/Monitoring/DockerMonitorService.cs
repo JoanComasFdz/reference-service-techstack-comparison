@@ -21,7 +21,7 @@ internal sealed class DockerMonitorService : BackgroundService
     private readonly InvalidateContainerCacheDelegate _invalidateCache;
     private readonly ILogger<DockerMonitorService> _logger;
 
-    private ReportDockerMonitorProgress _progress = null!;
+    private ReportDockerMonitorProgressDelegate _progress = null!;
     private bool _started;
 
     public string ContainerName => _ctx.ContainerName.Value;
@@ -68,7 +68,7 @@ internal sealed class DockerMonitorService : BackgroundService
     }
 
     public async Task StartMonitoringAsync(
-        ReportDockerMonitorProgress progress,
+        ReportDockerMonitorProgressDelegate progress,
         CancellationToken cancellationToken = default)
     {
         if (_started)

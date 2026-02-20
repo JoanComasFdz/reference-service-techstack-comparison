@@ -16,17 +16,17 @@ public sealed class Infrastructure
     /// <summary>
     /// Service discovery delegate for finding processes on ports.
     /// </summary>
-    public FindServiceProcessId FindServiceProcessId { get; private set; } = null!;
+    public FindServiceProcessIdDelegate FindServiceProcessId { get; private set; } = null!;
 
     /// <summary>
     /// Database management for clearing test data.
     /// </summary>
-    public ClearDatabase ClearDatabase { get; private set; } = null!;
+    public ClearDatabaseDelegate ClearDatabase { get; private set; } = null!;
 
     /// <summary>
     /// Delegate for clearing all RabbitMQ queues.
     /// </summary>
-    public ClearAllQueues ClearAllQueues { get; private set; } = null!;
+    public ClearAllQueuesDelegate ClearAllQueues { get; private set; } = null!;
 
     public Infrastructure(
         string postgreSQLConnectionString,
@@ -52,9 +52,9 @@ public sealed class Infrastructure
 
         _host = builder.Build();
 
-        FindServiceProcessId = _host.Services.GetRequiredService<FindServiceProcessId>();
-        ClearDatabase = _host.Services.GetRequiredService<ClearDatabase>();
-        ClearAllQueues = _host.Services.GetRequiredService<ClearAllQueues>();
+        FindServiceProcessId = _host.Services.GetRequiredService<FindServiceProcessIdDelegate>();
+        ClearDatabase = _host.Services.GetRequiredService<ClearDatabaseDelegate>();
+        ClearAllQueues = _host.Services.GetRequiredService<ClearAllQueuesDelegate>();
     }
 
     public void Dispose()

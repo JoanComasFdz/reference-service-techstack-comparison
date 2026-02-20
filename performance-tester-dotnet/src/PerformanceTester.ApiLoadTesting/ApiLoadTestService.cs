@@ -20,7 +20,7 @@ internal sealed class ApiLoadTestService : IApiLoadTester
         string targetUrl,
         TimeSpan duration,
         int virtualUsers,
-        ReportApiLoadProgress reportApiLoadProgress,
+        ReportApiLoadProgressDelegate reportApiLoadProgress,
         int maxConsecutiveFailures = 3,
         string? scriptDirectory = null,
         CancellationToken cancellationToken = default)

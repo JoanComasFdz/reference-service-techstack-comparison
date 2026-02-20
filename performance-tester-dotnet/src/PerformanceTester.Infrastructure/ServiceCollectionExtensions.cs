@@ -39,7 +39,7 @@ public static class ServiceCollectionExtensions
         var platform = platformResult.SuccessValue;
 
         // No adapter class — the closure IS the implementation (Guideline 12)
-        services.AddSingleton<FindServiceProcessId>(sp =>
+        services.AddSingleton<FindServiceProcessIdDelegate>(sp =>
         {
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
             var discoveryLogger = loggerFactory.CreateLogger(
@@ -50,8 +50,8 @@ public static class ServiceCollectionExtensions
                 windows: _ => loggerFactory.CreateLogger(typeof(WindowsProcessFinder).FullName!));
 
             var findProcessOnPort = platform.Match(
-                linux: _ => (FindProcessOnPort)((p, ct) => LinuxProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)),
-                windows: _ => (FindProcessOnPort)((p, ct) => WindowsProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)));
+                linux: _ => (FindProcessOnPortDelegate)((p, ct) => LinuxProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)),
+                windows: _ => (FindProcessOnPortDelegate)((p, ct) => WindowsProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)));
 
             return (port, timeout, ct) => ServiceDiscovery.FindServiceProcessIdAsync(
                 port,
@@ -62,7 +62,7 @@ public static class ServiceCollectionExtensions
         });
 
         // No adapter class — the closure IS the implementation (Guidelines 1, 2, 12)
-        services.AddSingleton<ClearDatabase>(sp =>
+        services.AddSingleton<ClearDatabaseDelegate>(sp =>
         {
             var logger = sp.GetRequiredService<ILoggerFactory>()
                 .CreateLogger(typeof(DatabaseCleaner).FullName!);
@@ -75,7 +75,7 @@ public static class ServiceCollectionExtensions
         });
 
         // No adapter class — the closure IS the implementation (Guidelines 1, 2, 12)
-        services.AddSingleton<ClearAllQueues>(sp =>
+        services.AddSingleton<ClearAllQueuesDelegate>(sp =>
         {
             var logger = sp.GetRequiredService<ILoggerFactory>()
                 .CreateLogger(typeof(RabbitMqCleaner).FullName!);

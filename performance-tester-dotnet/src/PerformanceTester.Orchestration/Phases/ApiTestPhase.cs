@@ -17,7 +17,7 @@ internal static class ApiTestPhase
     /// <summary>
     /// Executes an HTTP API load test using k6 and returns aggregated results.
     /// </summary>
-    public delegate Task<ApiLoadTestResult> StartApiLoadTest(
+    public delegate Task<ApiLoadTestResult> StartApiLoadTestDelegate(
         string targetUrl,
         TimeSpan duration,
         int virtualUsers,
@@ -39,7 +39,7 @@ internal static class ApiTestPhase
     /// <summary>
     /// Pre-bound dependencies for the API test phase.
     /// </summary>
-    public record Dependencies(StartApiLoadTest StartApiLoadTest);
+    public record Dependencies(StartApiLoadTestDelegate StartApiLoadTest);
 
     // -- Factory (how to build what I need from DI) --------------------------------
 
@@ -48,12 +48,12 @@ internal static class ApiTestPhase
     /// </summary>
     public static Dependencies BuildDependencies(
         IServiceProvider services,
-        ReportPhaseProgress reportProgress,
+        ReportPhaseProgressDelegate reportProgress,
         CancellationToken ct)
     {
         var apiLoadTester = services.GetRequiredService<IApiLoadTester>();
 
-        ReportApiLoadProgress reportApiProgress = (info) =>
+        ReportApiLoadProgressDelegate reportApiProgress = (info) =>
             reportProgress(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
 
         return new Dependencies(

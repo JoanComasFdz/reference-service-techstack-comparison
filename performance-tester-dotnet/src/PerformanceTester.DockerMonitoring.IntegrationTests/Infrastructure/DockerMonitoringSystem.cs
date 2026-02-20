@@ -19,9 +19,9 @@ public sealed class DockerMonitoringSystem : SystemBase
     public static readonly PostgresContainerName PostgresName = PostgresContainerName.FromString("performance-tester-postgres");
     public static readonly RabbitMqContainerName RabbitMqName = RabbitMqContainerName.FromString("performance-tester-rabbitmq");
 
-    public WarmupDockerMonitors WarmupDockerMonitors { get; private set; } = null!;
-    public StartDockerMonitoring StartDockerMonitoring { get; private set; } = null!;
-    public GetDockerMetrics GetDockerMetrics { get; private set; } = null!;
+    public WarmupDockerMonitorsDelegate WarmupDockerMonitors { get; private set; } = null!;
+    public StartDockerMonitoringDelegate StartDockerMonitoring { get; private set; } = null!;
+    public GetDockerMetricsDelegate GetDockerMetrics { get; private set; } = null!;
 
     /// <summary>
     /// Initializes Docker monitoring services for PostgreSQL and RabbitMQ containers.
@@ -47,16 +47,16 @@ public sealed class DockerMonitoringSystem : SystemBase
 
         _host = builder.Build();
 
-        WarmupDockerMonitors = _host.Services.GetRequiredService<WarmupDockerMonitors>();
-        StartDockerMonitoring = _host.Services.GetRequiredService<StartDockerMonitoring>();
-        GetDockerMetrics = _host.Services.GetRequiredService<GetDockerMetrics>();
+        WarmupDockerMonitors = _host.Services.GetRequiredService<WarmupDockerMonitorsDelegate>();
+        StartDockerMonitoring = _host.Services.GetRequiredService<StartDockerMonitoringDelegate>();
+        GetDockerMetrics = _host.Services.GetRequiredService<GetDockerMetricsDelegate>();
     }
 
     /// <summary>
     /// Starts all BackgroundServices and begins monitoring.
     /// </summary>
     public async Task StartMonitoringAsync(
-        ReportDockerMonitorProgress? reportProgress = null,
+        ReportDockerMonitorProgressDelegate? reportProgress = null,
         CancellationToken cancellationToken = default)
     {
         if (_host == null)

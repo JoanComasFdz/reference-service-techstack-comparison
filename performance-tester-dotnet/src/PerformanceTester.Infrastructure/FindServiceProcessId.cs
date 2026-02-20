@@ -13,7 +13,7 @@ namespace PerformanceTester.Infrastructure;
 /// <returns>
 /// Success with process ID if found, or Failure with reason if not found within timeout.
 /// </returns>
-public delegate Task<Result<ProcessId, string>> FindServiceProcessId(
+public delegate Task<Result<ProcessId, string>> FindServiceProcessIdDelegate(
     Port port,
     TimeSpan timeout,
     CancellationToken cancellationToken = default);

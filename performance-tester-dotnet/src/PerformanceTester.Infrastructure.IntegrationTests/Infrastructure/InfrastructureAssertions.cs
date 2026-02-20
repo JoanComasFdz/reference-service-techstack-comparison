@@ -18,7 +18,7 @@ public static class InfrastructureAssertions
     /// Asserts that the delegate finds the current process ID on the specified port.
     /// </summary>
     public static async Task FindsCurrentProcessOnPort(
-        this AssertingThat<FindServiceProcessId> assertingThat,
+        this AssertingThat<FindServiceProcessIdDelegate> assertingThat,
         Port port,
         TimeSpan timeout)
     {
@@ -32,7 +32,7 @@ public static class InfrastructureAssertions
     /// Asserts that the delegate returns a failure when no service is running on the port.
     /// </summary>
     public static async Task FindsNoProcessOnPort(
-        this AssertingThat<FindServiceProcessId> assertingThat,
+        this AssertingThat<FindServiceProcessIdDelegate> assertingThat,
         Port port,
         TimeSpan timeout)
     {
@@ -44,7 +44,7 @@ public static class InfrastructureAssertions
     /// Asserts that calling ClearDatabase with non-existent database returns DatabaseNotFound failure.
     /// </summary>
     public static async Task ClearDatabaseAsyncReturnsDatabaseNotFound(
-        this AssertingThat<ClearDatabase> assertingThat,
+        this AssertingThat<ClearDatabaseDelegate> assertingThat,
         DatabaseName databaseName)
     {
         var result = await assertingThat.InstanceToAssert(databaseName);

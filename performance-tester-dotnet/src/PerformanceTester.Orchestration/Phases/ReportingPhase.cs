@@ -24,55 +24,55 @@ internal static class ReportingPhase
     /// <summary>
     /// Returns throughput samples collected during the event test.
     /// </summary>
-    public delegate IReadOnlyCollection<EventThroughputSample> GetThroughputSamples();
+    public delegate IReadOnlyCollection<EventThroughputSample> GetThroughputSamplesDelegate();
 
     /// <summary>
     /// Returns process resource metrics (CPU, memory, threads) collected during the test.
     /// </summary>
-    public delegate IReadOnlyCollection<ProcessMetrics> GetProcessMetrics();
+    public delegate IReadOnlyCollection<ProcessMetrics> GetProcessMetricsDelegate();
 
     /// <summary>
     /// Returns system-wide metrics (CPU, memory) collected during the test.
     /// </summary>
-    public delegate IReadOnlyCollection<SystemMetrics> GetSystemMetrics();
+    public delegate IReadOnlyCollection<SystemMetrics> GetSystemMetricsDelegate();
 
     /// <summary>
     /// Returns Docker container metrics for the RabbitMQ container.
     /// </summary>
-    public delegate IReadOnlyCollection<DockerMetrics> GetRabbitMqMetrics();
+    public delegate IReadOnlyCollection<DockerMetrics> GetRabbitMqMetricsDelegate();
 
     /// <summary>
     /// Returns Docker container metrics for the PostgreSQL container.
     /// </summary>
-    public delegate IReadOnlyCollection<DockerMetrics> GetPostgresMetrics();
+    public delegate IReadOnlyCollection<DockerMetrics> GetPostgresMetricsDelegate();
 
     /// <summary>
     /// Detects and returns system hardware/OS information.
     /// </summary>
-    public delegate Task<SystemInfo?> GetSystemInfo();
+    public delegate Task<SystemInfo?> GetSystemInfoDelegate();
 
     /// <summary>
     /// Generates JSON report files to the specified output folder.
     /// </summary>
-    public delegate Task GenerateReport(ResultsOutputFolder outputFolder, TestReport testReport);
+    public delegate Task GenerateReportDelegate(ResultsOutputFolder outputFolder, TestReport testReport);
 
     /// <summary>
     /// Generates a PNG chart to the specified output folder.
     /// Returns the full path to the generated chart file.
     /// </summary>
-    public delegate Task<string> GenerateChart(ResultsOutputFolder outputFolder, TestReport testReport, ILogger logger);
+    public delegate Task<string> GenerateChartDelegate(ResultsOutputFolder outputFolder, TestReport testReport, ILogger logger);
 
     // -- Dependencies record (bundle of what I need) -------------------------------
 
     public record Dependencies(
-        GetThroughputSamples GetThroughputSamples,
-        GetProcessMetrics GetProcessMetrics,
-        GetSystemMetrics GetSystemMetrics,
-        GetRabbitMqMetrics GetRabbitMqMetrics,
-        GetPostgresMetrics GetPostgresMetrics,
-        GetSystemInfo GetSystemInfo,
-        GenerateReport GenerateReport,
-        GenerateChart GenerateChart);
+        GetThroughputSamplesDelegate GetThroughputSamples,
+        GetProcessMetricsDelegate GetProcessMetrics,
+        GetSystemMetricsDelegate GetSystemMetrics,
+        GetRabbitMqMetricsDelegate GetRabbitMqMetrics,
+        GetPostgresMetricsDelegate GetPostgresMetrics,
+        GetSystemInfoDelegate GetSystemInfo,
+        GenerateReportDelegate GenerateReport,
+        GenerateChartDelegate GenerateChart);
 
     // -- Factory (how to build what I need from DI) --------------------------------
 
@@ -84,7 +84,7 @@ internal static class ReportingPhase
         var metricsCollector = services.GetRequiredService<IMetricsCollector>();
         var processMonitor = services.GetRequiredService<IProcessMonitor>();
         var systemMonitor = services.GetRequiredService<ISystemMonitor>();
-        var getDockerMetrics = services.GetRequiredService<GetDockerMetrics>();
+        var getDockerMetrics = services.GetRequiredService<GetDockerMetricsDelegate>();
         var systemInfoDetector = services.GetRequiredService<ISystemInfoDetector>();
         var reportGenerator = services.GetRequiredService<ReportGenerator>();
 

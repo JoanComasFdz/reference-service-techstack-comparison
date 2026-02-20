@@ -30,7 +30,7 @@ public sealed class DockerMonitorPhaseAwaiter
     /// <summary>
     /// The progress reporting delegate. Pass this to StartDockerMonitoring.
     /// </summary>
-    public ReportDockerMonitorProgress Report => OnProgressReport;
+    public ReportDockerMonitorProgressDelegate Report => OnProgressReport;
 
     /// <summary>
     /// Waits for a specific phase and state to be reported for the specified container.

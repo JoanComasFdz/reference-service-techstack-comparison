@@ -14,7 +14,7 @@ This slice provides real-time Docker container monitoring capabilities using the
 - **Cross-platform** - Supports Linux (Unix socket) and Windows (named pipe)
 - **Producer-owned contract** - Slice owns `DockerMetrics` model (VSA principle)
 - **Multiple containers** - Monitor multiple containers simultaneously
-- **Named delegates** - Exposes `WarmupDockerMonitors`, `StartDockerMonitoring`, `GetDockerMetrics` delegates via DI
+- **Named delegates** - Exposes `WarmupDockerMonitorsDelegate`, `StartDockerMonitoringDelegate`, `GetDockerMetricsDelegate` delegates via DI
 - **Graceful degradation** - Continues monitoring even if containers aren't found initially
 
 ## Usage
@@ -37,9 +37,9 @@ builder.Services.AddDockerMonitoring(
 var host = builder.Build();
 
 // Resolve named delegates
-var warmup = host.Services.GetRequiredService<WarmupDockerMonitors>();
-var startMonitoring = host.Services.GetRequiredService<StartDockerMonitoring>();
-var getMetrics = host.Services.GetRequiredService<GetDockerMetrics>();
+var warmup = host.Services.GetRequiredService<WarmupDockerMonitorsDelegate>();
+var startMonitoring = host.Services.GetRequiredService<StartDockerMonitoringDelegate>();
+var getMetrics = host.Services.GetRequiredService<GetDockerMetricsDelegate>();
 
 // Start monitoring (BackgroundServices start automatically)
 await host.StartAsync();
@@ -68,18 +68,18 @@ The public API consists of four named delegates registered in DI:
 
 ```csharp
 // Reports docker monitoring phase changes
-public delegate void ReportDockerMonitorProgress(DockerMonitorPhaseInfo phaseInfo);
+public delegate void ReportDockerMonitorProgressDelegate(DockerMonitorPhaseInfo phaseInfo);
 
 // Warms up Docker API for all registered containers
-public delegate Task WarmupDockerMonitors(CancellationToken ct = default);
+public delegate Task WarmupDockerMonitorsDelegate(CancellationToken ct = default);
 
 // Starts metrics collection on all registered containers
-public delegate Task StartDockerMonitoring(
-    ReportDockerMonitorProgress reportProgress,
+public delegate Task StartDockerMonitoringDelegate(
+    ReportDockerMonitorProgressDelegate reportProgress,
     CancellationToken ct = default);
 
 // Retrieves collected metrics for a specific container by name
-public delegate IReadOnlyCollection<DockerMetrics> GetDockerMetrics(
+public delegate IReadOnlyCollection<DockerMetrics> GetDockerMetricsDelegate(
     NonEmptyString containerName);
 ```
 
@@ -115,9 +115,9 @@ public static IServiceCollection AddDockerMonitoring(
 
 **Registers:**
 - Internal `DockerMonitorService` BackgroundServices (one per container, keyed singletons)
-- `WarmupDockerMonitors` delegate (singleton)
-- `StartDockerMonitoring` delegate (singleton)
-- `GetDockerMetrics` delegate (singleton)
+- `WarmupDockerMonitorsDelegate` delegate (singleton)
+- `StartDockerMonitoringDelegate` delegate (singleton)
+- `GetDockerMetricsDelegate` delegate (singleton)
 
 ## CPU Calculation: Container vs Process
 
@@ -203,13 +203,13 @@ DockerMetrics (root)
     |  stores in
 ConcurrentBag<DockerMetrics> (in-memory)
     |  retrieved via
-Monitoring/GetDockerMetrics delegate
+Monitoring/GetDockerMetricsDelegate delegate
 ```
 
 ### Design Patterns
 
 **Named Delegates (FP Pattern):**
-- `WarmupDockerMonitors`, `StartDockerMonitoring`, `GetDockerMetrics` registered as singletons in DI
+- `WarmupDockerMonitorsDelegate`, `StartDockerMonitoringDelegate`, `GetDockerMetricsDelegate` registered as singletons in DI
 - Consumers resolve only delegates — never interfaces or service instances
 - Internal `DockerMonitorService` instances managed via keyed services
 
@@ -221,7 +221,7 @@ Monitoring/GetDockerMetrics delegate
 **Graceful Degradation:**
 - Returns empty collection if container not found (non-fatal error)
 - Logs debug message (not warning, to avoid noise)
-- Reports `StreamFailed` phase via `ReportDockerMonitorProgress`
+- Reports `StreamFailed` phase via `ReportDockerMonitorProgressDelegate`
 
 ## Cross-Platform Support
 

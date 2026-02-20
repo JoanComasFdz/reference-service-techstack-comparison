@@ -55,14 +55,14 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredKeyedService<DockerMonitorService>(name.Value));
 
         // Register the 3 public named delegates
-        services.AddSingleton<WarmupDockerMonitors>(sp =>
+        services.AddSingleton<WarmupDockerMonitorsDelegate>(sp =>
             ct => Task.WhenAll(resolveMonitors(sp).Select(m => m.WarmupAsync(ct))));
 
-        services.AddSingleton<StartDockerMonitoring>(sp =>
+        services.AddSingleton<StartDockerMonitoringDelegate>(sp =>
             (progress, ct) => Task.WhenAll(
                 resolveMonitors(sp).Select(m => m.StartMonitoringAsync(progress, ct))));
 
-        services.AddSingleton<GetDockerMetrics>(sp =>
+        services.AddSingleton<GetDockerMetricsDelegate>(sp =>
             containerName => resolveMonitors(sp)
                 .Single(m => m.ContainerName == containerName.Value)
                 .GetCollectedMetrics());

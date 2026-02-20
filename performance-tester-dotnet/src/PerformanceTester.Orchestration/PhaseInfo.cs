@@ -98,4 +98,4 @@ public readonly record struct PhaseInfo(
 /// Reports a phase transition to the progress display.
 /// Non-nullable: callers that have no observer pass a no-op lambda.
 /// </summary>
-public delegate void ReportPhaseProgress(PhaseInfo phaseInfo);
+public delegate void ReportPhaseProgressDelegate(PhaseInfo phaseInfo);

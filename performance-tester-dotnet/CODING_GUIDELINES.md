@@ -1451,7 +1451,7 @@ public static async Task ExecuteAsync(
     ILogger logger)
 ```
 
-> **Evolution note:** Existing delegate declarations and examples in earlier guidelines (12, 13, 14, 30, 31) predate this convention and use unsuffixed names (e.g., `ClearDatabase`, `RunSetup`). These will be migrated incrementally. All **new** delegate declarations must use the `Delegate` suffix immediately.
+> **Evolution note:** All delegate declarations across the codebase have been migrated to use the `Delegate` suffix (e.g., `ClearDatabaseDelegate`, `RunSetupDelegate`). Examples in earlier guidelines (12, 13, 14, 30, 31) may still show unsuffixed names for brevity; the production code is the authoritative reference.
 
 **Applies to:** All `delegate` type declarations — `public`, `internal`, and `private`. No exceptions.
 

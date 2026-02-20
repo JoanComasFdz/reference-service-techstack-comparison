@@ -7,8 +7,8 @@ namespace PerformanceTester.DockerMonitoring.IntegrationTests.Infrastructure;
 
 public static class DockerMonitoringAssertions
 {
-    public static AssertingThat<GetDockerMetrics> HasCollectedMetricsFor(
-        this AssertingThat<GetDockerMetrics> assertingThat,
+    public static AssertingThat<GetDockerMetricsDelegate> HasCollectedMetricsFor(
+        this AssertingThat<GetDockerMetricsDelegate> assertingThat,
         NonEmptyString containerName)
     {
         var metrics = assertingThat.InstanceToAssert(containerName);
@@ -18,8 +18,8 @@ public static class DockerMonitoringAssertions
         return assertingThat;
     }
 
-    public static AssertingThat<GetDockerMetrics> HasNotCollectedMetricsFor(
-        this AssertingThat<GetDockerMetrics> assertingThat,
+    public static AssertingThat<GetDockerMetricsDelegate> HasNotCollectedMetricsFor(
+        this AssertingThat<GetDockerMetricsDelegate> assertingThat,
         NonEmptyString containerName)
     {
         var metrics = assertingThat.InstanceToAssert(containerName);
@@ -29,8 +29,8 @@ public static class DockerMonitoringAssertions
         return assertingThat;
     }
 
-    public static AssertingThat<GetDockerMetrics> HasMinimumSampleCountFor(
-        this AssertingThat<GetDockerMetrics> assertingThat,
+    public static AssertingThat<GetDockerMetricsDelegate> HasMinimumSampleCountFor(
+        this AssertingThat<GetDockerMetricsDelegate> assertingThat,
         NonEmptyString containerName,
         int expectedMinimum)
     {
@@ -43,8 +43,8 @@ public static class DockerMonitoringAssertions
         return assertingThat;
     }
 
-    public static AssertingThat<GetDockerMetrics> HasValidCpuPercentagesFor(
-        this AssertingThat<GetDockerMetrics> assertingThat,
+    public static AssertingThat<GetDockerMetricsDelegate> HasValidCpuPercentagesFor(
+        this AssertingThat<GetDockerMetricsDelegate> assertingThat,
         NonEmptyString containerName)
     {
         var metrics = assertingThat.InstanceToAssert(containerName);
@@ -62,8 +62,8 @@ public static class DockerMonitoringAssertions
         return assertingThat;
     }
 
-    public static AssertingThat<GetDockerMetrics> HasValidMemoryMeasurementsFor(
-        this AssertingThat<GetDockerMetrics> assertingThat,
+    public static AssertingThat<GetDockerMetricsDelegate> HasValidMemoryMeasurementsFor(
+        this AssertingThat<GetDockerMetricsDelegate> assertingThat,
         NonEmptyString containerName)
     {
         var metrics = assertingThat.InstanceToAssert(containerName);
@@ -81,8 +81,8 @@ public static class DockerMonitoringAssertions
         return assertingThat;
     }
 
-    public static AssertingThat<GetDockerMetrics> HasMetricsInChronologicalOrderFor(
-        this AssertingThat<GetDockerMetrics> assertingThat,
+    public static AssertingThat<GetDockerMetricsDelegate> HasMetricsInChronologicalOrderFor(
+        this AssertingThat<GetDockerMetricsDelegate> assertingThat,
         NonEmptyString containerName)
     {
         var metrics = assertingThat.InstanceToAssert(containerName);

@@ -21,55 +21,55 @@ internal static class SetupPhase
     /// Discovers the service process ID listening on the target port.
     /// Returns the ProcessId on success, or an error message on failure.
     /// </summary>
-    public delegate Task<Result<ProcessId, string>> FindServiceProcessId();
+    public delegate Task<Result<ProcessId, string>> FindServiceProcessIdDelegate();
 
     /// <summary>
     /// Returns true if monitoring services (BackgroundServices) are already running.
     /// </summary>
-    public delegate bool IsMonitoringStarted();
+    public delegate bool IsMonitoringStartedDelegate();
 
     /// <summary>
     /// Starts all monitoring services (process, system, Docker).
     /// </summary>
-    public delegate Task StartMonitoring();
+    public delegate Task StartMonitoringDelegate();
 
     /// <summary>
     /// Warms up Docker API connections to avoid measurement delays.
     /// First Docker API call is typically slow (~2-3s).
     /// </summary>
-    public delegate Task WarmupDockerApi();
+    public delegate Task WarmupDockerApiDelegate();
 
     /// <summary>
     /// Establishes connection to RabbitMQ for event publishing.
     /// </summary>
-    public delegate Task ConnectEventPublisher();
+    public delegate Task ConnectEventPublisherDelegate();
 
     /// <summary>
     /// Bundles all phase-level and shared delegates needed by <see cref="ExecuteAsync"/>.
     /// </summary>
     public record Dependencies(
-        FindServiceProcessId FindServiceProcessId,
-        IsMonitoringStarted IsMonitoringStarted,
-        StartMonitoring StartMonitoring,
-        WarmupDockerApi WarmupDockerApi,
-        PhasesToolbox.ClearDatabase ClearDatabase,
-        PhasesToolbox.ClearAllQueues ClearAllQueues,
-        ConnectEventPublisher ConnectEventPublisher);
+        FindServiceProcessIdDelegate FindServiceProcessId,
+        IsMonitoringStartedDelegate IsMonitoringStarted,
+        StartMonitoringDelegate StartMonitoring,
+        WarmupDockerApiDelegate WarmupDockerApi,
+        PhasesToolbox.ClearDatabaseDelegate ClearDatabase,
+        PhasesToolbox.ClearAllQueuesDelegate ClearAllQueues,
+        ConnectEventPublisherDelegate ConnectEventPublisher);
 
     /// <summary>
     /// Resolves DI services and composes phase-level delegates into a <see cref="Dependencies"/> bundle.
     /// </summary>
     public static Dependencies BuildDependencies(
         IServiceProvider services,
-        PhasesToolbox.ClearDatabase clearDatabase,
-        PhasesToolbox.ClearAllQueues clearAllQueues,
+        PhasesToolbox.ClearDatabaseDelegate clearDatabase,
+        PhasesToolbox.ClearAllQueuesDelegate clearAllQueues,
         TestConfiguration config,
         CancellationToken ct)
     {
-        var findServiceProcessId = services.GetRequiredService<PerformanceTester.Infrastructure.FindServiceProcessId>();
+        var findServiceProcessId = services.GetRequiredService<PerformanceTester.Infrastructure.FindServiceProcessIdDelegate>();
         var hostLifetime = services.GetRequiredService<IHostApplicationLifetime>();
         var host = services.GetRequiredService<IHost>();
-        var warmupDockerMonitors = services.GetRequiredService<WarmupDockerMonitors>();
+        var warmupDockerMonitors = services.GetRequiredService<WarmupDockerMonitorsDelegate>();
         var connectPublisher = services.GetRequiredService<ConnectPublisherDelegate>();
 
         return new Dependencies(

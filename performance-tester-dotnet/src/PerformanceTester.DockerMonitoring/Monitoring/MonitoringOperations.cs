@@ -23,7 +23,7 @@ internal static class MonitoringOperations
         GetContainerIdDelegate getContainerId,
         InvalidateContainerCacheDelegate invalidateCache,
         StreamMetricsDelegate streamMetrics,
-        ReportDockerMonitorProgress progress,
+        ReportDockerMonitorProgressDelegate progress,
         ILogger logger,
         CancellationToken ct)
     {
@@ -66,7 +66,7 @@ internal static class MonitoringOperations
         ConnectionState.Connecting connectingState,
         InvalidateContainerCacheDelegate invalidateCache,
         StreamMetricsDelegate streamMetrics,
-        ReportDockerMonitorProgress progress,
+        ReportDockerMonitorProgressDelegate progress,
         ILogger logger,
         CancellationToken ct)
     {
