@@ -1,3 +1,5 @@
+using PerformanceTester.Infrastructure.ValueObjects;
+
 namespace PerformanceTester.EventConsuming;
 
 /// <summary>
@@ -37,12 +39,12 @@ public interface IEventConsumer
     /// - Inactivity timeout expires (throws TimeoutException)
     /// - Cancellation is requested (throws OperationCanceledException)
     /// </summary>
-    /// <param name="expectedCount">Number of events to wait for.</param>
+    /// <param name="expectedCount">Non-negative count of events to wait for.</param>
     /// <param name="inactivityTimeout">Maximum time allowed since last event received (default: 120s).</param>
     /// <param name="progress">Optional progress reporter for phase transitions.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Task that completes when expected count is reached or timeout expires.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Expected count is less than 1 or timeout is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Timeout is negative.</exception>
     /// <exception cref="TimeoutException">Inactivity timeout expired (no events received for specified duration).</exception>
     /// <exception cref="OperationCanceledException">Cancellation was requested.</exception>
     /// <remarks>
@@ -53,7 +55,7 @@ public interface IEventConsumer
     /// Allows slow-but-progressing services to complete while detecting truly stuck services.
     /// </remarks>
     Task StartTrackingEventsAsync(
-        int expectedCount,
+        EventCount expectedCount,
         TimeSpan inactivityTimeout,
         IProgress<ConsumerPhaseInfo>? progress = null,
         CancellationToken cancellationToken = default);

@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Infrastructure.ValueObjects;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -222,16 +223,11 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
 
     /// <inheritdoc />
     public Task StartTrackingEventsAsync(
-        int expectedCount,
+        EventCount expectedCount,
         TimeSpan inactivityTimeout,
         IProgress<ConsumerPhaseInfo>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        if (expectedCount < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(expectedCount), expectedCount, "Expected count must be at least 1");
-        }
-
         if (inactivityTimeout < TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(inactivityTimeout), inactivityTimeout, "Inactivity timeout cannot be negative");
@@ -244,7 +240,7 @@ internal sealed class EventConsumerService : BackgroundService, IEventConsumer
         // Reset for new tracking session (critical for test isolation)
         ResetTrackingState();
 
-        _expectedCount = expectedCount;
+        _expectedCount = expectedCount.Value;
         _inactivityTimeout = inactivityTimeout;
         _trackingCancellationToken = cancellationToken;
         _trackingCompletionSource = new TaskCompletionSource<bool>();
