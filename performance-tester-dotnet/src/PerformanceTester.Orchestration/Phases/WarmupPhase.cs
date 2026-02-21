@@ -135,7 +135,7 @@ internal static class WarmupPhase
         var successCount = 0;
         var failCount = 0;
 
-        for (uint i = 0; i < callCount.Value; i++)
+        for (var i = 0; i < callCount.Value; i++)
         {
             try
             {

@@ -23,7 +23,7 @@ public class TestConfigurationBuilder
     private string _postgresContainerName = "performance-tester-postgres";
     private TimeSpan _inactivityTimeout = TimeSpan.FromSeconds(120);
     private int _warmupEventCount = 50;
-    private uint _warmupApiCallCount = 5;
+    private int _warmupApiCallCount = 5;
     private TimeSpan _warmupInactivityTimeout = TimeSpan.FromSeconds(30);
     private int _maxConsecutiveApiFailures = 3;
 
@@ -87,7 +87,7 @@ public class TestConfigurationBuilder
         return this;
     }
 
-    public TestConfigurationBuilder WithWarmupApiCallCount(uint warmupApiCallCount)
+    public TestConfigurationBuilder WithWarmupApiCallCount(int warmupApiCallCount)
     {
         _warmupApiCallCount = warmupApiCallCount;
         return this;
@@ -115,7 +115,7 @@ public class TestConfigurationBuilder
             DatabaseName: DatabaseName.FromString(_databaseName),
             InactivityTimeout: InactivityTimeout.FromTimeSpan(_inactivityTimeout),
             WarmupEventCount: WarmupEventsCount.FromInt(_warmupEventCount),
-            WarmupApiCallCount: WarmupApiCallsCount.FromUint(_warmupApiCallCount),
+            WarmupApiCallCount: WarmupApiCallsCount.FromInt(_warmupApiCallCount),
             WarmupInactivityTimeout: InactivityTimeout.FromTimeSpan(_warmupInactivityTimeout),
             ResultsFolder: ResultsOutputFolder.FromString(_resultsFolder),
             RabbitMqContainerName: RabbitMqContainerName.FromString(_rabbitMqContainerName),
