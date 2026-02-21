@@ -160,7 +160,7 @@ internal static class EventTestPhase
                 "Publishing: {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
                 publishMetrics.EventCount,
                 publishMetrics.Duration.TotalSeconds,
-                publishMetrics.EventsPerSecond);
+                publishMetrics.EventsPerSecond.Value);
 
             return new Success(new Output(publishMetrics, startTime, endTime));
         }

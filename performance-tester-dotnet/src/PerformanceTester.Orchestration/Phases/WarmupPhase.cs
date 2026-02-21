@@ -71,7 +71,7 @@ internal static class WarmupPhase
                 "Warmup: Published {Count} events in {Duration:F2}s ({Rate:F2} events/s)",
                 publishMetrics.EventCount,
                 publishMetrics.Duration.TotalSeconds,
-                publishMetrics.EventsPerSecond);
+                publishMetrics.EventsPerSecond.Value);
 
             // Wait for consumption
             await consumerTask;
@@ -83,12 +83,7 @@ internal static class WarmupPhase
                 "Warmup: Making {Count} HTTP calls to API endpoint",
                 config.WarmupApiCallCount);
 
-            var (successCount, failCount) = await ExecuteWarmupApiCallsAsync(config.ApiUrl, config.WarmupApiCallCount, logger, ct);
-
-            logger.LogInformation(
-                "Warmup: API calls complete - {Success} succeeded, {Failed} failed",
-                successCount,
-                failCount);
+            await ExecuteWarmupApiCallsAsync(config.ApiUrl, config.WarmupApiCallCount, logger, ct);
 
             // Clear database and queues again
             logger.LogInformation("Warmup: Clearing database and queues before measured test");
@@ -125,7 +120,7 @@ internal static class WarmupPhase
     /// Executes warmup API calls using a simple HttpClient.
     /// This method can be passed as the <see cref="ExecuteWarmupApiCalls"/> delegate.
     /// </summary>
-    private static async Task<(int Success, int Failed)> ExecuteWarmupApiCallsAsync(
+    private static async Task<Unit> ExecuteWarmupApiCallsAsync(
         string apiUrl,
         WarmupApiCallsCount callCount,
         ILogger logger,
@@ -163,6 +158,11 @@ internal static class WarmupPhase
             }
         }
 
-        return (successCount, failCount);
+        logger.LogInformation(
+                "Warmup: API calls complete - {Success} succeeded, {Failed} failed",
+                successCount,
+                failCount);
+
+        return Unit.Value;
     }
 }

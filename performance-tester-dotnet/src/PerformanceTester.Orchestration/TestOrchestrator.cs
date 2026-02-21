@@ -256,7 +256,7 @@ internal static class TestOrchestrator
             var publishMetrics = eventTestOutput.PublishMetrics;
             var eventTestStartTime = eventTestOutput.StartTime;
             var eventTestEndTime = eventTestOutput.EndTime;
-            deps.ReportProgress(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond:F2} events/s"));
+            deps.ReportProgress(PhaseInfo.Completed(TestPhase.EventTest, $"Event test complete: {publishMetrics.EventsPerSecond.Value:F2} events/s"));
 
             // Phase 2: API Load Test
             deps.ReportProgress(PhaseInfo.Starting(TestPhase.ApiTest, $"Starting API test for {configuration.ApiDuration.Value.TotalSeconds}s"));

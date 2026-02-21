@@ -79,7 +79,7 @@ internal static class EventPublisher
             return new PublishMetrics(
                 EventCount: count,
                 Duration: stopwatch.Elapsed,
-                EventsPerSecond: eventsPerSecond);
+                EventsPerSecond: EventsPerSecond.FromDouble(eventsPerSecond));
         }
         catch (OperationCanceledException)
         {

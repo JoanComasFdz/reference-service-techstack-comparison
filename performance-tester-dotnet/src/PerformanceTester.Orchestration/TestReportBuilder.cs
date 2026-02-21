@@ -135,7 +135,7 @@ internal static class TestReportBuilder
                 Phase1Publish = new PublishResults
                 {
                     DurationSeconds = testResult.PublishMetrics.Duration.TotalSeconds,
-                    ThroughputEventsPerSec = testResult.PublishMetrics.EventsPerSecond
+                    ThroughputEventsPerSec = testResult.PublishMetrics.EventsPerSecond.Value
                 },
                 Phase2Consume = new ConsumeResults
                 {

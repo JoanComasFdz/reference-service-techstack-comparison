@@ -16,7 +16,7 @@ public record NonNegativeDouble : IComparable<NonNegativeDouble>
     protected NonNegativeDouble(double value) => Value = value;
 
     /// <inheritdoc/>
-    public override string ToString() => Value.ToString();
+    public sealed override string ToString() => Value.ToString();
 
     /// <summary>
     /// Creates a derived <typeparamref name="T"/> from a raw double.

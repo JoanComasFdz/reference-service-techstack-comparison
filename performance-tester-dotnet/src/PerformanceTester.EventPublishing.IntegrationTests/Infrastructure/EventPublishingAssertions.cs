@@ -33,7 +33,7 @@ public static class EventPublishingAssertions
     {
         Assert.True(
             assertingThat.InstanceToAssert.EventsPerSecond >= minimumEventsPerSecond,
-            $"Expected throughput >= {minimumEventsPerSecond} events/sec, but was {assertingThat.InstanceToAssert.EventsPerSecond:F2}");
+            $"Expected throughput >= {minimumEventsPerSecond} events/sec, but was {assertingThat.InstanceToAssert.EventsPerSecond.Value:F2}");
         return assertingThat;
     }
 }

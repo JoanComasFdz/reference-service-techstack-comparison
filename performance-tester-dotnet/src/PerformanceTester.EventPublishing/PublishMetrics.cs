@@ -11,4 +11,4 @@ namespace PerformanceTester.EventPublishing;
 public record PublishMetrics(
     EventCount EventCount,
     TimeSpan Duration,
-    double EventsPerSecond);
+    EventsPerSecond EventsPerSecond);
