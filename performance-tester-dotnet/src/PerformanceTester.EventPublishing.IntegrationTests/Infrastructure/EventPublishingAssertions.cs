@@ -18,7 +18,7 @@ public static class EventPublishingAssertions
         int expectedCount)
     {
         Assert.NotNull(assertingThat.InstanceToAssert);
-        Assert.Equal(expectedCount, assertingThat.InstanceToAssert.EventCount);
+        Assert.Equal(expectedCount, assertingThat.InstanceToAssert.EventCount.Value);
         Assert.True(assertingThat.InstanceToAssert.Duration.TotalMilliseconds > 0);
         Assert.True(assertingThat.InstanceToAssert.EventsPerSecond > 0);
         return assertingThat;

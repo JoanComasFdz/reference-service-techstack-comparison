@@ -77,7 +77,7 @@ internal static class EventPublisher
                 eventsPerSecond);
 
             return new PublishMetrics(
-                EventCount: count.Value,
+                EventCount: count,
                 Duration: stopwatch.Elapsed,
                 EventsPerSecond: eventsPerSecond);
         }

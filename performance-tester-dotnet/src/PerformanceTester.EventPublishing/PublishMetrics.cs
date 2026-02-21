@@ -1,3 +1,5 @@
+using PerformanceTester.Infrastructure.ValueObjects;
+
 namespace PerformanceTester.EventPublishing;
 
 /// <summary>
@@ -7,6 +9,6 @@ namespace PerformanceTester.EventPublishing;
 /// <param name="Duration">Total duration for publishing all events.</param>
 /// <param name="EventsPerSecond">Throughput (events/second).</param>
 public record PublishMetrics(
-    int EventCount,
+    EventCount EventCount,
     TimeSpan Duration,
     double EventsPerSecond);
