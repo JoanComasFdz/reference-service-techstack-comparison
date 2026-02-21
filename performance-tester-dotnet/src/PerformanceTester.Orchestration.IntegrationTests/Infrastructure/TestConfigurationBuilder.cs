@@ -120,7 +120,7 @@ public class TestConfigurationBuilder
             ResultsFolder: ResultsOutputFolder.FromString(_resultsFolder),
             RabbitMqContainerName: RabbitMqContainerName.FromString(_rabbitMqContainerName),
             PostgresContainerName: PostgresContainerName.FromString(_postgresContainerName),
-            MaxConsecutiveApiFailures: _maxConsecutiveApiFailures);
+            MaxConsecutiveApiFailures: MaxConsecutiveFailures.FromInt(_maxConsecutiveApiFailures));
     }
 
     private static T Unwrap<T, TError>(Result<T, TError> result) => result.Match(

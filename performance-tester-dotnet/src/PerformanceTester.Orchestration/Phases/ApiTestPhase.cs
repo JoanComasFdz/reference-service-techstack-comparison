@@ -2,6 +2,8 @@ using PerformanceTester.Functional;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.ApiLoadTesting;
+using PerformanceTester.Orchestration.ValueObjects;
+using PerformanceTester.Reporting.ValueObjects;
 using Serilog.Context;
 using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.ApiTestPhase.Output, string>;
 
@@ -18,11 +20,11 @@ internal static class ApiTestPhase
     /// Executes an HTTP API load test using k6 and returns aggregated results.
     /// </summary>
     public delegate Task<ApiLoadTestResult> StartApiLoadTestDelegate(
-        string targetUrl,
-        TimeSpan duration,
-        int virtualUsers,
-        int maxConsecutiveFailures,
-        string? scriptDirectory);
+        ServiceUrl targetUrl,
+        ApiDuration duration,
+        WorkerCount virtualWorkers,
+        MaxConsecutiveFailures maxConsecutiveFailures,
+        ResultsOutputFolder resultsFolder);
 
     // -- Output (what I produce) --------------------------------------------------
 
@@ -57,7 +59,7 @@ internal static class ApiTestPhase
             reportProgress(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
 
         return new Dependencies(
-            StartApiLoadTest: (url, duration, vus, maxFail, dir) => apiLoadTester.StartTestAsync(url, duration, vus, reportApiProgress, maxFail, dir, ct)
+            StartApiLoadTest: (url, duration, vus, maxFail, dir) => apiLoadTester.StartTestAsync(url.Value, duration.Value, vus.Value, reportApiProgress, maxFail.Value, dir.Value, ct)
             );
     }
 
@@ -81,10 +83,10 @@ internal static class ApiTestPhase
 
             var result = await deps.StartApiLoadTest(
                 config.ApiUrl,
-                config.ApiDuration.Value,
-                config.ApiWorkers.Value,
+                config.ApiDuration,
+                config.ApiWorkers,
                 config.MaxConsecutiveApiFailures,
-                config.ResultsFolder.Value
+                config.ResultsFolder
                 );
 
             var endTime = DateTime.UtcNow;

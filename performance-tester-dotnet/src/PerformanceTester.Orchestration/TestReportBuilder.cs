@@ -126,7 +126,7 @@ internal static class TestReportBuilder
                 ApiConcurrentWorkers = config.ApiWorkers.Value,
                 RabbitmqExchange = "referenceservice.comparison",
                 ConsumerQueue = "instrument-status-changed",
-                ApiEndpoint = config.ApiUrl,
+                ApiEndpoint = config.ApiUrl.Value,
                 PublishEventType = "com.referenceservice.instrument.status.changed",
                 ConsumeEventType = "com.referenceservice.instrumentstatus.kpi.updated"
             },

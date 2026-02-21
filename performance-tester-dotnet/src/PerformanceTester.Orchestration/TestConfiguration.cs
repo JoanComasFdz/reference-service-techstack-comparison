@@ -34,10 +34,10 @@ public record TestConfiguration(
     PostgresContainerName PostgresContainerName,
     InactivityTimeout InactivityTimeout,
     InactivityTimeout WarmupInactivityTimeout,
-    int MaxConsecutiveApiFailures = 3)
+    MaxConsecutiveFailures MaxConsecutiveApiFailures)
 {
     /// <summary>
     /// Gets the API URL based on the service port.
     /// </summary>
-    public string ApiUrl => $"http://localhost:{ServicePort.Value}/kpi";
+    public ServiceUrl ApiUrl => ServiceUrl.FromString($"http://localhost:{ServicePort.Value}/kpi");
 }

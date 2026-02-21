@@ -121,7 +121,7 @@ internal static class WarmupPhase
     /// This method can be passed as the <see cref="ExecuteWarmupApiCalls"/> delegate.
     /// </summary>
     private static async Task<Unit> ExecuteWarmupApiCallsAsync(
-        string apiUrl,
+        ServiceUrl apiUrl,
         WarmupApiCallsCount callCount,
         ILogger logger,
         CancellationToken cancellationToken)
@@ -134,7 +134,7 @@ internal static class WarmupPhase
         {
             try
             {
-                var response = await httpClient.GetAsync(apiUrl, cancellationToken);
+                var response = await httpClient.GetAsync(apiUrl.Value, cancellationToken);
                 if (response.IsSuccessStatusCode)
                 {
                     successCount++;

@@ -80,6 +80,11 @@ public static class TestCommand
             getDefaultValue: () => "performancetest-postgres",
             description: "PostgreSQL Docker container name");
 
+        var maxConsecutiveApiFailuresOption = new System.CommandLine.Option<int>(
+            aliases: ["--max-api-failures"],
+            getDefaultValue: () => 3,
+            description: "Maximum consecutive API failures before aborting (0 = disabled)");
+
         var command = new Command("test", "Run performance test against a service")
         {
             eventsOption,
@@ -93,7 +98,8 @@ public static class TestCommand
             inactivityTimeoutOption,
             warmupInactivityTimeoutOption,
             rabbitMqContainerOption,
-            postgresContainerOption
+            postgresContainerOption,
+            maxConsecutiveApiFailuresOption
         };
 
         command.SetHandler(async (InvocationContext context) =>
@@ -115,6 +121,7 @@ public static class TestCommand
                 from ResultsFolder in ResultsOutputFolder.Create(context.ParseResult.GetValueForOption(resultsFolderOption)!)
                 from RabbitMqContainer in RabbitMqContainerName.Create(context.ParseResult.GetValueForOption(rabbitMqContainerOption)!)
                 from PostgresContainer in PostgresContainerName.Create(context.ParseResult.GetValueForOption(postgresContainerOption)!)
+                from MaxConsecutiveApiFailures in MaxConsecutiveFailures.Create(context.ParseResult.GetValueForOption(maxConsecutiveApiFailuresOption))
                 select new TestConfiguration(
                     EventCount,
                     ApiDuration,
@@ -127,7 +134,8 @@ public static class TestCommand
                     RabbitMqContainer,
                     PostgresContainer,
                     InactivityTimeout,
-                    WarmupInactivityTimeout);
+                    WarmupInactivityTimeout,
+                    MaxConsecutiveApiFailures);
 
             if (parseResult.IsFailure)
             {
