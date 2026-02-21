@@ -28,7 +28,7 @@ internal static class EventTestPhase
     /// Starts process resource monitoring for the given PID.
     /// Returns when the first sample has been collected.
     /// </summary>
-    public delegate Task StartProcessMonitoringDelegate(int processId);
+    public delegate Task StartProcessMonitoringDelegate(ProcessId processId);
 
     /// <summary>
     /// Starts system-wide CPU and memory monitoring.
@@ -84,7 +84,7 @@ internal static class EventTestPhase
             SystemCpuCount: systemMonitor.CpuCount,
             SystemIsWsl2: systemMonitor.IsWsl2,
             ClearSamples: metricsCollector.ClearSamples,
-            StartProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid, cancellationToken: ct),
+            StartProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid.Value, cancellationToken: ct),
             StartSystemMonitoring: () => systemMonitor.StartMonitoringAsync(cancellationToken: ct),
             StartDockerMonitoring: (progress) => startDockerMonitoring(progress, ct),
             TrackEvents: trackEvents,
@@ -113,7 +113,7 @@ internal static class EventTestPhase
             // Start monitoring just before the measured test begins
             // This ensures chart data starts at the same time as the test phases
             logger.LogInformation("Starting process monitoring for PID {ProcessId}...", serviceProcessId);
-            await deps.StartProcessMonitoring(serviceProcessId.Value);
+            await deps.StartProcessMonitoring(serviceProcessId);
             logger.LogInformation("Process monitoring started");
 
             logger.LogInformation(
