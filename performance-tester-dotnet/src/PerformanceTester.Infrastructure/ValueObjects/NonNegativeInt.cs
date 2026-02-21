@@ -16,7 +16,7 @@ public record NonNegativeInt : IComparable<NonNegativeInt>
     protected NonNegativeInt(int value) => Value = value;
 
     /// <inheritdoc/>
-    public override string ToString() => Value.ToString();
+    public sealed override string ToString() => Value.ToString();
 
     /// <summary>
     /// Creates a derived <typeparamref name="T"/> from a raw integer.
