@@ -60,12 +60,12 @@ internal static class WarmupPhase
 
             // Start consumer tracking (no progress reporting — warmup is a quick non-measured step)
             var consumerTask = deps.TrackEvents(
-                config.WarmupEventCount.Value,
+                config.WarmupEventCount,
                 config.WarmupInactivityTimeout.Value,
                 progress: null);
 
             // Publish warmup events
-            var publishMetrics = await deps.PublishEvents(EventCount.Create(config.WarmupEventCount.Value).SuccessValue);
+            var publishMetrics = await deps.PublishEvents(config.WarmupEventCount);
 
             logger.LogInformation(
                 "Warmup: Published {Count} events in {Duration:F2}s ({Rate:F2} events/s)",

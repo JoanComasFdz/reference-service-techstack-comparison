@@ -134,7 +134,7 @@ internal static class EventTestPhase
 
             // CRITICAL: Start publisher and consumer CONCURRENTLY (not sequentially!)
             var consumerTask = deps.TrackEvents(
-                config.EventCount.Value,
+                config.EventCount,
                 config.InactivityTimeout.Value,
                 deps.ConsumerProgress);
 
