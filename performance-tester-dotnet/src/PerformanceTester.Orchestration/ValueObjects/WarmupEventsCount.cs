@@ -1,18 +1,24 @@
 using PerformanceTester.Functional;
+using PerformanceTester.Infrastructure.ValueObjects;
 using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.ValueObjects.WarmupEventsCount, string>;
 
 namespace PerformanceTester.Orchestration.ValueObjects;
 
-public sealed record WarmupEventsCount
+/// <summary>
+/// Event count specifically for warmup phase. Inherits from <see cref="EventCount"/>
+/// so it can be passed directly wherever <see cref="EventCount"/> is expected.
+/// </summary>
+public sealed record WarmupEventsCount : EventCount
 {
-    public int Value { get; }
-    private WarmupEventsCount(int value) => Value = value;
+    private WarmupEventsCount(int value) : base(value) { }
 
-    public static Result<WarmupEventsCount, string> Create(int value) => value is >= 0 and <= 10_000
+    /// <summary>
+    /// Creates a <see cref="WarmupEventsCount"/> from a raw integer.
+    /// Returns Failure if the value is negative.
+    /// </summary>
+    public static new Result<WarmupEventsCount, string> Create(int value) => value >= 0
             ? new Success(new WarmupEventsCount(value))
-            : new Failure($"Warmup events must be between 0 and 10,000 (got: {value})");
+            : new Failure($"Warmup event count cannot be negative (got: {value})");
 
     public static WarmupEventsCount FromInt(int value) => new(value);
-
-    public override string ToString() => Value.ToString();
 }
