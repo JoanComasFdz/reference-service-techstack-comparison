@@ -40,7 +40,7 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
 
         // Start tracking (returns awaitable task)
         var trackingTask = System.EventConsuming.Consumer.StartTrackingEventsAsync(
-            expectedCount: eventCount,
+            expectedCount: EventCount.Create(eventCount).SuccessValue,
             inactivityTimeout: TimeSpan.FromSeconds(30));
 
         // Act - Publish CloudEvents to exchange
@@ -78,7 +78,7 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
         // Act & Assert - Should throw TimeoutException with correct message
         await Asserting.That(System.EventConsuming.Consumer)
             .ThrowsTimeoutExceptionAfterStartTrackingEvents(
-                expectedCount: eventCount,
+                expectedCount: EventCount.Create(eventCount).SuccessValue,
                 inactivityTimeout: TimeSpan.FromSeconds(inactivityTimeoutSeconds),
                 expectedReceivedCount: 0);
 
@@ -109,7 +109,7 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
 
         // Start tracking (returns awaitable task)
         var trackingTask = System.EventConsuming.Consumer.StartTrackingEventsAsync(
-            expectedCount: eventCount,
+            expectedCount: EventCount.Create(eventCount).SuccessValue,
             inactivityTimeout: TimeSpan.FromSeconds(inactivityTimeoutSeconds),
             progress: phaseAwaiter);
 
@@ -148,18 +148,13 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
     }
 
     [Fact]
-    public async Task StartTrackingEventsAsync_WhenInvalidCount_ShouldThrow()
+    public void StartTrackingEventsAsync_WhenNegativeCount_ShouldFailToCreateEventCount()
     {
-        // Arrange
-        const int invalidCount = 0;
-        var queueName = GenerateQueueName();
+        // Act
+        var result = EventCount.Create(-1);
 
-        // Create EventConsuming with unique queue name (needed to access Consumer)
-        System.CreateEventConsuming(queueName);
-
-        // Act & Assert
-        await Asserting.That(System.EventConsuming.Consumer)
-            .ThrowsArgumentOutOfRangeExceptionForInvalidCount(invalidCount);
+        // Assert
+        Assert.True(result.IsFailure);
     }
 
     [Fact]
@@ -201,7 +196,7 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
 
         // Start tracking
         var trackingTask = System.EventConsuming.Consumer.StartTrackingEventsAsync(
-            expectedCount: eventCount,
+            expectedCount: EventCount.Create(eventCount).SuccessValue,
             inactivityTimeout: TimeSpan.FromSeconds(30),
             progress: phaseAwaiter);
 

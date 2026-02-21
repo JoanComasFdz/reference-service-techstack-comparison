@@ -1,4 +1,5 @@
 using JoanComasFdz.AssertingThat;
+using PerformanceTester.Infrastructure.ValueObjects;
 using Xunit;
 
 namespace PerformanceTester.EventConsuming.IntegrationTests.Infrastructure;
@@ -58,7 +59,7 @@ public static class EventConsumingAssertions
     /// </summary>
     public static async Task<AssertingThat<IEventConsumer>> ThrowsTimeoutExceptionAfterStartTrackingEvents(
         this AssertingThat<IEventConsumer> assertingThat,
-        int expectedCount,
+        EventCount expectedCount,
         TimeSpan inactivityTimeout,
         int expectedReceivedCount)
     {
@@ -76,22 +77,6 @@ public static class EventConsumingAssertions
     }
 
     /// <summary>
-    /// Asserts that StartTrackingEventsAsync throws ArgumentOutOfRangeException for invalid count.
-    /// </summary>
-    public static async Task<AssertingThat<IEventConsumer>> ThrowsArgumentOutOfRangeExceptionForInvalidCount(
-        this AssertingThat<IEventConsumer> assertingThat,
-        int invalidCount)
-    {
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
-        {
-            await assertingThat.InstanceToAssert.StartTrackingEventsAsync(
-                expectedCount: invalidCount,
-                inactivityTimeout: TimeSpan.FromSeconds(30));
-        });
-        return assertingThat;
-    }
-
-    /// <summary>
     /// Asserts that StartTrackingEventsAsync throws ArgumentOutOfRangeException for invalid timeout.
     /// </summary>
     public static async Task<AssertingThat<IEventConsumer>> ThrowsArgumentOutOfRangeExceptionForInvalidTimeout(
@@ -101,7 +86,7 @@ public static class EventConsumingAssertions
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
             await assertingThat.InstanceToAssert.StartTrackingEventsAsync(
-                expectedCount: 10,
+                expectedCount: EventCount.Create(10).SuccessValue,
                 inactivityTimeout: invalidTimeout);
         });
         return assertingThat;
