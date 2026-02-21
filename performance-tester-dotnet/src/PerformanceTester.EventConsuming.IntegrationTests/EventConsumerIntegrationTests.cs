@@ -41,7 +41,8 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
         // Start tracking (returns awaitable task)
         var trackingTask = System.EventConsuming.Consumer.StartTrackingEventsAsync(
             expectedCount: EventCount.Create(eventCount).SuccessValue,
-            inactivityTimeout: TimeSpan.FromSeconds(30));
+            inactivityTimeout: TimeSpan.FromSeconds(30),
+            reportProgress: _ => { });
 
         // Act - Publish CloudEvents to exchange
         await System.PublishEvents(EventCount.Create(eventCount).SuccessValue);
@@ -111,7 +112,7 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
         var trackingTask = System.EventConsuming.Consumer.StartTrackingEventsAsync(
             expectedCount: EventCount.Create(eventCount).SuccessValue,
             inactivityTimeout: TimeSpan.FromSeconds(inactivityTimeoutSeconds),
-            progress: phaseAwaiter);
+            reportProgress: phaseAwaiter.Report);
 
         // Wait for tracking to actually start before publishing
         // This replaces the arbitrary Task.Delay(500ms)
@@ -198,7 +199,7 @@ public sealed class EventConsumerIntegrationTests(ITestOutputHelper output) : In
         var trackingTask = System.EventConsuming.Consumer.StartTrackingEventsAsync(
             expectedCount: EventCount.Create(eventCount).SuccessValue,
             inactivityTimeout: TimeSpan.FromSeconds(30),
-            progress: phaseAwaiter);
+            reportProgress: phaseAwaiter.Report);
 
         // Wait for tracking to start
         await phaseAwaiter.WaitForTrackingStartedAsync(timeout: TimeSpan.FromSeconds(10));

@@ -4,9 +4,9 @@ namespace PerformanceTester.EventConsuming.IntegrationTests.Infrastructure;
 
 /// <summary>
 /// Helper class for tests to await specific consumer phase transitions.
-/// Wraps IProgress&lt;ConsumerPhaseInfo&gt; and provides TaskCompletionSource-based waiting.
+/// Provides TaskCompletionSource-based waiting for consumer phase transitions.
 /// </summary>
-public sealed class ConsumerPhaseAwaiter : IProgress<ConsumerPhaseInfo>
+public sealed class ConsumerPhaseAwaiter
 {
     private readonly Dictionary<(ConsumerPhase Phase, ConsumerPhaseState State), TaskCompletionSource> _awaiters = [];
     private readonly Dictionary<int, TaskCompletionSource> _eventCountAwaiters = [];
@@ -132,10 +132,9 @@ public sealed class ConsumerPhaseAwaiter : IProgress<ConsumerPhaseInfo>
     }
 
     /// <summary>
-    /// Called by EventConsumerService via progress?.Report(). Explicit interface implementation
-    /// hides this from ConsumerPhaseAwaiter's public API.
+    /// Called by EventConsumerService via the reportProgress delegate.
     /// </summary>
-    void IProgress<ConsumerPhaseInfo>.Report(ConsumerPhaseInfo value)
+    public void Report(ConsumerPhaseInfo value)
     {
         lock (_lock)
         {

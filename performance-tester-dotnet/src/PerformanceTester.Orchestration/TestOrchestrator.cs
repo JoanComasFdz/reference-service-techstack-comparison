@@ -118,7 +118,7 @@ internal static class TestOrchestrator
 
         PhasesToolbox.PublishEventsDelegate publishEvents = (count) => publishEventsOp(count, ct);
 
-        PhasesToolbox.TrackEventsDelegate trackEvents = (count, timeout, progress) => eventConsumer.StartTrackingEventsAsync(count, timeout, progress, ct);
+        PhasesToolbox.TrackEventsDelegate trackEvents = (count, timeout, reportProgress) => eventConsumer.StartTrackingEventsAsync(count, timeout, reportProgress, ct);
 
         var teardownDeps = TeardownPhase.BuildDependencies(services, ct);
 

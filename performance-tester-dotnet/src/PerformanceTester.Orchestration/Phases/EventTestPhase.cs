@@ -62,7 +62,7 @@ internal static class EventTestPhase
         StartDockerMonitoringDelegate StartDockerMonitoring,
         PhasesToolbox.TrackEventsDelegate TrackEvents,
         PhasesToolbox.PublishEventsDelegate PublishEvents,
-        IProgress<ConsumerPhaseInfo> ConsumerProgress);
+        ReportConsumerProgressDelegate ReportConsumerProgress);
 
     /// <summary>
     /// Resolves DI services and composes phase-level delegates into a <see cref="Dependencies"/> bundle.
@@ -89,7 +89,7 @@ internal static class EventTestPhase
             StartDockerMonitoring: (progress) => startDockerMonitoring(progress, ct),
             TrackEvents: trackEvents,
             PublishEvents: publishEvents,
-            ConsumerProgress: CreateConsumerProgressCallback(reportProgress, config.EventCount));
+            ReportConsumerProgress: CreateConsumerProgressCallback(reportProgress, config.EventCount));
     }
 
     public static async Task<Result<Output, string>> ExecuteAsync(
@@ -136,7 +136,7 @@ internal static class EventTestPhase
             var consumerTask = deps.TrackEvents(
                 config.EventCount,
                 config.InactivityTimeout.Value,
-                deps.ConsumerProgress);
+                deps.ReportConsumerProgress);
 
             var publisherTask = deps.PublishEvents(config.EventCount);
 
@@ -174,22 +174,17 @@ internal static class EventTestPhase
     /// <summary>
     /// Creates a progress callback that adapts ConsumerPhaseInfo to PhaseInfo with throttling.
     /// </summary>
-    // CA1859: recommends returning SynchronousProgress<T> (concrete type) instead of IProgress<T>
-    // for devirtualization. No benefit here — the return value is immediately passed to TrackEvents,
-    // whose parameter type is IProgress<ConsumerPhaseInfo>?, so the interface dispatch remains.
-#pragma warning disable CA1859
-    private static IProgress<ConsumerPhaseInfo> CreateConsumerProgressCallback(
+    private static ReportConsumerProgressDelegate CreateConsumerProgressCallback(
         ReportPhaseProgressDelegate reportProgress,
         EventCount totalEventCount)
     {
-        // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
         // Throttle by time (200ms) to avoid excessive updates while staying responsive
         // Use lock for thread safety (RabbitMQ events can arrive concurrently)
         var lastProgressTime = DateTime.MinValue;
         var progressThrottleMs = 200;
         var progressLock = new object();
 
-        return new SynchronousProgress<ConsumerPhaseInfo>(info =>
+        return info =>
         {
             // When target reached, clear the progress bar immediately (before log appears)
             if (info.Phase == ConsumerPhase.TargetReached)
@@ -216,6 +211,6 @@ internal static class EventTestPhase
                     }
                 }
             }
-        });
+        };
     }
 }

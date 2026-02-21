@@ -68,7 +68,8 @@ public static class EventConsumingAssertions
         {
             await assertingThat.InstanceToAssert.StartTrackingEventsAsync(
                 expectedCount: expectedCount,
-                inactivityTimeout: inactivityTimeout);
+                inactivityTimeout: inactivityTimeout,
+                reportProgress: _ => { });
         });
 
         Assert.Contains("Inactivity timeout expired", exception.Message);
@@ -87,7 +88,8 @@ public static class EventConsumingAssertions
         {
             await assertingThat.InstanceToAssert.StartTrackingEventsAsync(
                 expectedCount: EventCount.Create(10).SuccessValue,
-                inactivityTimeout: invalidTimeout);
+                inactivityTimeout: invalidTimeout,
+                reportProgress: _ => { });
         });
         return assertingThat;
     }

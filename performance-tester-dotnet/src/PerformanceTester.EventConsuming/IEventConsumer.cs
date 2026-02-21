@@ -12,24 +12,24 @@ public interface IEventConsumer
     /// Establishes connection to RabbitMQ and starts consuming events.
     /// Must be called before StartTrackingEventsAsync.
     /// </summary>
-    /// <param name="progress">Optional progress reporter for phase transitions.</param>
+    /// <param name="reportProgress">Reports phase transitions (pass <c>_ =&gt; { }</c> if not needed).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="InvalidOperationException">Connection failed or already connected.</exception>
     /// <remarks>
     /// Reports phases: Connecting/Starting → ConsumerRegistered/Completed → Connected/Completed
     /// </remarks>
     Task ConnectAsync(
-        IProgress<ConsumerPhaseInfo>? progress = null,
+        ReportConsumerProgressDelegate reportProgress,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gracefully disconnects from RabbitMQ.
     /// Safe to call multiple times.
     /// </summary>
-    /// <param name="progress">Optional progress reporter for phase transitions.</param>
+    /// <param name="reportProgress">Reports phase transitions (pass <c>_ =&gt; { }</c> if not needed).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task DisconnectAsync(
-        IProgress<ConsumerPhaseInfo>? progress = null,
+        ReportConsumerProgressDelegate reportProgress,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -41,7 +41,7 @@ public interface IEventConsumer
     /// </summary>
     /// <param name="expectedCount">Non-negative count of events to wait for.</param>
     /// <param name="inactivityTimeout">Maximum time allowed since last event received (default: 120s).</param>
-    /// <param name="progress">Optional progress reporter for phase transitions.</param>
+    /// <param name="reportProgress">Reports phase transitions (pass <c>_ =&gt; { }</c> if not needed).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Task that completes when expected count is reached or timeout expires.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Timeout is negative.</exception>
@@ -57,6 +57,6 @@ public interface IEventConsumer
     Task StartTrackingEventsAsync(
         EventCount expectedCount,
         TimeSpan inactivityTimeout,
-        IProgress<ConsumerPhaseInfo>? progress = null,
+        ReportConsumerProgressDelegate reportProgress,
         CancellationToken cancellationToken = default);
 }

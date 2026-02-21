@@ -31,5 +31,5 @@ internal static class PhasesToolbox
     /// <summary>
     /// Tracks consumed events until expected count is reached or inactivity timeout expires.
     /// </summary>
-    public delegate Task TrackEventsDelegate(EventCount expectedCount, TimeSpan inactivityTimeout, IProgress<ConsumerPhaseInfo>? progress);
+    public delegate Task TrackEventsDelegate(EventCount expectedCount, TimeSpan inactivityTimeout, ReportConsumerProgressDelegate reportProgress);
 }

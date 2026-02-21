@@ -62,7 +62,7 @@ internal static class WarmupPhase
             var consumerTask = deps.TrackEvents(
                 config.WarmupEventCount,
                 config.WarmupInactivityTimeout.Value,
-                progress: null);
+                reportProgress: _ => { });
 
             // Publish warmup events
             var publishMetrics = await deps.PublishEvents(config.WarmupEventCount);

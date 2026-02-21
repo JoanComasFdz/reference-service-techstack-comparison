@@ -102,3 +102,9 @@ public readonly record struct ConsumerPhaseInfo(
     public static ConsumerPhaseInfo Failed(ConsumerPhase phase, string? message = null, int? eventCount = null)
         => new(phase, ConsumerPhaseState.Failed, eventCount, message, DateTimeOffset.UtcNow);
 }
+
+/// <summary>
+/// Reports consumer progress (event received, target reached, etc.).
+/// Replaces IProgress&lt;ConsumerPhaseInfo&gt; with a named delegate per Guideline 13.
+/// </summary>
+public delegate void ReportConsumerProgressDelegate(ConsumerPhaseInfo info);
