@@ -54,7 +54,7 @@ internal static class EventTestPhase
     /// Bundles all phase-level and shared delegates needed by <see cref="ExecuteAsync"/>.
     /// </summary>
     public record Dependencies(
-        int SystemCpuCount,
+        CpuCount SystemCpuCount,
         bool SystemIsWsl2,
         ClearSamplesDelegate ClearSamples,
         StartProcessMonitoringDelegate StartProcessMonitoring,
@@ -81,7 +81,7 @@ internal static class EventTestPhase
         var startDockerMonitoring = services.GetRequiredService<DockerMonitoring.Monitoring.StartDockerMonitoringDelegate>();
 
         return new Dependencies(
-            SystemCpuCount: systemMonitor.CpuCount,
+            SystemCpuCount: CpuCount.FromInt(systemMonitor.CpuCount),
             SystemIsWsl2: systemMonitor.IsWsl2,
             ClearSamples: metricsCollector.ClearSamples,
             StartProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid.Value, cancellationToken: ct),
