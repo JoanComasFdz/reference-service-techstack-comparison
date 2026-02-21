@@ -38,11 +38,11 @@ public sealed class EventPublisherTests(ITestOutputHelper output) : IntegrationT
     }
 
     [Fact]
-    public void PublishEventsAsync_WhenCountIsZero_ShouldBeRejectedByEventCount()
+    public void PublishEventsAsync_WhenCountIsZero_ShouldBeAcceptedByEventCount()
     {
-        // Act & Assert — EventCount.Create rejects zero at construction
+        // Act & Assert — EventCount.Create accepts zero (non-negative constraint only)
         var result = EventCount.Create(0);
-        Assert.True(result.IsFailure);
+        Assert.True(result.IsSuccess);
     }
 
     [Fact]

@@ -23,7 +23,7 @@ public static class TestCommand
         var eventsOption = new System.CommandLine.Option<int>(
             aliases: ["--events", "-e"],
             getDefaultValue: () => 10000,
-            description: "Number of events to publish and consume (1-1,000,000)");
+            description: "Number of events to publish and consume (non-negative)");
 
         var apiDurationOption = new System.CommandLine.Option<string>(
             aliases: ["--api-duration", "-d"],
