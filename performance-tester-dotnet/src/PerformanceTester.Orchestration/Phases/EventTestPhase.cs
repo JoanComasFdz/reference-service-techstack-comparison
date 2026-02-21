@@ -89,7 +89,7 @@ internal static class EventTestPhase
             StartDockerMonitoring: (progress) => startDockerMonitoring(progress, ct),
             TrackEvents: trackEvents,
             PublishEvents: publishEvents,
-            ConsumerProgress: CreateConsumerProgressCallback(reportProgress, config.EventCount.Value));
+            ConsumerProgress: CreateConsumerProgressCallback(reportProgress, config.EventCount));
     }
 
     public static async Task<Result<Output, string>> ExecuteAsync(
@@ -180,7 +180,7 @@ internal static class EventTestPhase
 #pragma warning disable CA1859
     private static IProgress<ConsumerPhaseInfo> CreateConsumerProgressCallback(
         ReportPhaseProgressDelegate reportProgress,
-        int totalEventCount)
+        EventCount totalEventCount)
     {
         // Use SynchronousProgress to ensure updates happen immediately (not via SynchronizationContext)
         // Throttle by time (200ms) to avoid excessive updates while staying responsive
