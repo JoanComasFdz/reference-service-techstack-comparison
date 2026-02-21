@@ -4,22 +4,24 @@ using static PerformanceTester.Functional.Result<PerformanceTester.Infrastructur
 namespace PerformanceTester.Infrastructure.ValueObjects;
 
 /// <summary>
-/// Value object representing a count of events to publish/consume (1–1,000,000).
+/// Value object representing a non-negative count of events.
+/// Base type for all event count variants (e.g. WarmupEventsCount).
 /// </summary>
-public sealed record EventCount
+public record EventCount
 {
     /// <summary>The validated event count.</summary>
     public int Value { get; }
 
-    private EventCount(int value) => Value = value;
+    /// <summary>Constructor for derived records.</summary>
+    protected EventCount(int value) => Value = value;
 
     /// <summary>
     /// Creates an <see cref="EventCount"/> from a raw integer.
-    /// Returns Failure if the value is outside the valid range (1–1,000,000).
+    /// Returns Failure if the value is negative.
     /// </summary>
-    public static Result<EventCount, string> Create(int value) => value is >= 1 and <= 1_000_000
+    public static Result<EventCount, string> Create(int value) => value >= 0
             ? new Success(new EventCount(value))
-            : new Failure($"Events must be between 1 and 1,000,000 (got: {value})");
+            : new Failure($"Event count cannot be negative (got: {value})");
 
     /// <inheritdoc/>
     public override string ToString() => Value.ToString();
