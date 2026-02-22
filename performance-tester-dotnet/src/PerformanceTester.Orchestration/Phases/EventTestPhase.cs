@@ -7,7 +7,7 @@ using PerformanceTester.DockerMonitoring.Monitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.ValueObjects;
-using PerformanceTester.ProcessMonitoring;
+using PerformanceTester.ProcessMonitoring.Monitoring;
 using PerformanceTester.SystemMonitoring;
 using Serilog.Context;
 using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.EventTestPhase.Output, string>;
@@ -77,14 +77,14 @@ internal static class EventTestPhase
     {
         var systemMonitor = services.GetRequiredService<ISystemMonitor>();
         var metricsCollector = services.GetRequiredService<IMetricsCollector>();
-        var processMonitor = services.GetRequiredService<IProcessMonitor>();
+        var startProcessMonitoring = services.GetRequiredService<ProcessMonitoring.Monitoring.StartProcessMonitoringDelegate>();
         var startDockerMonitoring = services.GetRequiredService<DockerMonitoring.Monitoring.StartDockerMonitoringDelegate>();
 
         return new Dependencies(
             SystemCpuCount: CpuCount.FromInt(systemMonitor.CpuCount),
             SystemIsWsl2: systemMonitor.IsWsl2,
             ClearSamples: metricsCollector.ClearSamples,
-            StartProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid.Value, cancellationToken: ct),
+            StartProcessMonitoring: (pid) => startProcessMonitoring(pid, _ => { }, ct),
             StartSystemMonitoring: () => systemMonitor.StartMonitoringAsync(cancellationToken: ct),
             StartDockerMonitoring: (progress) => startDockerMonitoring(progress, ct),
             TrackEvents: trackEvents,

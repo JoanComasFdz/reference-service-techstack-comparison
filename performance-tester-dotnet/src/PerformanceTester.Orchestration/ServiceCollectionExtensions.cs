@@ -38,7 +38,7 @@ public static class ServiceCollectionExtensions
     /// </list>
     /// <para>
     /// ProcessMonitoring uses deferred start pattern - the process ID is provided after IHost.StartAsync()
-    /// via IProcessMonitor.StartMonitoringAsync(processId). This allows the orchestrator to discover the process
+    /// via StartProcessMonitoringDelegate. This allows the orchestrator to discover the process
     /// at runtime before beginning monitoring.
     /// </para>
     /// </remarks>

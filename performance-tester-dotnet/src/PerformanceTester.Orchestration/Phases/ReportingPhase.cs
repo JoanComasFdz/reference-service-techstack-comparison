@@ -5,6 +5,7 @@ using PerformanceTester.DockerMonitoring;
 using PerformanceTester.DockerMonitoring.Monitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.ProcessMonitoring;
+using PerformanceTester.ProcessMonitoring.Monitoring;
 using PerformanceTester.Reporting;
 using PerformanceTester.Reporting.ChartGeneration;
 using PerformanceTester.Reporting.ReportGeneration;
@@ -82,7 +83,7 @@ internal static class ReportingPhase
         CancellationToken ct)
     {
         var metricsCollector = services.GetRequiredService<IMetricsCollector>();
-        var processMonitor = services.GetRequiredService<IProcessMonitor>();
+        var getProcessMetrics = services.GetRequiredService<ProcessMonitoring.Monitoring.GetProcessMetricsDelegate>();
         var systemMonitor = services.GetRequiredService<ISystemMonitor>();
         var getDockerMetrics = services.GetRequiredService<GetDockerMetricsDelegate>();
         var systemInfoDetector = services.GetRequiredService<ISystemInfoDetector>();
@@ -90,7 +91,7 @@ internal static class ReportingPhase
 
         return new Dependencies(
             GetThroughputSamples: metricsCollector.GetThroughputSamples,
-            GetProcessMetrics: processMonitor.GetCollectedMetrics,
+            GetProcessMetrics: () => getProcessMetrics(),
             GetSystemMetrics: systemMonitor.GetCollectedMetrics,
             GetRabbitMqMetrics: () => getDockerMetrics(config.RabbitMqContainerName),
             GetPostgresMetrics: () => getDockerMetrics(config.PostgresContainerName),
