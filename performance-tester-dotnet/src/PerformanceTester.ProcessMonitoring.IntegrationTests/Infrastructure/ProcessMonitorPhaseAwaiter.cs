@@ -1,4 +1,4 @@
-using PerformanceTester.ProcessMonitoring;
+using PerformanceTester.ProcessMonitoring.Monitoring;
 
 namespace PerformanceTester.ProcessMonitoring.IntegrationTests.Infrastructure;
 
@@ -12,7 +12,7 @@ namespace PerformanceTester.ProcessMonitoring.IntegrationTests.Infrastructure;
 /// so dictionary keys do not include ProcessId. This simplifies the implementation since
 /// process monitoring tests only monitor one process at a time.
 /// </remarks>
-public sealed class ProcessMonitorPhaseAwaiter : IProgress<ProcessMonitorPhaseInfo>
+public sealed class ProcessMonitorPhaseAwaiter
 {
     private readonly Dictionary<int, TaskCompletionSource> _sampleAwaiters = [];
     private readonly Dictionary<(ProcessMonitorPhase Phase, ProcessMonitorPhaseState State), TaskCompletionSource> _phaseAwaiters = [];
@@ -45,7 +45,7 @@ public sealed class ProcessMonitorPhaseAwaiter : IProgress<ProcessMonitorPhaseIn
                 return _receivedPhases
                     .Where(p => p.Phase == ProcessMonitorPhase.SampleCollected ||
                                p.Phase == ProcessMonitorPhase.FirstSampleCollected)
-                    .Select(p => p.SampleCount)
+                    .Select(p => p.SampleCount.Value)
                     .DefaultIfEmpty(0)
                     .Max();
             }
@@ -146,10 +146,10 @@ public sealed class ProcessMonitorPhaseAwaiter : IProgress<ProcessMonitorPhaseIn
         => WaitForPhaseAsync(phase, ProcessMonitorPhaseState.Completed, timeout);
 
     /// <summary>
-    /// Called by ProcessMonitorService via progress?.Report(). Explicit interface implementation
-    /// hides this from the public API - callers use Wait* methods instead.
+    /// Reports a phase transition. Matches <see cref="ReportProcessMonitorProgressDelegate"/> signature
+    /// so it can be passed directly as the delegate target.
     /// </summary>
-    void IProgress<ProcessMonitorPhaseInfo>.Report(ProcessMonitorPhaseInfo value)
+    public void Report(ProcessMonitorPhaseInfo value)
     {
         lock (_lock)
         {
@@ -161,7 +161,7 @@ public sealed class ProcessMonitorPhaseAwaiter : IProgress<ProcessMonitorPhaseIn
             {
                 // Complete any awaiter waiting for this or lower sample count
                 var keysToComplete = _sampleAwaiters
-                    .Where(kv => kv.Key <= value.SampleCount)
+                    .Where(kv => kv.Key <= value.SampleCount.Value)
                     .Select(kv => kv.Key)
                     .ToList();
 

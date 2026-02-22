@@ -17,7 +17,7 @@ public sealed class ProcessMonitoringSystem : IntegrationTesting.System
 {
     /// <summary>
     /// ProcessMonitoring facade providing access to all ProcessMonitoring services via DI.
-    /// Accessed as: System.ProcessMonitoring.Monitor
+    /// Accessed as: System.ProcessMonitoring.StartMonitoring / System.ProcessMonitoring.GetMetrics
     /// Created per-test via CreateProcessMonitoring() with test-specific parameters.
     /// </summary>
     public ProcessMonitoring ProcessMonitoring { get; private set; } = null!;

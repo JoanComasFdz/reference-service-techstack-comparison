@@ -1,4 +1,6 @@
 using JoanComasFdz.AssertingThat;
+using PerformanceTester.Infrastructure.ValueObjects;
+using PerformanceTester.ProcessMonitoring.Monitoring;
 using Xunit;
 
 namespace PerformanceTester.ProcessMonitoring.IntegrationTests.Infrastructure;
@@ -15,10 +17,10 @@ public static class ProcessMonitoringAssertions
     /// Asserts that process metrics were collected.
     /// </summary>
     /// <returns>The asserting instance for fluent chaining.</returns>
-    public static AssertingThat<IProcessMonitor> HasCollectedMetrics(
-        this AssertingThat<IProcessMonitor> assertingThat)
+    public static AssertingThat<GetProcessMetricsDelegate> HasCollectedMetrics(
+        this AssertingThat<GetProcessMetricsDelegate> assertingThat)
     {
-        var metrics = assertingThat.InstanceToAssert.GetCollectedMetrics();
+        var metrics = assertingThat.InstanceToAssert();
         Assert.NotNull(metrics);
         Assert.NotEmpty(metrics);
         return assertingThat;
@@ -30,11 +32,11 @@ public static class ProcessMonitoringAssertions
     /// <param name="assertingThat">The asserting instance.</param>
     /// <param name="minimumCount">Minimum expected metric count.</param>
     /// <returns>The asserting instance for fluent chaining.</returns>
-    public static AssertingThat<IProcessMonitor> HasAtLeastMetrics(
-        this AssertingThat<IProcessMonitor> assertingThat,
+    public static AssertingThat<GetProcessMetricsDelegate> HasAtLeastMetrics(
+        this AssertingThat<GetProcessMetricsDelegate> assertingThat,
         int minimumCount)
     {
-        var metrics = assertingThat.InstanceToAssert.GetCollectedMetrics();
+        var metrics = assertingThat.InstanceToAssert();
         Assert.True(
             metrics.Count >= minimumCount,
             $"Expected at least {minimumCount} metrics, but found {metrics.Count}");
@@ -47,11 +49,11 @@ public static class ProcessMonitoringAssertions
     /// <param name="assertingThat">The asserting instance.</param>
     /// <param name="expectedProcessId">Expected process ID in all metrics.</param>
     /// <returns>The asserting instance for fluent chaining.</returns>
-    public static AssertingThat<IProcessMonitor> HasValidMetrics(
-        this AssertingThat<IProcessMonitor> assertingThat,
+    public static AssertingThat<GetProcessMetricsDelegate> HasValidMetrics(
+        this AssertingThat<GetProcessMetricsDelegate> assertingThat,
         int expectedProcessId)
     {
-        var metrics = assertingThat.InstanceToAssert.GetCollectedMetrics();
+        var metrics = assertingThat.InstanceToAssert();
         foreach (var metric in metrics)
         {
             Assert.Equal(expectedProcessId, metric.ProcessId);
@@ -64,6 +66,7 @@ public static class ProcessMonitoringAssertions
             Assert.True(metric.ThreadCount > 0,
                 $"Thread count must be positive: {metric.ThreadCount}");
         }
+
         return assertingThat;
     }
 
@@ -71,10 +74,10 @@ public static class ProcessMonitoringAssertions
     /// Asserts that metrics show increasing timestamps (chronological order).
     /// </summary>
     /// <returns>The asserting instance for fluent chaining.</returns>
-    public static AssertingThat<IProcessMonitor> HasChronologicalTimestamps(
-        this AssertingThat<IProcessMonitor> assertingThat)
+    public static AssertingThat<GetProcessMetricsDelegate> HasChronologicalTimestamps(
+        this AssertingThat<GetProcessMetricsDelegate> assertingThat)
     {
-        var metrics = assertingThat.InstanceToAssert.GetCollectedMetrics();
+        var metrics = assertingThat.InstanceToAssert();
         var ordered = metrics.OrderBy(m => m.Timestamp).ToList();
 
         for (int i = 0; i < metrics.Count - 1; i++)
@@ -83,31 +86,27 @@ public static class ProcessMonitoringAssertions
                 ordered[i].Timestamp <= ordered[i + 1].Timestamp,
                 $"Timestamps not in chronological order at index {i}");
         }
+
         return assertingThat;
     }
 
     /// <summary>
-    /// Asserts that StartMonitoringAsync throws ArgumentOutOfRangeException for invalid process ID.
-    /// Tests the production validation (IProcessMonitor.StartMonitoringAsync).
+    /// Asserts that ProcessId.Create rejects an invalid process ID value.
+    /// With value objects, invalid states are unrepresentable — validation happens at the boundary.
     /// </summary>
     /// <param name="assertingThat">The asserting instance.</param>
-    /// <param name="invalidProcessId">The invalid process ID that should trigger the exception.</param>
+    /// <param name="invalidProcessId">The invalid process ID that should be rejected.</param>
     /// <returns>The asserting instance for fluent chaining.</returns>
-    public static AssertingThat<ProcessMonitoringSystem> ThrowsArgumentOutOfRangeExceptionForInvalidProcessId(
+    public static AssertingThat<ProcessMonitoringSystem> RejectsInvalidProcessId(
         this AssertingThat<ProcessMonitoringSystem> assertingThat,
         int invalidProcessId)
     {
-        // Setup: Create ProcessMonitoring facade (no process ID required now)
-        assertingThat.InstanceToAssert.CreateProcessMonitoring();
+        var result = ProcessId.Create(invalidProcessId);
 
-        // Test production validation by calling StartMonitoringAsync with invalid ID
-        // The exception comes from ProcessMonitorService.StartMonitoringAsync() validation
-        // Validation throws synchronously before any async work, so we can use GetAwaiter().GetResult()
-        var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
-        {
-            assertingThat.InstanceToAssert.ProcessMonitoring.StartMonitoringAsync(invalidProcessId)
-                .GetAwaiter().GetResult();
-        });
+        result.Match(
+            success: _ => Assert.Fail(
+                $"Expected ProcessId.Create({invalidProcessId}) to return Failure, but it succeeded"),
+            failure: _ => { });
 
         return assertingThat;
     }

@@ -1,7 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.IntegrationTesting.Logging;
+using PerformanceTester.ProcessMonitoring.Monitoring;
 using Xunit.Abstractions;
 
 namespace PerformanceTester.ProcessMonitoring.IntegrationTests.Infrastructure;
@@ -16,9 +18,14 @@ public sealed class ProcessMonitoring : IAsyncDisposable
     private IHost? _host;
 
     /// <summary>
-    /// Process monitor for accessing collected metrics after test completion.
+    /// Delegate for starting process monitoring.
     /// </summary>
-    public IProcessMonitor Monitor { get; private set; } = null!;
+    public StartProcessMonitoringDelegate StartMonitoring { get; private set; } = null!;
+
+    /// <summary>
+    /// Delegate for retrieving collected process metrics.
+    /// </summary>
+    public GetProcessMetricsDelegate GetMetrics { get; private set; } = null!;
 
     public ProcessMonitoring(
         TimeSpan? samplingInterval = null,
@@ -47,8 +54,9 @@ public sealed class ProcessMonitoring : IAsyncDisposable
 
         _host = builder.Build();
 
-        // Resolve services from DI container
-        Monitor = _host.Services.GetRequiredService<IProcessMonitor>();
+        // Resolve delegates from DI container
+        StartMonitoring = _host.Services.GetRequiredService<StartProcessMonitoringDelegate>();
+        GetMetrics = _host.Services.GetRequiredService<GetProcessMetricsDelegate>();
     }
 
     /// <summary>
@@ -70,15 +78,15 @@ public sealed class ProcessMonitoring : IAsyncDisposable
     /// Must be called after StartAsync() and before monitoring can begin.
     /// </summary>
     /// <param name="processId">Process ID to monitor.</param>
-    /// <param name="progress">Optional progress reporter for phase notifications.</param>
+    /// <param name="reportProgress">Progress reporter for phase notifications.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Task that completes when the first sample has been collected.</returns>
     public async Task StartMonitoringAsync(
-        int processId,
-        IProgress<ProcessMonitorPhaseInfo>? progress = null,
+        ProcessId processId,
+        ReportProcessMonitorProgressDelegate reportProgress,
         CancellationToken cancellationToken = default)
     {
-        await Monitor.StartMonitoringAsync(processId, progress, cancellationToken);
+        await StartMonitoring(processId, reportProgress, cancellationToken);
     }
 
     /// <summary>

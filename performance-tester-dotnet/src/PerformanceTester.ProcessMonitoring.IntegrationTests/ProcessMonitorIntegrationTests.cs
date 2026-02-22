@@ -1,4 +1,5 @@
 using JoanComasFdz.AssertingThat;
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.ProcessMonitoring.IntegrationTests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
@@ -7,7 +8,7 @@ namespace PerformanceTester.ProcessMonitoring.IntegrationTests;
 
 /// <summary>
 /// Integration tests for ProcessMonitor functionality.
-/// Tests the complete public API: IProcessMonitor with real process monitoring.
+/// Tests the complete public API via named delegates with real process monitoring.
 /// Monitors the current test process (self-monitoring pattern).
 /// </summary>
 public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : IntegrationTest(output)
@@ -16,7 +17,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
     public async Task GetCollectedMetrics_WhenMonitoringCurrentProcess_ShouldCollectMetrics()
     {
         // Arrange - Monitor current test process
-        var currentProcessId = Environment.ProcessId;
+        var currentProcessId = ProcessId.FromInt(Environment.ProcessId);
         System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(100));
 
         // Start BackgroundServices
@@ -26,13 +27,13 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
         // Start monitoring the current process (waits for first sample - returns after first sample collected)
-        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter);
+        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter.Report);
 
         // Stop BackgroundServices (allows metrics collection to complete)
         await System.ProcessMonitoring.StopAsync();
 
         // Assert
-        Asserting.That(System.ProcessMonitoring.Monitor).HasCollectedMetrics();
+        Asserting.That(System.ProcessMonitoring.GetMetrics).HasCollectedMetrics();
         phaseAwaiter.AssertFirstSampleCollectedReceived();
     }
 
@@ -40,7 +41,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
     public async Task GetCollectedMetrics_WithFastSampling_ShouldCollectMultipleSamples()
     {
         // Arrange - Fast sampling to collect many samples quickly
-        var currentProcessId = Environment.ProcessId;
+        var currentProcessId = ProcessId.FromInt(Environment.ProcessId);
         System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(50));
 
         // Start BackgroundService
@@ -50,7 +51,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
         // Start monitoring the current process
-        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter);
+        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter.Report);
 
         // Act - Wait for exactly 5 samples (deterministic, no timing assumption)
         await phaseAwaiter.WaitForSampleCountAsync(minimumSampleCount: 5);
@@ -59,7 +60,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         await System.ProcessMonitoring.StopAsync();
 
         // Assert - Verify we have at least 5 samples
-        Asserting.That(System.ProcessMonitoring.Monitor).HasAtLeastMetrics(5);
+        Asserting.That(System.ProcessMonitoring.GetMetrics).HasAtLeastMetrics(5);
         phaseAwaiter.AssertSampleCountAtLeast(5);
     }
 
@@ -67,7 +68,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
     public async Task GetCollectedMetrics_WhenMonitoring_ShouldHaveValidMetrics()
     {
         // Arrange
-        var currentProcessId = Environment.ProcessId;
+        var currentProcessId = ProcessId.FromInt(Environment.ProcessId);
         System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(100));
 
         await System.ProcessMonitoring.StartAsync();
@@ -76,7 +77,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
         // Start monitoring
-        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter);
+        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter.Report);
 
         // Wait for first sample before generating load
         await phaseAwaiter.WaitForSampleCountAsync(minimumSampleCount: 1);
@@ -93,14 +94,14 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         await System.ProcessMonitoring.StopAsync();
 
         // Assert
-        Asserting.That(System.ProcessMonitoring.Monitor).HasValidMetrics(currentProcessId);
+        Asserting.That(System.ProcessMonitoring.GetMetrics).HasValidMetrics(currentProcessId.Value);
     }
 
     [Fact]
     public async Task GetCollectedMetrics_WhenMonitoring_ShouldHaveChronologicalTimestamps()
     {
         // Arrange
-        var currentProcessId = Environment.ProcessId;
+        var currentProcessId = ProcessId.FromInt(Environment.ProcessId);
         System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(100));
 
         await System.ProcessMonitoring.StartAsync();
@@ -109,7 +110,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
         // Start monitoring
-        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter);
+        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter.Report);
 
         // Act - Wait for at least 3 samples to verify chronological order
         await phaseAwaiter.WaitForSampleCountAsync(minimumSampleCount: 3);
@@ -117,20 +118,20 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         await System.ProcessMonitoring.StopAsync();
 
         // Assert
-        Asserting.That(System.ProcessMonitoring.Monitor).HasChronologicalTimestamps();
+        Asserting.That(System.ProcessMonitoring.GetMetrics).HasChronologicalTimestamps();
     }
 
     [Fact]
-    public void AddProcessMonitoring_WithInvalidProcessId_ShouldThrow()
+    public void AddProcessMonitoring_WithInvalidProcessId_ShouldReject()
     {
         // Act & Assert
-        Asserting.That(System).ThrowsArgumentOutOfRangeExceptionForInvalidProcessId(invalidProcessId: 0);
+        Asserting.That(System).RejectsInvalidProcessId(invalidProcessId: 0);
     }
 
     [Fact]
-    public void AddProcessMonitoring_WithNegativeProcessId_ShouldThrow()
+    public void AddProcessMonitoring_WithNegativeProcessId_ShouldReject()
     {
         // Act & Assert
-        Asserting.That(System).ThrowsArgumentOutOfRangeExceptionForInvalidProcessId(invalidProcessId: -1);
+        Asserting.That(System).RejectsInvalidProcessId(invalidProcessId: -1);
     }
 }
