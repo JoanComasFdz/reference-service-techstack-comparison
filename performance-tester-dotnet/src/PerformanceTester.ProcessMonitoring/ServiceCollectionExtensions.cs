@@ -1,63 +1,59 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PerformanceTester.ProcessMonitoring.Monitoring;
 
 namespace PerformanceTester.ProcessMonitoring;
 
 /// <summary>
 /// Extension methods for registering ProcessMonitoring services with dependency injection.
+/// Registers internal BackgroundService and exposes named delegates publicly.
 /// </summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds ProcessMonitoring services to the service collection.
-    /// Registers ProcessMonitorService as both BackgroundService and IProcessMonitor.
+    /// Adds process monitoring services.
+    /// Registers an internal BackgroundService and two public named delegates:
+    /// <see cref="StartProcessMonitoringDelegate"/> and <see cref="GetProcessMetricsDelegate"/>.
     /// </summary>
-    /// <param name="services">The service collection.</param>
+    /// <param name="services">Service collection.</param>
     /// <param name="samplingInterval">Sampling interval (default: 500ms).</param>
-    /// <returns>The service collection for chaining.</returns>
+    /// <returns>Service collection for chaining.</returns>
     /// <remarks>
-    /// This method registers ProcessMonitorService with triple registration:
-    /// - As singleton (concrete type) - DI container creates and manages instance
-    /// - As IHostedService - IHost calls Start/StopAsync lifecycle methods
-    /// - As IProcessMonitor - Provides public API for retrieving collected metrics
-    ///
-    /// BackgroundService will start automatically when IHost.StartAsync() is called,
-    /// but will wait for IProcessMonitor.StartMonitoringAsync(processId) to be called before
-    /// beginning process monitoring. This deferred start pattern is necessary for orchestration
-    /// scenarios where the process ID is not known at DI registration time.
-    ///
-    /// Usage:
-    /// 1. builder.Services.AddProcessMonitoring();
-    /// 2. var host = builder.Build();
-    /// 3. await host.StartAsync();  // BackgroundService starts but waits
-    /// 4. var monitor = host.Services.GetRequiredService&lt;IProcessMonitor&gt;();
-    /// 5. await monitor.StartMonitoringAsync(processId);  // Now monitoring begins
+    /// <para>
+    /// The BackgroundService starts automatically when IHost.StartAsync() is called but
+    /// waits for <see cref="StartProcessMonitoringDelegate"/> to be invoked with a process ID.
+    /// This deferred start pattern supports orchestration scenarios where the process ID
+    /// is not known at DI registration time.
+    /// </para>
     /// </remarks>
     public static IServiceCollection AddProcessMonitoring(
         this IServiceCollection services,
         TimeSpan? samplingInterval = null)
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
-
         var interval = samplingInterval ?? TimeSpan.FromMilliseconds(500);
 
-        // Register ProcessMonitorService as singleton (concrete type)
+        // Register BackgroundService (internal, not exposed)
         services.AddSingleton<ProcessMonitorService>(sp =>
+            new ProcessMonitorService(
+                interval,
+                sp.GetRequiredService<ILogger<ProcessMonitorService>>()));
+
+        services.AddSingleton<IHostedService>(sp =>
+            sp.GetRequiredService<ProcessMonitorService>());
+
+        // Register public named delegates
+        services.AddSingleton<StartProcessMonitoringDelegate>(sp =>
         {
-            var logger = sp.GetRequiredService<ILogger<ProcessMonitorService>>();
-            return new ProcessMonitorService(interval, logger);
+            var monitor = sp.GetRequiredService<ProcessMonitorService>();
+            return monitor.StartMonitoringAsync;
         });
 
-        // Register as IHostedService (BackgroundService lifecycle)
-        services.AddHostedService<ProcessMonitorService>(sp =>
-            sp.GetRequiredService<ProcessMonitorService>());
-
-        // Register as IProcessMonitor (public API)
-        services.AddSingleton<IProcessMonitor>(sp =>
-            sp.GetRequiredService<ProcessMonitorService>());
+        services.AddSingleton<GetProcessMetricsDelegate>(sp =>
+        {
+            var monitor = sp.GetRequiredService<ProcessMonitorService>();
+            return monitor.GetCollectedMetrics;
+        });
 
         return services;
     }
