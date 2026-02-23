@@ -1,6 +1,6 @@
 # Core Architecture Principles
 
-> Guidelines 1-11. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
+> Guidelines 01-01 through 01-11. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
 
 These are the foundational "how to structure code" principles. Read this when writing new classes, functions, or deciding how to organize code.
 
@@ -8,7 +8,7 @@ These are the foundational "how to structure code" principles. Read this when wr
 
 ## Functional Architecture Principles
 
-### 1. Static Classes for Pure Logic
+### 01-01. Static Classes for Pure Logic
 
 If a class has no instance state, make it `static`. This signals to developers: "these are pure functions, no instance needed."
 
@@ -28,7 +28,7 @@ internal sealed class ServiceMetricsPlotBuilder
 }
 ```
 
-### 2. Explicit Parameters Over Hidden State
+### 01-02. Explicit Parameters Over Hidden State
 
 Pass all dependencies as method parameters, not constructor injection. Makes data flow visible at the call site.
 
@@ -40,7 +40,7 @@ public static Plot Build(ResourceMetricsReport? data, ChartConfig config)
 public Plot Build(ResourceMetricsReport? data)  // uses _config from field
 ```
 
-### 3. Inline Single-Use Code
+### 01-03. Inline Single-Use Code
 
 If something is only used once, inline it with a descriptive comment. Don't wrap 2 lines in a function with a vague name.
 
@@ -63,7 +63,7 @@ private void ConfigureBottomPlot(Plot plot)
 }
 ```
 
-### 4. Descriptive Function Names
+### 01-04. Descriptive Function Names
 
 Functions that configure should say **what** they configure. Avoid generic names that hide behavior.
 
@@ -77,7 +77,7 @@ ConfigureAxis(plot)
 AddData(plot, data)
 ```
 
-### 5. Toolbox Pattern (Small Reusable Functions)
+### 01-05. Toolbox Pattern (Small Reusable Functions)
 
 Extract small, pure, single-purpose functions into a shared toolbox. Each function does ONE thing.
 
@@ -112,7 +112,7 @@ internal static class ServiceMetricsPlotBuilder
 }
 ```
 
-### 6. Vertical Slice Ownership
+### 01-06. Vertical Slice Ownership
 
 Each builder owns its complete rendering logic. Open the file → see everything it does. No need to navigate elsewhere.
 
@@ -126,7 +126,7 @@ ServiceMetricsPlotBuilder.cs  → Delegates to ResourcePlotBuilder
 ResourcePlotBuilder.cs        → Actual logic hidden here
 ```
 
-### 7. Different Reasons for Change
+### 01-07. Different Reasons for Change
 
 If two things change for different reasons, they belong in different files. Even if code looks similar today, separate it if it has different futures.
 
@@ -140,7 +140,7 @@ PostgresMetricsPlotBuilder.cs  // Might add connection count
 ResourcePlotBuilder.cs         // Changes affect all plot types
 ```
 
-### 8. Explicit Over Implicit
+### 01-08. Explicit Over Implicit
 
 Prefer visible code over configuration-driven magic. Readers shouldn't have to trace through indirection.
 
@@ -159,7 +159,7 @@ _resourceBuilder.Build(data, new ResourcePlotColors(
     ChartColors.ServiceRam, ChartColors.ServiceRamAvg));  // What gets what?
 ```
 
-### 9. No Wrapper Functions for Clarity's Sake
+### 01-09. No Wrapper Functions for Clarity's Sake
 
 Don't create `DoThing()` just to wrap `library.DoThing()`. Only wrap when adding value (validation, defaults, or multi-step composition).
 
@@ -180,7 +180,7 @@ public static void SetRotation(Plot plot)
 }
 ```
 
-### 10. Composition Over Inheritance/Interfaces
+### 01-10. Composition Over Inheritance/Interfaces
 
 Don't create interfaces just for the sake of abstraction. Builders compose toolbox functions directly - flexibility without forced contracts.
 
@@ -197,7 +197,7 @@ internal interface IResourceMetricsPlotBuilder
 internal sealed class ServiceMetricsPlotBuilder : IResourceMetricsPlotBuilder { ... }
 ```
 
-### 11. Return Early to Avoid Nesting
+### 01-11. Return Early to Avoid Nesting
 
 Use guard clauses and early returns to handle edge cases at the top of a method. This keeps the main logic at the base indentation level and avoids deeply nested `if`/`else` blocks.
 
