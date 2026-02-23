@@ -1,12 +1,12 @@
 # Error Handling and Absence
 
-> Guidelines 15-17, 36. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
+> Guidelines 03-01 through 03-04. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
 
 This codebase uses the `PerformanceTester.Functional` library (backed by [dunet](https://github.com/domn1995/dunet) discriminated unions) for typed error handling and domain absence. These guidelines govern how Results and Options are produced and consumed.
 
 ---
 
-### 15. Use Result Types Instead of Exceptions for Expected Failures
+### 03-01. Use Result Types Instead of Exceptions for Expected Failures
 
 Reserve exceptions for bugs and truly unexpected situations (out of memory, network down). For failures that are **part of the normal domain** (invalid input, resource not found, validation errors), return a `Result<TSuccess, TFailure>`.
 
@@ -70,7 +70,7 @@ public partial record AppError
 }
 ```
 
-### 16. Use `using static` to Shorten Result Construction
+### 03-02. Use `using static` to Shorten Result Construction
 
 Producer methods that return `Result<TSuccess, TFailure>` should add a `using static` directive to avoid repeating the full generic type on every `new Success(...)` / `new Failure(...)`.
 
@@ -93,7 +93,7 @@ When `TSuccess` or `TFailure` uses types from other namespaces, use fully qualif
 using static PerformanceTester.Functional.Result<PerformanceTester.Functional.Unit, string>;
 ```
 
-### 17. Use dunet `Match` for Exhaustive Result Consumption
+### 03-03. Use dunet `Match` for Exhaustive Result Consumption
 
 When consuming a Result, always use dunet's generated `Match` method instead of native C# pattern matching (`is`, `is not`, `switch`). `Match` guarantees exhaustiveness at compile time — if a variant is added, all call sites fail to compile until updated.
 
@@ -180,7 +180,7 @@ _metricsParser.ParseLine(line).Match(
 
 ---
 
-### 36. Use `Option<T>` for Domain Absence, `T?` for Framework Interop
+### 03-04. Use `Option<T>` for Domain Absence, `T?` for Framework Interop
 
 When a method legitimately produces "no value" — not a failure, just absence — use `Option<T>` from `PerformanceTester.Functional`. This forces callers to handle both cases via `Match`, preventing forgotten null checks. Use nullable `T?` only at framework/interop boundaries where .NET APIs return null.
 
@@ -188,7 +188,7 @@ When a method legitimately produces "no value" — not a failure, just absence �
 
 | Situation | Return type | Example |
 |-----------|-------------|---------|
-| Operation failed with error details | `Result<T, TError>` (Guideline 15) | `ClearDatabase()` → `Result<Unit, ClearDatabaseError>` |
+| Operation failed with error details | `Result<T, TError>` (Guideline 03-01) | `ClearDatabase()` → `Result<Unit, ClearDatabaseError>` |
 | Value may be absent (domain logic) | `Option<T>` | `TryConvertToMetrics()` → `Option<DockerMetrics>` |
 | .NET API returns null | `T?` | `JsonSerializer.Deserialize<T>()` returns `T?` |
 
@@ -233,13 +233,13 @@ public static DockerMetrics? TryConvertToMetrics(...)
 }
 ```
 
-**`using static` for Option construction** follows the same pattern as Guideline 16 (Result):
+**`using static` for Option construction** follows the same pattern as Guideline 03-02 (Result):
 
 ```csharp
 using static PerformanceTester.Functional.Option<PerformanceTester.DockerMonitoring.DockerMetrics>;
 ```
 
-**Consuming `Option<T>`:** Use dunet `Match` at consumption points (branching on outcome, extracting values). Use `IsNone` / `IsSome` + early return (Guideline 11) in sequential pipelines, same split as `Result<T>` (Guideline 17).
+**Consuming `Option<T>`:** Use dunet `Match` at consumption points (branching on outcome, extracting values). Use `IsNone` / `IsSome` + early return (Guideline 01-11) in sequential pipelines, same split as `Result<T>` (Guideline 03-03).
 
 ```csharp
 // ✅ Match — at consumption points
@@ -247,7 +247,7 @@ StatsProcessing.TryConvertToMetrics(stats, name, now).Match(
     some: s => ctx.CollectedMetrics.Add(s.Value),
     none: _ => { });
 
-// ✅ IsNone + early return — in sequential pipelines (Guideline 11)
+// ✅ IsNone + early return — in sequential pipelines (Guideline 01-11)
 var metricOption = StatsProcessing.TryConvertToMetrics(stats, name, now);
 if (metricOption.IsNone)
 {
