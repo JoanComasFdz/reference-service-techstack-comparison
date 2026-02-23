@@ -2,7 +2,6 @@ using PerformanceTester.Functional;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.DockerMonitoring;
-using PerformanceTester.DockerMonitoring.Monitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;

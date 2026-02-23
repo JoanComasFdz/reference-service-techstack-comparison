@@ -1,44 +1,34 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.DockerMonitoring.Connection;
-using PerformanceTester.DockerMonitoring.Stats;
 using PerformanceTester.DockerMonitoring.ValueObjects;
-using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring.Monitoring;
+namespace PerformanceTester.DockerMonitoring.Internal;
 
 /// <summary>
 /// Thin BackgroundService shell. Owns MonitorContext and wires the hosted service lifecycle
-/// to MonitoringOperations static functions. Contains no business logic.
+/// to MonitoringModule static functions. Contains no business logic.
+/// Receives <see cref="StatsModule.Dependencies"/> bundle instead of individual delegates.
 /// </summary>
-internal sealed class DockerMonitorService : BackgroundService
+internal sealed class DockerMonitorBackgroundService : BackgroundService
 {
-    private readonly MonitorContext _ctx;
-    private readonly GetContainerIdDelegate _getContainerId;
-    private readonly StreamMetricsDelegate _streamMetrics;
-    private readonly GetSnapshotDelegate _getSnapshot;
-    private readonly InvalidateContainerCacheDelegate _invalidateCache;
-    private readonly ILogger<DockerMonitorService> _logger;
+    private readonly MonitoringModule.MonitorContext _ctx;
+    private readonly StatsModule.Dependencies _statsDeps;
+    private readonly ILogger<DockerMonitorBackgroundService> _logger;
 
     private ReportDockerMonitorProgressDelegate _progress = null!;
     private bool _started;
 
     public string ContainerName => _ctx.ContainerName.Value;
 
-    public DockerMonitorService(
+    public DockerMonitorBackgroundService(
         NonEmptyString containerName,
-        GetContainerIdDelegate getContainerId,
-        StreamMetricsDelegate streamMetrics,
-        GetSnapshotDelegate getSnapshot,
-        InvalidateContainerCacheDelegate invalidateCache,
-        ILogger<DockerMonitorService> logger)
+        StatsModule.Dependencies statsDeps,
+        ILogger<DockerMonitorBackgroundService> logger)
     {
-        _ctx = new MonitorContext(containerName);
-        _getContainerId = getContainerId;
-        _streamMetrics = streamMetrics;
-        _getSnapshot = getSnapshot;
-        _invalidateCache = invalidateCache;
+        _ctx = new MonitoringModule.MonitorContext(containerName);
+        _statsDeps = statsDeps;
         _logger = logger;
     }
 
@@ -57,11 +47,11 @@ internal sealed class DockerMonitorService : BackgroundService
     {
         _logger.LogDebug("Warming up Docker API for container {ContainerName}...", _ctx.ContainerName);
 
-        var idResult = await _getContainerId(_ctx.ContainerName.Value, cancellationToken);
+        var idResult = await _statsDeps.GetContainerId(_ctx.ContainerName.Value, cancellationToken);
 
         if (idResult.IsSuccess)
         {
-            await _getSnapshot(idResult.SuccessValue, cancellationToken);
+            await _statsDeps.GetSnapshot(idResult.SuccessValue, cancellationToken);
         }
 
         _logger.LogDebug("Docker API warmup complete for container {ContainerName}", _ctx.ContainerName);
@@ -123,7 +113,7 @@ internal sealed class DockerMonitorService : BackgroundService
         }
 
         // Resolve container ID once
-        var idResult = await _getContainerId(_ctx.ContainerName.Value, stoppingToken);
+        var idResult = await _statsDeps.GetContainerId(_ctx.ContainerName.Value, stoppingToken);
 
         if (idResult.IsFailure)
         {
@@ -144,17 +134,21 @@ internal sealed class DockerMonitorService : BackgroundService
             _ctx.ContainerName,
             idResult.SuccessValue[..12]);
 
+        // Build MonitoringModule.Dependencies with runtime progress delegate
+        var monitoringDeps = new MonitoringModule.Dependencies(
+            GetContainerId: _statsDeps.GetContainerId,
+            StreamMetrics: _statsDeps.StreamMetrics,
+            InvalidateCache: _statsDeps.InvalidateCache,
+            ReportProgress: _progress);
+
         // Start streaming in background task with state machine reconnection
         using var streamingCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
 
         var streamingTask = Task.Run(
-            () => MonitoringOperations.RunStreamingLoopAsync(
+            () => MonitoringModule.RunStreamingLoopAsync(
                 _ctx,
                 ContainerId.FromString(idResult.SuccessValue),
-                _getContainerId,
-                _invalidateCache,
-                _streamMetrics,
-                _progress,
+                monitoringDeps,
                 _logger,
                 streamingCts.Token),
             stoppingToken);

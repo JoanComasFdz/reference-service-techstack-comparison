@@ -1,5 +1,5 @@
 using JoanComasFdz.AssertingThat;
-using PerformanceTester.DockerMonitoring.Monitoring;
+using PerformanceTester.DockerMonitoring;
 using PerformanceTester.Infrastructure.ValueObjects;
 using Xunit;
 

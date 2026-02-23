@@ -1,8 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.DockerMonitoring.Monitoring;
-using PerformanceTester.DockerMonitoring.Stats;
+using PerformanceTester.DockerMonitoring.Internal;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
@@ -17,8 +16,8 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Adds Docker container monitoring for the RabbitMQ and PostgreSQL containers.
     /// Registers internal BackgroundServices and three public named delegates:
-    /// <see cref="WarmupDockerMonitors"/>, <see cref="StartDockerMonitoring"/>,
-    /// and <see cref="GetDockerMetrics"/>.
+    /// <see cref="WarmupDockerMonitorsDelegate"/>, <see cref="StartDockerMonitoringDelegate"/>,
+    /// and <see cref="GetDockerMetricsDelegate"/>.
     /// </summary>
     /// <param name="services">Service collection.</param>
     /// <param name="rabbitMqContainerName">RabbitMQ container name to monitor.</param>
@@ -30,40 +29,37 @@ public static class ServiceCollectionExtensions
         PostgresContainerName postgresContainerName)
     {
         NonEmptyString[] containerNames = [rabbitMqContainerName, postgresContainerName];
-        // Low-level Docker operations (client, cache, delegates)
-        services.AddDockerStats();
+
+        // Build Docker stats dependencies (DockerClient + cache, captured in closures)
+        var statsDeps = StatsModule.BuildDependencies();
 
         // Register one BackgroundService per container (keyed singletons)
         containerNames.ToList().ForEach(name =>
         {
-            services.AddKeyedSingleton<DockerMonitorService>(name.Value, (sp, _) =>
-                new DockerMonitorService(
+            services.AddKeyedSingleton<DockerMonitorBackgroundService>(
+                name.Value,
+                (sp, _) => new DockerMonitorBackgroundService(
                     name,
-                    sp.GetRequiredService<GetContainerIdDelegate>(),
-                    sp.GetRequiredService<StreamMetricsDelegate>(),
-                    sp.GetRequiredService<GetSnapshotDelegate>(),
-                    sp.GetRequiredService<InvalidateContainerCacheDelegate>(),
-                    sp.GetRequiredService<ILogger<DockerMonitorService>>()));
+                    statsDeps,
+                    sp.GetRequiredService<ILogger<DockerMonitorBackgroundService>>()));
 
-            services.AddSingleton<IHostedService>(sp =>
-                sp.GetRequiredKeyedService<DockerMonitorService>(name.Value));
+            services.AddSingleton<IHostedService>(
+                sp => sp.GetRequiredKeyedService<DockerMonitorBackgroundService>(name.Value));
         });
 
-        // Helper: resolve all monitors from DI
-        IEnumerable<DockerMonitorService> resolveMonitors(IServiceProvider sp) =>
-            containerNames.Select(name =>
-                sp.GetRequiredKeyedService<DockerMonitorService>(name.Value));
+        IEnumerable<DockerMonitorBackgroundService> resolveMonitors(IServiceProvider sp) => containerNames
+            .Select(name => sp.GetRequiredKeyedService<DockerMonitorBackgroundService>(name.Value));
 
         // Register the 3 public named delegates
-        services.AddSingleton<WarmupDockerMonitorsDelegate>(sp =>
-            ct => Task.WhenAll(resolveMonitors(sp).Select(m => m.WarmupAsync(ct))));
+        services.AddSingleton<WarmupDockerMonitorsDelegate>(
+            sp => ct => Task.WhenAll(resolveMonitors(sp).Select(m => m.WarmupAsync(ct))));
 
-        services.AddSingleton<StartDockerMonitoringDelegate>(sp =>
-            (progress, ct) => Task.WhenAll(
+        services.AddSingleton<StartDockerMonitoringDelegate>(
+            sp => (progress, ct) => Task.WhenAll(
                 resolveMonitors(sp).Select(m => m.StartMonitoringAsync(progress, ct))));
 
-        services.AddSingleton<GetDockerMetricsDelegate>(sp =>
-            containerName => resolveMonitors(sp)
+        services.AddSingleton<GetDockerMetricsDelegate>(
+            sp => containerName => resolveMonitors(sp)
                 .Single(m => m.ContainerName == containerName.Value)
                 .GetCollectedMetrics());
 

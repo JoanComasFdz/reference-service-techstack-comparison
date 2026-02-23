@@ -1,7 +1,37 @@
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring.Monitoring;
+namespace PerformanceTester.DockerMonitoring;
+
+// ── Delegates ────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Reports docker monitoring phase changes.
+/// Replaces IProgress&lt;DockerMonitorPhaseInfo&gt; with a named delegate per Guideline 02-02.
+/// </summary>
+public delegate void ReportDockerMonitorProgressDelegate(DockerMonitorPhaseInfo phaseInfo);
+
+/// <summary>
+/// Warms up Docker API for all registered containers.
+/// First Docker API call is typically slow (~2-3s); this avoids measurement delays.
+/// </summary>
+public delegate Task WarmupDockerMonitorsDelegate(CancellationToken ct = default);
+
+/// <summary>
+/// Starts metrics collection on all registered containers.
+/// Blocks until the first sample is collected per container.
+/// </summary>
+public delegate Task StartDockerMonitoringDelegate(
+    ReportDockerMonitorProgressDelegate reportProgress,
+    CancellationToken ct = default);
+
+/// <summary>
+/// Retrieves collected metrics for a specific container by name.
+/// Returns metrics in chronological order.
+/// </summary>
+public delegate IReadOnlyCollection<DockerMetrics> GetDockerMetricsDelegate(NonEmptyString containerName);
+
+// ── Phase Info ───────────────────────────────────────────────────────────────
 
 /// <summary>
 /// Represents the phases in Docker container monitoring lifecycle.
@@ -93,9 +123,13 @@ public readonly record struct DockerMonitorPhaseInfo(
     public static DockerMonitorPhaseInfo Starting(
         DockerMonitorPhase phase,
         NonEmptyString containerName,
-        string? message = null)
-        => new(phase, DockerMonitorPhaseState.Starting, containerName,
-            SampleCount.FromInt(0), message, DateTimeOffset.UtcNow);
+        string? message = null) => new(
+        phase,
+        DockerMonitorPhaseState.Starting,
+        containerName,
+        SampleCount.FromInt(0),
+        message,
+        DateTimeOffset.UtcNow);
 
     /// <summary>
     /// Creates a DockerMonitorPhaseInfo indicating a phase has completed.
@@ -103,9 +137,13 @@ public readonly record struct DockerMonitorPhaseInfo(
     public static DockerMonitorPhaseInfo Completed(
         DockerMonitorPhase phase,
         NonEmptyString containerName,
-        string? message = null)
-        => new(phase, DockerMonitorPhaseState.Completed, containerName,
-            SampleCount.FromInt(0), message, DateTimeOffset.UtcNow);
+        string? message = null) => new(
+        phase,
+        DockerMonitorPhaseState.Completed,
+        containerName,
+        SampleCount.FromInt(0),
+        message,
+        DateTimeOffset.UtcNow);
 
     /// <summary>
     /// Creates a DockerMonitorPhaseInfo indicating a phase has completed.
@@ -114,9 +152,13 @@ public readonly record struct DockerMonitorPhaseInfo(
         DockerMonitorPhase phase,
         NonEmptyString containerName,
         SampleCount sampleCount,
-        string? message = null)
-        => new(phase, DockerMonitorPhaseState.Completed, containerName,
-            sampleCount, message, DateTimeOffset.UtcNow);
+        string? message = null) => new(
+        phase,
+        DockerMonitorPhaseState.Completed,
+        containerName,
+        sampleCount,
+        message,
+        DateTimeOffset.UtcNow);
 
     /// <summary>
     /// Creates a DockerMonitorPhaseInfo indicating a phase has failed.
@@ -124,7 +166,46 @@ public readonly record struct DockerMonitorPhaseInfo(
     public static DockerMonitorPhaseInfo Failed(
         DockerMonitorPhase phase,
         NonEmptyString containerName,
-        string? message = null)
-        => new(phase, DockerMonitorPhaseState.Failed, containerName,
-            SampleCount.FromInt(0), message, DateTimeOffset.UtcNow);
+        string? message = null) => new(
+        phase,
+        DockerMonitorPhaseState.Failed,
+        containerName,
+        SampleCount.FromInt(0),
+        message,
+        DateTimeOffset.UtcNow);
+}
+
+// ── Data Records ─────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Represents Docker container metrics at a specific point in time.
+/// </summary>
+public sealed record DockerMetrics
+{
+    /// <summary>
+    /// When the metrics were captured (UTC).
+    /// </summary>
+    public required DateTime Timestamp { get; init; }
+
+    /// <summary>
+    /// Docker container ID (full SHA256).
+    /// </summary>
+    public required ContainerId ContainerId { get; init; }
+
+    /// <summary>
+    /// Human-readable container name.
+    /// </summary>
+    public required NonEmptyString ContainerName { get; init; }
+
+    /// <summary>
+    /// CPU usage percentage (0-100% per core, can exceed 100% on multi-core).
+    /// Calculated as: (cpu_delta / system_delta) * cpu_count * 100
+    /// </summary>
+    public required CpuPercent CpuPercent { get; init; }
+
+    /// <summary>
+    /// Memory usage in megabytes.
+    /// Calculated from stats.MemoryStats.Usage / 1024 / 1024.
+    /// </summary>
+    public required MemoryMB MemoryMB { get; init; }
 }
