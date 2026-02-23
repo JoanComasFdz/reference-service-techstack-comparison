@@ -1,12 +1,12 @@
 # Formatting Rules
 
-> Guidelines 25-28. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
+> Guidelines 06-01 through 06-04. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
 
 These rules are enforced by `.editorconfig` where possible and by convention otherwise. Run `dotnet format` to auto-fix violations.
 
 ---
 
-### 25. Always Use Braces in Control Flow Statements
+### 06-01. Always Use Braces in Control Flow Statements
 
 Every `if`, `else`, `for`, `foreach`, `while`, `do`, and `using` must use braces, even when the body is a single line. This prevents bugs when lines are added later and makes the code structure unambiguous.
 
@@ -34,7 +34,7 @@ foreach (var item in items)
 
 **No exceptions.** Even guard clauses and early returns use braces. The visual consistency outweighs the marginal brevity.
 
-### 26. Blank Line After Closing Brace
+### 06-02. Blank Line After Closing Brace
 
 Every closing brace `}` must be followed by a blank line, **except** when the next line is:
 
@@ -82,7 +82,7 @@ var serviceProcessId = setupResult.SuccessValue;
 
 **Not enforced by `.editorconfig`** (no built-in rule). Enforced by convention and code review. Consider adding `StyleCop.Analyzers` (rule `SA1513`) if build-time enforcement is desired.
 
-### 27. All-or-Nothing Parameter Wrapping
+### 06-03. All-or-Nothing Parameter Wrapping
 
 Parameters in method calls and declarations must be **all on one line** or **each on its own line**. Never group multiple parameters on a continuation line (partial wrap).
 
@@ -122,7 +122,7 @@ _logger.LogWarning(
 
 **Not enforced by `.editorconfig`** (no built-in rule). Enforced by convention and code review.
 
-### 28. Expression Body (`=>`) Stays on the Same Line
+### 06-04. Expression Body (`=>`) Stays on the Same Line
 
 When using expression-bodied members or lambda expressions, the expression after `=>` must start on the **same line** as the arrow. Never put a bare `=>` at the end of a line with the expression starting on the next line.
 
