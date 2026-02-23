@@ -176,7 +176,7 @@ Tests validate:
 - BackgroundService lifecycle manages both services
 
 **Thread Safety:**
-- ProcessCpuCalculator uses instance state (not thread-safe by design)
+- CPU sampling uses MonitorContext state (single-writer, not thread-safe by design)
 - Single writer to Channel (ProcessMonitorService)
 - ConcurrentBag for sample storage (thread-safe reads/writes)
 - Channel<T> for producer-consumer communication
