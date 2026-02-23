@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.ProcessMonitoring.Monitoring;
+using PerformanceTester.ProcessMonitoring.Internal;
 
 namespace PerformanceTester.ProcessMonitoring;
 
@@ -34,24 +34,24 @@ public static class ServiceCollectionExtensions
         var interval = samplingInterval ?? TimeSpan.FromMilliseconds(500);
 
         // Register BackgroundService (internal, not exposed)
-        services.AddSingleton<ProcessMonitorService>(sp =>
-            new ProcessMonitorService(
+        services.AddSingleton<ProcessMonitorBackgroundService>(sp =>
+            new ProcessMonitorBackgroundService(
                 interval,
-                sp.GetRequiredService<ILogger<ProcessMonitorService>>()));
+                sp.GetRequiredService<ILogger<ProcessMonitorBackgroundService>>()));
 
         services.AddSingleton<IHostedService>(sp =>
-            sp.GetRequiredService<ProcessMonitorService>());
+            sp.GetRequiredService<ProcessMonitorBackgroundService>());
 
-        // Register public named delegates
+        // Register public named delegates (standalone in PerformanceTester.ProcessMonitoring namespace)
         services.AddSingleton<StartProcessMonitoringDelegate>(sp =>
         {
-            var monitor = sp.GetRequiredService<ProcessMonitorService>();
+            var monitor = sp.GetRequiredService<ProcessMonitorBackgroundService>();
             return monitor.StartMonitoringAsync;
         });
 
         services.AddSingleton<GetProcessMetricsDelegate>(sp =>
         {
-            var monitor = sp.GetRequiredService<ProcessMonitorService>();
+            var monitor = sp.GetRequiredService<ProcessMonitorBackgroundService>();
             return monitor.GetCollectedMetrics;
         });
 
