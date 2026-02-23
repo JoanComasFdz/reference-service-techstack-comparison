@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 namespace PerformanceTester.ProcessMonitoring.Monitoring;
 
 /// <summary>
-/// Centralizes all mutable state for process monitoring (Guideline 32).
+/// Centralizes all mutable state for process monitoring (Guideline 05-04).
 /// Passed explicitly to static operations — no hidden fields.
 /// </summary>
 internal sealed record MonitorContext

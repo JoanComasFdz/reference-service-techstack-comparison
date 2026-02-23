@@ -4,7 +4,7 @@ namespace PerformanceTester.DockerMonitoring.Monitoring;
 
 /// <summary>
 /// Reports docker monitoring phase changes.
-/// Replaces IProgress&lt;DockerMonitorPhaseInfo&gt; with a named delegate per Guideline 13.
+/// Replaces IProgress&lt;DockerMonitorPhaseInfo&gt; with a named delegate per Guideline 02-02.
 /// </summary>
 public delegate void ReportDockerMonitorProgressDelegate(DockerMonitorPhaseInfo phaseInfo);
 

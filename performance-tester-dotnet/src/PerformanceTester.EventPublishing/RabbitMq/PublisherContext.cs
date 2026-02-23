@@ -9,7 +9,7 @@ internal sealed record ConnectionState(IConnection Connection, IChannel Channel)
 
 /// <summary>
 /// Holds all mutable connection state for the RabbitMQ publisher.
-/// Centralizes state per Guideline 32 (Context Record Pattern).
+/// Centralizes state per Guideline 05-04 (Context Record Pattern).
 /// </summary>
 internal sealed record PublisherContext
 {

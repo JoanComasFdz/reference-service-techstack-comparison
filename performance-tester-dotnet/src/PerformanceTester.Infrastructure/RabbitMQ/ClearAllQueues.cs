@@ -4,7 +4,7 @@ namespace PerformanceTester.Infrastructure.RabbitMQ;
 
 /// <summary>
 /// Purges all messages from all queues in the default vhost.
-/// Named delegate replacing IRabbitMQ interface (Guideline 12).
+/// Named delegate replacing IRabbitMQ interface (Guideline 02-01).
 /// </summary>
 /// <param name="cancellationToken">Cancellation token.</param>
 /// <returns>Success with Unit, or a Failure describing what went wrong.</returns>

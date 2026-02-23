@@ -9,7 +9,7 @@ namespace PerformanceTester.Infrastructure.ProcessFinding;
 /// <summary>
 /// Service discovery logic for finding processes listening on network ports.
 /// Pure static class with explicit parameters (Guidelines 1, 2).
-/// Accepts <see cref="Port"/> value object — port range is guaranteed valid (Guideline 22).
+/// Accepts <see cref="Port"/> value object — port range is guaranteed valid (Guideline 04-05).
 /// </summary>
 internal static class ServiceDiscovery
 {

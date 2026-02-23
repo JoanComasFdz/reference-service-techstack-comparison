@@ -7,7 +7,7 @@ namespace PerformanceTester.ProcessMonitoring.Monitoring;
 
 /// <summary>
 /// Pure static operations for process monitoring.
-/// All state access goes through <see cref="MonitorContext"/> parameter (Guideline 2).
+/// All state access goes through <see cref="MonitorContext"/> parameter (Guideline 01-02).
 /// Delegates to <see cref="ProcessCpuCalculator"/> and <see cref="ProcessNameExtractor"/> for calculations.
 /// </summary>
 internal static class MonitoringOperations

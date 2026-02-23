@@ -18,7 +18,7 @@ internal static class DatabaseCleaner
 
     /// <summary>
     /// Clears all data from the specified database by truncating all tables.
-    /// Accepts <see cref="DatabaseName"/> value object — name is guaranteed non-empty (Guideline 18).
+    /// Accepts <see cref="DatabaseName"/> value object — name is guaranteed non-empty (Guideline 04-01).
     /// </summary>
     public static async Task<Result<Unit, ClearDatabaseError>> ClearDatabaseAsync(
         DatabaseName databaseName,

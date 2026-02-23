@@ -27,7 +27,7 @@ public static class ServiceCollectionExtensions
         string rabbitMqConnectionString,
         Port? rabbitMqManagementPort = null)
     {
-        // Platform detection determines which static finder to use (Guideline 14: delegates for internal wiring)
+        // Platform detection determines which static finder to use (Guideline 02-03: delegates for internal wiring)
         var platformResult = OSPlatformDetector.GetCurrentPlatform();
 
         // Unsupported platform is a deployment error — the app cannot function without a process finder
@@ -38,7 +38,7 @@ public static class ServiceCollectionExtensions
 
         var platform = platformResult.SuccessValue;
 
-        // No adapter class — the closure IS the implementation (Guideline 12)
+        // No adapter class — the closure IS the implementation (Guideline 02-01)
         services.AddSingleton<FindServiceProcessIdDelegate>(sp =>
         {
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();

@@ -105,6 +105,6 @@ public readonly record struct ConsumerPhaseInfo(
 
 /// <summary>
 /// Reports consumer progress (event received, target reached, etc.).
-/// Replaces IProgress&lt;ConsumerPhaseInfo&gt; with a named delegate per Guideline 13.
+/// Replaces IProgress&lt;ConsumerPhaseInfo&gt; with a named delegate per Guideline 02-02.
 /// </summary>
 public delegate void ReportConsumerProgressDelegate(ConsumerPhaseInfo info);

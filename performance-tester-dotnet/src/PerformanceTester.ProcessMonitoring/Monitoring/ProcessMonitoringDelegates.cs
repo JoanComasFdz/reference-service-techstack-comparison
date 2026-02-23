@@ -4,7 +4,7 @@ namespace PerformanceTester.ProcessMonitoring.Monitoring;
 
 /// <summary>
 /// Reports process monitoring phase changes.
-/// Replaces IProgress&lt;ProcessMonitorPhaseInfo&gt; with a named delegate per Guideline 13.
+/// Replaces IProgress&lt;ProcessMonitorPhaseInfo&gt; with a named delegate per Guideline 02-02.
 /// </summary>
 public delegate void ReportProcessMonitorProgressDelegate(ProcessMonitorPhaseInfo phaseInfo);
 

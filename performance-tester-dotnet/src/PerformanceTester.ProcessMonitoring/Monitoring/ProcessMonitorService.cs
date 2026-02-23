@@ -6,7 +6,7 @@ using PerformanceTester.ProcessMonitoring.ValueObjects;
 namespace PerformanceTester.ProcessMonitoring.Monitoring;
 
 /// <summary>
-/// Thin shell (Guideline 34): owns <see cref="MonitorContext"/>, wires lifecycle,
+/// Thin shell (Guideline 05-06): owns <see cref="MonitorContext"/>, wires lifecycle,
 /// delegates all logic to <see cref="MonitoringOperations"/>.
 /// </summary>
 internal sealed class ProcessMonitorService : BackgroundService

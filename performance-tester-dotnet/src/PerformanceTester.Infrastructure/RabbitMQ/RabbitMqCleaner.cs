@@ -103,7 +103,7 @@ internal static class RabbitMqCleaner
 
         if (managementPort is { } port)
         {
-            // Explicitly provided — unwrap value object at infrastructure boundary (Guideline 20)
+            // Explicitly provided — unwrap value object at infrastructure boundary (Guideline 04-03)
             resolvedPort = port.Value;
         }
         else
