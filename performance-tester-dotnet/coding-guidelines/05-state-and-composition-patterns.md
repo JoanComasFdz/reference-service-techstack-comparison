@@ -415,11 +415,11 @@ public static class ProcessMonitorModule    // WRONG: type itself must be intern
 ```
 // ✅ Good — visibility-first structure
 ProcessMonitoring/
-├── Api.cs                               ← public: delegates, phase info, ProcessMetrics, ProcessNameExtractor
+├── Api.cs                               ← public: delegates, phase info, ProcessMetrics
 ├── ServiceCollectionExtensions.cs       ← public: DI registration
 ├── ValueObjects/SampleCount.cs          ← public: value object (has validation logic)
 └── Internal/
-    ├── ProcessMonitorModule.cs          ← internal: context record, static operations, ProcessCpuCalculator
+    ├── ProcessMonitorModule.cs          ← internal: context record, static operations, ProcessCpuCalculator, ProcessNameExtractor
     └── ProcessMonitorBackgroundService.cs ← internal: BackgroundService shell
 
 // ❌ Avoid — flat at root, can't tell public from internal
