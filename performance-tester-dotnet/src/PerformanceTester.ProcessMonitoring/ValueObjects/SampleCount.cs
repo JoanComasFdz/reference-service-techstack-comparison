@@ -13,8 +13,7 @@ public sealed record SampleCount : NonNegativeInt
     /// <summary>
     /// Creates a SampleCount from an integer. Returns Failure if negative.
     /// </summary>
-    public static Result<SampleCount, string> Create(int value) =>
-        Create(value, "Sample count", v => new SampleCount(v));
+    public static Result<SampleCount, string> Create(int value) => Create(value, "Sample count", v => new SampleCount(v));
 
     /// <summary>
     /// Creates a SampleCount from a known-valid integer (e.g., from collection.Count).
