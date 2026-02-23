@@ -1,6 +1,6 @@
 # Delegates and Dependency Wiring
 
-> Guidelines 12-14, 29-30, 35. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
+> Guidelines 02-01 through 02-06. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
 
 This document covers the complete delegate-based dependency system: when to use named delegates vs interfaces, how to compose dependencies, the module pattern for co-locating delegates with their consumers, and naming conventions.
 
@@ -8,9 +8,9 @@ This document covers the complete delegate-based dependency system: when to use 
 
 ## Function-Typed Dependencies (Named Delegates)
 
-When Guideline 10 says "Composition Over Interfaces," the natural question is: _what replaces the interface?_ For single-operation dependencies, the answer is a **named delegate**. This section covers when to use delegates, how to name them, and how they coexist with interfaces at DI boundaries.
+When Guideline 01-10 says "Composition Over Interfaces," the natural question is: _what replaces the interface?_ For single-operation dependencies, the answer is a **named delegate**. This section covers when to use delegates, how to name them, and how they coexist with interfaces at DI boundaries.
 
-### 12. Use Named Delegates for Single-Operation Dependencies
+### 02-01. Use Named Delegates for Single-Operation Dependencies
 
 When a dependency is a single operation (one method), use a named `delegate` instead of an interface. Lighter than an interface, more descriptive than raw `Action<T>`/`Func<T>`.
 
@@ -45,11 +45,11 @@ public static async Task ExecuteAsync(Action<ApiLoadProgress> progress) { ... }
 **When NOT to use:**
 
 - The dependency has multiple related methods that change together → use an interface
-- The dependency needs DI container registration at a slice boundary → use an interface (see Guideline 14)
+- The dependency needs DI container registration at a slice boundary → use an interface (see Guideline 02-03)
 
-### 13. Prefer Named Delegates Over `Action<T>` / `Func<T>`
+### 02-02. Prefer Named Delegates Over `Action<T>` / `Func<T>`
 
-A named delegate communicates intent at the type level. This extends **Guideline 4** (see [Core Architecture](01-core-architecture.md)) — Descriptive Names to function-typed parameters.
+A named delegate communicates intent at the type level. This extends **Guideline 01-04** (see [Core Architecture](01-core-architecture.md)) — Descriptive Names to function-typed parameters.
 
 ```csharp
 // ✅ Good - name says what it does
@@ -68,7 +68,7 @@ Func<Task<Result<Unit, string>>>     // Could be any async operation
 - **Next to its data type** if shared across callers (e.g., `ReportApiLoadProgress` next to `ApiLoadProgress` in `ApiLoadProgress.cs`)
 - **Inside the consumer** if only used by one caller (e.g., `StartApiLoadTest` inside `ApiTestPhase`)
 
-### 14. Interfaces at DI Boundaries, Delegates for Internal Wiring
+### 02-03. Interfaces at DI Boundaries, Delegates for Internal Wiring
 
 Interfaces and delegates serve different layers. Use both, but in the right place:
 
@@ -107,7 +107,7 @@ public static async Task ExecuteAsync(IApiLoadTester apiLoadTester, ...) { ... }
 
 ---
 
-## 29. Minimize Interface Reach with Dependency Composition
+### 02-04. Minimize Interface Reach with Dependency Composition
 
 Classes should depend on **pre-composed capabilities**, not on the interfaces or individual operations behind them. Interfaces are a DI registration concern — contain them in a **dependencies class**: a static factory that resolves interfaces and produces bound delegates at the right abstraction level. Consumers receive delegates matching their actual abstraction level.
 
@@ -168,7 +168,7 @@ public class Orchestrator(IDatabase db, IProcessRunner runner, IEventPublisher p
 - Inside the dependencies class itself (it must see interfaces to compose them)
 - Leaf classes that genuinely work at the operation level (the phases themselves)
 
-### 30. Static Class as Module (Co-located Dependencies)
+### 02-05. Static Class as Module (Co-located Dependencies)
 
 A static class can serve as an **FP-style module** — owning its delegate definitions, a `Dependencies` record that bundles them, a factory to build them, and the execution method. This mirrors FP companion modules (e.g., F# allows a type and module to share the same name). In C#, the static class **is** the module — no separate builder class needed.
 
@@ -242,7 +242,7 @@ internal static class SetupPhaseDependencies
 
 ---
 
-### 35. Delegate Suffix Convention
+### 02-06. Delegate Suffix Convention
 
 All named delegate types must end with `Delegate`. This makes delegate types instantly recognizable as function types — distinct from classes, interfaces, and methods.
 
@@ -315,12 +315,12 @@ public static async Task ExecuteAsync(
     ILogger logger)
 ```
 
-> **Evolution note:** All delegate declarations across the codebase have been migrated to use the `Delegate` suffix (e.g., `ClearDatabaseDelegate`, `RunSetupDelegate`). Examples in earlier guidelines (12, 13, 14, 30, 31) may still show unsuffixed names for brevity; the production code is the authoritative reference.
+> **Evolution note:** All delegate declarations across the codebase have been migrated to use the `Delegate` suffix (e.g., `ClearDatabaseDelegate`, `RunSetupDelegate`). Examples in earlier guidelines (02-01, 02-02, 02-03, 02-05, 05-03) may still show unsuffixed names for brevity; the production code is the authoritative reference.
 
 **Applies to:** All `delegate` type declarations — `public`, `internal`, and `private`. No exceptions.
 
 **Relationship to other guidelines:**
 
-- Constrains **Guideline 12** (named delegates) — Guideline 12 says _when_ to use delegates; this says _how to name_ them
-- Extends **Guideline 13** (named over Action/Func) — Guideline 13 says use a descriptive name; the `Delegate` suffix is part of that name
-- Affects **Guideline 30** (static class as module) — Dependencies records benefit most from the suffix (type vs parameter disambiguation)
+- Constrains **Guideline 02-01** (named delegates) — Guideline 02-01 says _when_ to use delegates; this says _how to name_ them
+- Extends **Guideline 02-02** (named over Action/Func) — Guideline 02-02 says use a descriptive name; the `Delegate` suffix is part of that name
+- Affects **Guideline 02-05** (static class as module) — Dependencies records benefit most from the suffix (type vs parameter disambiguation)
