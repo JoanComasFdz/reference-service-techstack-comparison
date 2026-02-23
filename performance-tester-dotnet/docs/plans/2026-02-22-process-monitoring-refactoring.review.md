@@ -4,7 +4,7 @@
 
 **Goal:** Refactor `PerformanceTester.ProcessMonitoring` from interface-based OOP to functional patterns (named delegates, context record, static operations, thin shell) matching the `DockerMonitoring` reference architecture.
 
-**Architecture:** Remove `IProcessMonitor` interface. Extract mutable state into `MonitorContext` record (Guideline 05-04). Extract business logic into `MonitoringOperations` static class. Reduce `ProcessMonitorService` to a thin shell that only owns lifecycle (Guideline 05-06). Expose public API via named delegates registered in DI (Guidelines 02-01 to 02-03). Use value objects for `ProcessMonitorPhaseInfo` fields (Guideline 04-01).
+**Architecture:** Remove `IProcessMonitor` interface. Consolidate all public types (delegates, phase info, data records, utilities) into `Api.cs` at project root. Extract mutable state into `MonitorContext` record (Guideline 05-04). Extract business logic into static operations inside `Internal/ProcessMonitorModule.cs`. Create thin shell `Internal/ProcessMonitorBackgroundService.cs` that only owns lifecycle (Guideline 05-06). Expose public API via named delegates registered in DI (Guidelines 02-01 to 02-03). Use value objects for `ProcessMonitorPhaseInfo` fields (Guideline 04-01).
 
 **Tech Stack:** .NET 9, Microsoft.Extensions.Hosting, PerformanceTester.Infrastructure (value object base classes)
 
@@ -24,28 +24,27 @@ ProcessMonitoring/
 └── ServiceCollectionExtensions.cs        ← Triple-registers interface
 ```
 
+<!-- applied guideline #05-06: visibility-first file structure — Api.cs at root contains all public types (delegates, phase info, ProcessMetrics, ProcessNameExtractor); Internal/ contains module (context, operations, CPU calculator) and shell; ValueObjects/ stays at root; no flat mixing of public and internal files -->
 ### Target Structure (Functional, delegate-based)
 ```
 ProcessMonitoring/
-├── ProcessMetrics.cs                     ← KEEP: Data record (public contract, unchanged)
-├── ProcessCpuCalculator.cs               ← KEEP: Internal utility (unchanged)
-├── ProcessNameExtractor.cs               ← KEEP: Public utility (unchanged)
-├── ServiceCollectionExtensions.cs        ← REWRITE: Register delegates instead of interface
-├── Monitoring/
-│   ├── ProcessMonitoringDelegates.cs     ← NEW: Named delegate definitions
-│   ├── ProcessMonitorPhaseInfo.cs        ← MOVE+UPDATE: Use ProcessId & SampleCount VOs
-│   ├── ProcessMonitorService.cs          ← MOVE+REWRITE: Thin shell (lifecycle only)
-│   ├── MonitorContext.cs                 ← NEW: Mutable state record
-│   └── MonitoringOperations.cs           ← NEW: Static operations (sampling loop)
-└── ValueObjects/
-    └── SampleCount.cs                    ← NEW: NonNegativeInt value object
+├── Api.cs                               ← NEW: all public types (delegates, phase info, ProcessMetrics, ProcessNameExtractor)
+├── ServiceCollectionExtensions.cs       ← REWRITE: Register delegates instead of interface
+├── ValueObjects/
+│   └── SampleCount.cs                   ← NEW: NonNegativeInt value object
+└── Internal/
+    ├── ProcessMonitorModule.cs          ← NEW: context record, static operations, ProcessCpuCalculator (all internal)
+    └── ProcessMonitorBackgroundService.cs ← NEW: thin shell (BackgroundService lifecycle only)
 ```
 
 ### Files Deleted
 ```
-├── IProcessMonitor.cs                    ← DELETED: Replaced by named delegates
-├── ProcessMonitorPhaseInfo.cs (root)     ← DELETED: Moved to Monitoring/
-├── ProcessMonitorService.cs (root)       ← DELETED: Moved to Monitoring/
+├── IProcessMonitor.cs                    ← DELETED: Replaced by named delegates (in Api.cs)
+├── ProcessMonitorPhaseInfo.cs (root)     ← DELETED: Content merged into Api.cs
+├── ProcessMonitorService.cs (root)       ← DELETED: Replaced by Internal/ProcessMonitorBackgroundService.cs
+├── ProcessMetrics.cs (root)              ← DELETED: Content merged into Api.cs
+├── ProcessNameExtractor.cs (root)        ← DELETED: Content merged into Api.cs
+├── ProcessCpuCalculator.cs (root)        ← DELETED: Content nested in Internal/ProcessMonitorModule.cs
 ```
 
 ### Consumer Updates (Orchestration)
@@ -127,21 +126,29 @@ git commit -m "feat(ProcessMonitoring): add Infrastructure reference and SampleC
 
 ---
 
-## Task 2: Create Monitoring Infrastructure (Delegates, Context, Phase Info)
+<!-- applied guideline #05-06: visibility-first file structure — public types (delegates, phase info, ProcessMetrics, ProcessNameExtractor) go to Api.cs at project root; internal types (context record, operations, CPU calculator) go to Internal/ProcessMonitorModule.cs -->
+## Task 2: Create Api.cs and Internal/ProcessMonitorModule.cs
 
 **Files:**
-- Create: `src/PerformanceTester.ProcessMonitoring/Monitoring/ProcessMonitoringDelegates.cs`
-- Create: `src/PerformanceTester.ProcessMonitoring/Monitoring/MonitorContext.cs`
-- Create: `src/PerformanceTester.ProcessMonitoring/Monitoring/ProcessMonitorPhaseInfo.cs`
+- Create: `src/PerformanceTester.ProcessMonitoring/Api.cs`
+- Create: `src/PerformanceTester.ProcessMonitoring/Internal/ProcessMonitorModule.cs`
 
-**Step 1: Create `Monitoring/ProcessMonitoringDelegates.cs`**
+Two files that together replace `IProcessMonitor.cs`, `ProcessMonitorPhaseInfo.cs`, `ProcessMonitorService.cs`, `ProcessMetrics.cs`, `ProcessNameExtractor.cs`, and `ProcessCpuCalculator.cs`. Public types go to `Api.cs` (Guideline 05-06 visibility-first structure). Internal types go to the module file in `Internal/` (Guideline 02-05 reading order: context record → static operations).
 
-These named delegates replace the `IProcessMonitor` interface. They follow Guideline 02-02 (named delegates over Action/Func) and Guideline 02-06 (Delegate suffix).
+**Step 1: Create `Api.cs`**
+
+All public types extracted from the module — delegates, phase info enums/record, ProcessMetrics record, and ProcessNameExtractor. Reading order follows Guideline 02-05: delegates → records/enums → data contracts → utilities.
 
 ```csharp
+using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.ValueObjects;
+using PerformanceTester.ProcessMonitoring.ValueObjects;
 
-namespace PerformanceTester.ProcessMonitoring.Monitoring;
+namespace PerformanceTester.ProcessMonitoring;
+
+// =====================================================================
+// Delegates (Guideline 02-05 reading order: delegates first)
+// =====================================================================
 
 /// <summary>
 /// Reports process monitoring phase changes.
@@ -163,46 +170,10 @@ public delegate Task StartProcessMonitoringDelegate(
 /// Call after test completion (after stopping IHost).
 /// </summary>
 public delegate IReadOnlyCollection<ProcessMetrics> GetProcessMetricsDelegate();
-```
 
-**Step 2: Create `Monitoring/MonitorContext.cs`**
-
-Centralizes all mutable state per Guideline 05-04.
-
-```csharp
-using System.Collections.Concurrent;
-
-namespace PerformanceTester.ProcessMonitoring.Monitoring;
-
-/// <summary>
-/// Centralizes all mutable state for process monitoring (Guideline 05-04).
-/// Passed explicitly to static operations — no hidden fields.
-/// </summary>
-internal sealed record MonitorContext
-{
-    /// <summary>Thread-safe collection of all sampled metrics.</summary>
-    public ConcurrentBag<ProcessMetrics> CollectedMetrics { get; } = new();
-
-    /// <summary>Signal from StartMonitoringAsync → ExecuteAsync (deferred start).</summary>
-    public TaskCompletionSource StartSignal { get; } = new();
-
-    /// <summary>Signal from sampling loop → StartMonitoringAsync (first sample collected).</summary>
-    public TaskCompletionSource FirstSampleCollected { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-    /// <summary>Cached process name extracted from command line (set once, read many).</summary>
-    public string? CachedProcessName { get; set; }
-}
-```
-
-**Step 3: Create `Monitoring/ProcessMonitorPhaseInfo.cs`**
-
-This is the updated version using `ProcessId` and `SampleCount` value objects. It replaces the root-level `ProcessMonitorPhaseInfo.cs`.
-
-```csharp
-using PerformanceTester.Infrastructure.ValueObjects;
-using PerformanceTester.ProcessMonitoring.ValueObjects;
-
-namespace PerformanceTester.ProcessMonitoring.Monitoring;
+// =====================================================================
+// Phase info — enums and record struct
+// =====================================================================
 
 /// <summary>
 /// Represents the phases in process monitoring lifecycle.
@@ -266,6 +237,7 @@ public readonly record struct ProcessMonitorPhaseInfo(
     public DateTimeOffset TimestampOrNow => Timestamp ?? DateTimeOffset.UtcNow;
 
     /// <summary>Creates a ProcessMonitorPhaseInfo indicating a phase is starting.</summary>
+    <!-- applied guideline #06-04: expression body must start on same line as => -->
     public static ProcessMonitorPhaseInfo Starting(
         ProcessMonitorPhase phase,
         ProcessId processId,
@@ -314,48 +286,172 @@ public readonly record struct ProcessMonitorPhaseInfo(
         message,
         DateTimeOffset.UtcNow);
 }
+
+// =====================================================================
+// Data records — public output contracts
+// =====================================================================
+
+/// <summary>
+/// Snapshot of process resource metrics at a point in time.
+/// </summary>
+public record ProcessMetrics(
+    DateTimeOffset Timestamp,
+    int ProcessId,
+    string ProcessName,
+    double CpuPercent,
+    double MemoryMB,
+    int ThreadCount);
+
+// =====================================================================
+// Public utilities
+// =====================================================================
+
+/// <summary>
+/// Extracts meaningful process names from command-line arguments.
+/// </summary>
+public static class ProcessNameExtractor
+{
+    /// <summary>
+    /// Extracts a meaningful service name from a process name and its command line arguments.
+    /// </summary>
+    public static string ExtractMeaningfulName(string processName, string[]? commandLine)
+    {
+        if (commandLine is null || commandLine.Length == 0)
+        {
+            return processName;
+        }
+
+        // For "dotnet" processes, find the DLL name
+        if (processName.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+        {
+            var dllArg = commandLine.FirstOrDefault(arg =>
+                arg.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+
+            if (dllArg is not null)
+            {
+                return Path.GetFileNameWithoutExtension(dllArg);
+            }
+        }
+
+        // For Java processes, find the main class or JAR name
+        if (processName.Equals("java", StringComparison.OrdinalIgnoreCase))
+        {
+            var jarArg = commandLine
+                .SkipWhile(arg => arg != "-jar")
+                .Skip(1)
+                .FirstOrDefault();
+
+            if (jarArg is not null)
+            {
+                return Path.GetFileNameWithoutExtension(jarArg);
+            }
+
+            // Look for main class (last argument that looks like a class name)
+            var mainClass = commandLine.LastOrDefault(arg =>
+                !arg.StartsWith('-') && arg.Contains('.') && !arg.EndsWith(".jar"));
+
+            if (mainClass is not null)
+            {
+                return mainClass.Split('.').Last();
+            }
+        }
+
+        return processName;
+    }
+}
 ```
 
-**Step 4: Verify it builds**
+**Step 2: Create `Internal/ProcessMonitorModule.cs`**
 
-Run: `dotnet build src/PerformanceTester.ProcessMonitoring`
-Expected: Build succeeded, 0 warnings. The old `ProcessMonitorPhaseInfo.cs` at root will cause ambiguity errors. Ignore for now — it gets deleted in Task 6.
-
-Actually — the old and new `ProcessMonitorPhaseInfo` are in different namespaces (`PerformanceTester.ProcessMonitoring` vs `PerformanceTester.ProcessMonitoring.Monitoring`), so both can coexist temporarily. Build should succeed.
-
-**Step 5: Commit**
-
-```bash
-git add src/PerformanceTester.ProcessMonitoring/Monitoring/
-git commit -m "feat(ProcessMonitoring): add delegates, context record, and updated phase info"
-```
-
----
-
-## Task 3: Create MonitoringOperations (Static Logic)
-
-**Files:**
-- Create: `src/PerformanceTester.ProcessMonitoring/Monitoring/MonitoringOperations.cs`
-
-This extracts all business logic from `ProcessMonitorService` into a static class (Guidelines 01-01, 01-02, 05-06). The service will become a thin shell that delegates here.
-
-**Step 1: Create `Monitoring/MonitoringOperations.cs`**
+Internal types only: context record, CPU calculator (nested), and all static operations.
 
 ```csharp
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.ProcessMonitoring.ValueObjects;
 
-namespace PerformanceTester.ProcessMonitoring.Monitoring;
+namespace PerformanceTester.ProcessMonitoring.Internal;
 
 /// <summary>
-/// Pure static operations for process monitoring.
-/// All state access goes through <see cref="MonitorContext"/> parameter (Guideline 01-02).
-/// Delegates to <see cref="ProcessCpuCalculator"/> and <see cref="ProcessNameExtractor"/> for calculations.
+/// Internal module (Guideline 05-06 + 02-05): context record → static operations.
+/// All internal implementation for process monitoring. Public types are in Api.cs.
 /// </summary>
-internal static class MonitoringOperations
+internal static class ProcessMonitorModule
 {
+    // =====================================================================
+    // Context record — all mutable state, no logic (Guideline 05-04)
+    // =====================================================================
+
+    /// <summary>
+    /// Centralizes all mutable state for process monitoring (Guideline 05-04).
+    /// Passed explicitly to static operations — no hidden fields.
+    /// </summary>
+    internal sealed record MonitorContext
+    {
+        /// <summary>Thread-safe collection of all sampled metrics.</summary>
+        public ConcurrentBag<ProcessMetrics> CollectedMetrics { get; } = new();
+
+        /// <summary>Signal from StartMonitoringAsync → ExecuteAsync (deferred start).</summary>
+        public TaskCompletionSource StartSignal { get; } = new();
+
+        /// <summary>Signal from sampling loop → StartMonitoringAsync (first sample collected).</summary>
+        public TaskCompletionSource FirstSampleCollected { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Cached process name extracted from command line (set once, read many).</summary>
+        public string? CachedProcessName { get; set; }
+    }
+
+    // =====================================================================
+    // Nested utility — only used by operations below
+    // =====================================================================
+
+    /// <summary>
+    /// Calculates CPU usage percentage from process time deltas between samples.
+    /// </summary>
+    internal sealed class ProcessCpuCalculator
+    {
+        private TimeSpan _previousTotalProcessorTime;
+        private DateTime _previousSampleTime;
+        private bool _initialized;
+
+        /// <summary>
+        /// Samples the current CPU time of the process and returns CPU usage percentage since last sample.
+        /// First call always returns 0.0 (establishing baseline).
+        /// </summary>
+        public double Sample(Process process)
+        {
+            var currentTotalProcessorTime = process.TotalProcessorTime;
+            var currentSampleTime = DateTime.UtcNow;
+
+            if (!_initialized)
+            {
+                _previousTotalProcessorTime = currentTotalProcessorTime;
+                _previousSampleTime = currentSampleTime;
+                _initialized = true;
+                return 0.0;
+            }
+
+            var cpuUsedMs = (currentTotalProcessorTime - _previousTotalProcessorTime).TotalMilliseconds;
+            var elapsedMs = (currentSampleTime - _previousSampleTime).TotalMilliseconds;
+
+            _previousTotalProcessorTime = currentTotalProcessorTime;
+            _previousSampleTime = currentSampleTime;
+
+            if (elapsedMs <= 0)
+            {
+                return 0.0;
+            }
+
+            return cpuUsedMs / elapsedMs * 100.0;
+        }
+    }
+
+    // =====================================================================
+    // Static operations
+    // =====================================================================
+
     /// <summary>
     /// Runs the sampling loop: initializes the process, then samples at regular intervals
     /// until cancellation or process exit.
@@ -559,54 +655,55 @@ internal static class MonitoringOperations
 }
 ```
 
-**Step 2: Verify it builds**
+**Step 3: Verify it builds**
 
 Run: `dotnet build src/PerformanceTester.ProcessMonitoring`
-Expected: Build succeeded, 0 warnings
+Expected: Build succeeded, 0 warnings. The old `ProcessMonitorPhaseInfo.cs`, `ProcessMetrics.cs`, `ProcessNameExtractor.cs`, and `ProcessCpuCalculator.cs` at root will cause ambiguity/duplicate errors — delete them in Task 4.
 
-**Step 3: Commit**
+**Step 4: Commit**
 
 ```bash
-git add src/PerformanceTester.ProcessMonitoring/Monitoring/MonitoringOperations.cs
-git commit -m "feat(ProcessMonitoring): add MonitoringOperations static class with sampling logic"
+git add src/PerformanceTester.ProcessMonitoring/Api.cs \
+        src/PerformanceTester.ProcessMonitoring/Internal/ProcessMonitorModule.cs
+git commit -m "feat(ProcessMonitoring): add Api.cs with public types and Internal/ProcessMonitorModule with operations"
 ```
 
 ---
 
-## Task 4: Create Thin Shell ProcessMonitorService
+## Task 3: Create Thin Shell Internal/ProcessMonitorBackgroundService
 
 **Files:**
-- Create: `src/PerformanceTester.ProcessMonitoring/Monitoring/ProcessMonitorService.cs`
+- Create: `src/PerformanceTester.ProcessMonitoring/Internal/ProcessMonitorBackgroundService.cs`
 
-The thin shell owns the `MonitorContext`, wires `BackgroundService` lifecycle, and exposes public API methods. All business logic is delegated to `MonitoringOperations` (Guideline 05-06).
+<!-- applied guideline #05-06: shell file placed in Internal/ directory with .Internal namespace; references public types from Api.cs via using PerformanceTester.ProcessMonitoring -->
+The thin shell owns the `ProcessMonitorModule.MonitorContext`, wires `BackgroundService` lifecycle, and exposes public API methods. All business logic is delegated to `ProcessMonitorModule` static methods (Guideline 05-06).
 
-**Step 1: Create `Monitoring/ProcessMonitorService.cs`**
+**Step 1: Create `ProcessMonitorBackgroundService.cs`**
 
 ```csharp
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.ValueObjects;
-using PerformanceTester.ProcessMonitoring.ValueObjects;
 
-namespace PerformanceTester.ProcessMonitoring.Monitoring;
+namespace PerformanceTester.ProcessMonitoring.Internal;
 
 /// <summary>
-/// Thin shell (Guideline 05-06): owns <see cref="MonitorContext"/>, wires lifecycle,
-/// delegates all logic to <see cref="MonitoringOperations"/>.
+/// Thin shell (Guideline 05-06): owns <see cref="ProcessMonitorModule.MonitorContext"/>, wires lifecycle,
+/// delegates all logic to <see cref="ProcessMonitorModule"/> static methods.
 /// </summary>
-internal sealed class ProcessMonitorService : BackgroundService
+internal sealed class ProcessMonitorBackgroundService : BackgroundService
 {
-    private readonly MonitorContext _ctx = new();
+    private readonly ProcessMonitorModule.MonitorContext _ctx = new();
     private readonly TimeSpan _samplingInterval;
-    private readonly ILogger<ProcessMonitorService> _logger;
+    private readonly ILogger<ProcessMonitorBackgroundService> _logger;
 
     private bool _started;
     private ProcessId? _processId;
     private ReportProcessMonitorProgressDelegate? _reportProgress;
 
-    public ProcessMonitorService(
+    public ProcessMonitorBackgroundService(
         TimeSpan samplingInterval,
-        ILogger<ProcessMonitorService> logger)
+        ILogger<ProcessMonitorBackgroundService> logger)
     {
         if (samplingInterval <= TimeSpan.Zero)
         {
@@ -683,8 +780,8 @@ internal sealed class ProcessMonitorService : BackgroundService
             return;
         }
 
-        // Delegate all sampling logic to static operations
-        await MonitoringOperations.RunSamplingLoopAsync(
+        // Delegate all sampling logic to module
+        await ProcessMonitorModule.RunSamplingLoopAsync(
             _ctx,
             _processId!,
             _samplingInterval,
@@ -703,29 +800,33 @@ Expected: Build succeeded, 0 warnings
 **Step 3: Commit**
 
 ```bash
-git add src/PerformanceTester.ProcessMonitoring/Monitoring/ProcessMonitorService.cs
-git commit -m "feat(ProcessMonitoring): add thin shell ProcessMonitorService in Monitoring/"
+git add src/PerformanceTester.ProcessMonitoring/Internal/ProcessMonitorBackgroundService.cs
+git commit -m "feat(ProcessMonitoring): add thin shell Internal/ProcessMonitorBackgroundService"
 ```
 
 ---
 
-## Task 5: Rewrite ServiceCollectionExtensions and Delete Old Files
+## Task 4: Rewrite ServiceCollectionExtensions and Delete Old Files
 
 **Files:**
 - Modify: `src/PerformanceTester.ProcessMonitoring/ServiceCollectionExtensions.cs`
 - Delete: `src/PerformanceTester.ProcessMonitoring/IProcessMonitor.cs`
-- Delete: `src/PerformanceTester.ProcessMonitoring/ProcessMonitorService.cs` (root)
-- Delete: `src/PerformanceTester.ProcessMonitoring/ProcessMonitorPhaseInfo.cs` (root)
+- Delete: `src/PerformanceTester.ProcessMonitoring/ProcessMonitorService.cs`
+- Delete: `src/PerformanceTester.ProcessMonitoring/ProcessMonitorPhaseInfo.cs`
+- Delete: `src/PerformanceTester.ProcessMonitoring/ProcessMetrics.cs`
+- Delete: `src/PerformanceTester.ProcessMonitoring/ProcessNameExtractor.cs`
+- Delete: `src/PerformanceTester.ProcessMonitoring/ProcessCpuCalculator.cs`
 
 **Step 1: Rewrite `ServiceCollectionExtensions.cs`**
 
 Replace the triple-registration pattern with delegate-based registration matching DockerMonitoring's pattern.
 
+<!-- applied guideline #05-06: delegates are now standalone types in PerformanceTester.ProcessMonitoring namespace (from Api.cs); BackgroundService is in .Internal namespace -->
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.ProcessMonitoring.Monitoring;
+using PerformanceTester.ProcessMonitoring.Internal;
 
 namespace PerformanceTester.ProcessMonitoring;
 
@@ -758,28 +859,24 @@ public static class ServiceCollectionExtensions
         var interval = samplingInterval ?? TimeSpan.FromMilliseconds(500);
 
         // Register BackgroundService (internal, not exposed)
-        services.AddSingleton<ProcessMonitorService>(sp =>
-        {
-            return new ProcessMonitorService(
+        services.AddSingleton<ProcessMonitorBackgroundService>(sp =>
+            new ProcessMonitorBackgroundService(
                 interval,
-                sp.GetRequiredService<ILogger<ProcessMonitorService>>());
-        });
+                sp.GetRequiredService<ILogger<ProcessMonitorBackgroundService>>()));
 
         services.AddSingleton<IHostedService>(sp =>
-        {
-            return sp.GetRequiredService<ProcessMonitorService>();
-        });
+            sp.GetRequiredService<ProcessMonitorBackgroundService>());
 
-        // Register public named delegates
+        // Register public named delegates (standalone in PerformanceTester.ProcessMonitoring namespace)
         services.AddSingleton<StartProcessMonitoringDelegate>(sp =>
         {
-            var monitor = sp.GetRequiredService<ProcessMonitorService>();
+            var monitor = sp.GetRequiredService<ProcessMonitorBackgroundService>();
             return monitor.StartMonitoringAsync;
         });
 
         services.AddSingleton<GetProcessMetricsDelegate>(sp =>
         {
-            var monitor = sp.GetRequiredService<ProcessMonitorService>();
+            var monitor = sp.GetRequiredService<ProcessMonitorBackgroundService>();
             return monitor.GetCollectedMetrics;
         });
 
@@ -788,12 +885,17 @@ public static class ServiceCollectionExtensions
 }
 ```
 
+<!-- applied guideline #01-09: removed useless { return ...; } wrapper bodies from single-expression lambdas — the AddSingleton<ProcessMonitorBackgroundService> and AddSingleton<IHostedService> factories each perform a single expression and gain nothing from block syntax -->
+
 **Step 2: Delete old files**
 
-Delete these three files that are replaced by the new `Monitoring/` equivalents:
+Delete these six files that are replaced by Api.cs, Internal/ProcessMonitorModule.cs, and Internal/ProcessMonitorBackgroundService.cs:
 - `src/PerformanceTester.ProcessMonitoring/IProcessMonitor.cs`
-- `src/PerformanceTester.ProcessMonitoring/ProcessMonitorService.cs` (the root one)
-- `src/PerformanceTester.ProcessMonitoring/ProcessMonitorPhaseInfo.cs` (the root one)
+- `src/PerformanceTester.ProcessMonitoring/ProcessMonitorService.cs`
+- `src/PerformanceTester.ProcessMonitoring/ProcessMonitorPhaseInfo.cs`
+- `src/PerformanceTester.ProcessMonitoring/ProcessMetrics.cs`
+- `src/PerformanceTester.ProcessMonitoring/ProcessNameExtractor.cs`
+- `src/PerformanceTester.ProcessMonitoring/ProcessCpuCalculator.cs`
 
 **Step 3: Verify ProcessMonitoring builds**
 
@@ -807,12 +909,15 @@ git add src/PerformanceTester.ProcessMonitoring/ServiceCollectionExtensions.cs
 git rm src/PerformanceTester.ProcessMonitoring/IProcessMonitor.cs
 git rm src/PerformanceTester.ProcessMonitoring/ProcessMonitorService.cs
 git rm src/PerformanceTester.ProcessMonitoring/ProcessMonitorPhaseInfo.cs
-git commit -m "refactor(ProcessMonitoring): replace interface with delegate-based DI registration"
+git rm src/PerformanceTester.ProcessMonitoring/ProcessMetrics.cs
+git rm src/PerformanceTester.ProcessMonitoring/ProcessNameExtractor.cs
+git rm src/PerformanceTester.ProcessMonitoring/ProcessCpuCalculator.cs
+git commit -m "refactor(ProcessMonitoring): rewrite DI registration for standalone delegates, delete old files"
 ```
 
 ---
 
-## Task 6: Update Orchestration Consumers
+## Task 5: Update Orchestration Consumers
 
 **Files:**
 - Modify: `src/PerformanceTester.Orchestration/Phases/EventTestPhase.cs`
@@ -822,7 +927,7 @@ git commit -m "refactor(ProcessMonitoring): replace interface with delegate-base
 **Step 1: Update `EventTestPhase.cs`**
 
 Changes needed:
-1. Replace `using PerformanceTester.ProcessMonitoring;` with `using PerformanceTester.ProcessMonitoring.Monitoring;`
+1. Remove `using PerformanceTester.ProcessMonitoring;` if it was only used for `IProcessMonitor` — keep it if also needed for other types in that namespace
 2. In `BuildDependencies`: resolve `StartProcessMonitoringDelegate` from DI instead of `IProcessMonitor`
 3. Adapt the delegate (bake in cancellation token, discard progress)
 
@@ -837,21 +942,21 @@ var processMonitor = services.GetRequiredService<IProcessMonitor>();
 StartProcessMonitoring: (pid) => processMonitor.StartMonitoringAsync(pid.Value, cancellationToken: ct),
 ```
 
+<!-- applied guideline #05-06: delegates are now standalone types in PerformanceTester.ProcessMonitoring namespace (from Api.cs) -->
 **After:**
 ```csharp
-var startProcessMonitoring = services.GetRequiredService<ProcessMonitoring.Monitoring.StartProcessMonitoringDelegate>();
+var startProcessMonitoring = services.GetRequiredService<StartProcessMonitoringDelegate>();
 // ...
 StartProcessMonitoring: (pid) => startProcessMonitoring(pid, _ => { }, ct),
 ```
 
-Remove the `using PerformanceTester.ProcessMonitoring;` import (no longer needed -- `IProcessMonitor` is gone). Add `using PerformanceTester.ProcessMonitoring.Monitoring;` if not already present (for `StartProcessMonitoringDelegate`). Note: this file also uses `DockerMonitoring.Monitoring.StartDockerMonitoringDelegate` at line 81 which already uses the fully-qualified pattern. Use the same approach for consistency.
+Keep `using PerformanceTester.ProcessMonitoring;` — the delegates are standalone types in the `PerformanceTester.ProcessMonitoring` namespace (from `Api.cs`), so they are accessed directly as `StartProcessMonitoringDelegate`.
 
 **Step 2: Update `ReportingPhase.cs`**
 
 Changes needed:
-1. Replace `using PerformanceTester.ProcessMonitoring;` -> keep it (still needed for `ProcessMetrics`)
-2. Also add `using PerformanceTester.ProcessMonitoring.Monitoring;`
-3. In `BuildDependencies`: resolve `GetProcessMetricsDelegate` from DI instead of `IProcessMonitor`
+1. `using PerformanceTester.ProcessMonitoring;` — keep it (still needed for `ProcessMetrics` and now also for `GetProcessMetricsDelegate`)
+2. In `BuildDependencies`: resolve `GetProcessMetricsDelegate` from DI instead of `IProcessMonitor`
 
 **Before (lines 85, 93):**
 ```csharp
@@ -861,9 +966,10 @@ GetProcessMetrics: processMonitor.GetCollectedMetrics,
 ```
 
 <!-- applied guideline #01-09: removed unnecessary lambda wrapper around delegate with identical signature -->
+<!-- applied guideline #05-06: delegates are now standalone types in PerformanceTester.ProcessMonitoring namespace (from Api.cs) -->
 **After:**
 ```csharp
-var getProcessMetrics = services.GetRequiredService<ProcessMonitoring.Monitoring.GetProcessMetricsDelegate>();
+var getProcessMetrics = services.GetRequiredService<GetProcessMetricsDelegate>();
 // ...
 GetProcessMetrics: getProcessMetrics,
 ```
@@ -872,7 +978,7 @@ Note: `ReportingPhase.GetProcessMetricsDelegate` (line 32) stays as the phase-le
 
 **Step 3: Update `Orchestration/ServiceCollectionExtensions.cs`**
 
-Remove `using PerformanceTester.ProcessMonitoring;` (line 9) if it was only used for `IProcessMonitor`. Keep the `services.AddProcessMonitoring()` call (line 68) -- it still works but now registers delegates instead of the interface.
+Keep `using PerformanceTester.ProcessMonitoring;` (line 9) — it still works and `AddProcessMonitoring()` is in that namespace. Keep the `services.AddProcessMonitoring()` call (line 68) -- it still works but now registers delegates instead of the interface.
 
 Update the XML comment (lines 40-43) that mentions `IProcessMonitor`:
 
@@ -904,7 +1010,7 @@ git commit -m "refactor(Orchestration): consume ProcessMonitoring via delegates 
 
 ---
 
-## Task 7: Update Integration Tests
+## Task 6: Update Integration Tests
 
 **Files:**
 - Modify: `src/PerformanceTester.ProcessMonitoring.IntegrationTests/Infrastructure/ProcessMonitoring.cs`
@@ -918,7 +1024,8 @@ This is the largest task. Read every file in the test project first to understan
 
 **Key changes across all test files:**
 
-1. **Namespace changes:** `PerformanceTester.ProcessMonitoring` -> add `PerformanceTester.ProcessMonitoring.Monitoring` for phase info, delegates
+<!-- applied guideline #05-06: public types (delegates, phase info, data records) are standalone in PerformanceTester.ProcessMonitoring namespace (from Api.cs); internal types are in PerformanceTester.ProcessMonitoring.Internal -->
+1. **Namespace changes:** Public types (delegates, phase info, ProcessMetrics) are standalone in `PerformanceTester.ProcessMonitoring` namespace (from `Api.cs`). Use `using PerformanceTester.ProcessMonitoring;` to access all public types directly
 2. **`IProcessMonitor` -> delegates:** Replace `IProcessMonitor` with `StartProcessMonitoringDelegate` and `GetProcessMetricsDelegate`
 3. **`IProgress<ProcessMonitorPhaseInfo>` -> `ReportProcessMonitorProgressDelegate`:** The phase awaiter wraps this delegate
 4. **`int ProcessId` -> `ProcessId` value object:** In phase info fields
@@ -931,7 +1038,7 @@ Replace `IProgress<ProcessMonitorPhaseInfo>` implementation with `ReportProcessM
 Key change: Instead of implementing `IProgress<ProcessMonitorPhaseInfo>`, expose a method matching the delegate signature. The `Report` method becomes the delegate target.
 
 Read the current file, then update:
-- Change the namespace import to `PerformanceTester.ProcessMonitoring.Monitoring`
+- Add `using PerformanceTester.ProcessMonitoring;` to import public types from Api.cs
 - Remove `IProgress<ProcessMonitorPhaseInfo>` interface implementation
 - Add a `Report` method matching `ReportProcessMonitorProgressDelegate` signature
 - Add a `AsDelegate` property or method that returns the delegate
@@ -940,7 +1047,7 @@ Read the current file, then update:
 
 **Step 2: Update `Infrastructure/ProcessMonitorPhaseAwaiterExtensions.cs`**
 
-- Update namespace imports
+- Update namespace imports (add `using PerformanceTester.ProcessMonitoring;`)
 - Update `ProcessMonitorPhaseInfo` field accesses (`.ProcessId.Value` instead of `.ProcessId`, `.SampleCount.Value` instead of `.SampleCount`)
 
 **Step 3: Update `Infrastructure/ProcessMonitoring.cs`** (the test facade)
@@ -963,26 +1070,8 @@ StartMonitoring = _host.Services.GetRequiredService<StartProcessMonitoringDelega
 GetMetrics = _host.Services.GetRequiredService<GetProcessMetricsDelegate>();
 ```
 
-Update `StartMonitoringAsync` to use delegate:
-
-**Before:**
-```csharp
-public async Task StartMonitoringAsync(int processId, IProgress<ProcessMonitorPhaseInfo>? progress = null, ...)
-{
-    await Monitor.StartMonitoringAsync(processId, progress, cancellationToken);
-}
-```
-
-**After:**
-```csharp
-public async Task StartMonitoringAsync(
-    ProcessId processId,
-    ReportProcessMonitorProgressDelegate reportProgress,
-    CancellationToken cancellationToken = default)
-{
-    await StartMonitoring(processId, reportProgress, cancellationToken);
-}
-```
+<!-- applied guideline #01-09: removed the StartMonitoringAsync wrapper method — it forwarded all parameters unchanged to the StartMonitoring delegate, adding no value; callers invoke StartMonitoring directly -->
+Remove the `StartMonitoringAsync` wrapper method entirely. Callers in `ProcessMonitorIntegrationTests.cs` call `StartMonitoring(...)` directly on the facade.
 
 **Step 4: Update `Infrastructure/ProcessMonitoringSystem.cs`**
 
@@ -1012,6 +1101,7 @@ Update test methods to use the new API:
 - `int processId` -> `ProcessId.FromInt(processId)`
 - `System.ProcessMonitoring.Monitor.GetCollectedMetrics()` -> `System.ProcessMonitoring.GetMetrics()`
 - Phase awaiter: pass as delegate instead of `IProgress<T>`
+- `await System.ProcessMonitoring.StartMonitoringAsync(...)` -> `await System.ProcessMonitoring.StartMonitoring(...)`
 
 **Step 7: Verify tests build**
 
@@ -1027,7 +1117,7 @@ git commit -m "refactor(ProcessMonitoring.Tests): update tests to use delegate-b
 
 ---
 
-## Task 8: Full Build and Test Verification
+## Task 7: Full Build and Test Verification
 
 **Step 1: Build entire solution**
 
@@ -1082,8 +1172,8 @@ Value objects are used where they add type safety (phase info fields, delegate p
 
 ### Why ConcurrentBag Instead of List+Lock?
 
-The current code uses `List<ProcessMetrics>` + `Lock`. The refactored code uses `ConcurrentBag<DockerMetrics>` (matching DockerMonitoring). ConcurrentBag doesn't maintain insertion order, so `GetCollectedMetrics()` sorts by timestamp on retrieval — same pattern as DockerMonitoring.
+The current code uses `List<ProcessMetrics>` + `Lock`. The refactored code uses `ConcurrentBag<ProcessMetrics>` (matching DockerMonitoring's pattern). ConcurrentBag doesn't maintain insertion order, so `GetCollectedMetrics()` sorts by timestamp on retrieval — same pattern as DockerMonitoring.
 
-### Why Keep ProcessNameExtractor and ProcessCpuCalculator at Root?
+### Why Move ProcessNameExtractor to Api.cs and ProcessCpuCalculator to Internal/ProcessMonitorModule.cs?
 
-These are self-contained utilities with no coupling to the monitoring infrastructure. `ProcessNameExtractor` is public (consumers may use it). `ProcessCpuCalculator` is internal but standalone. Moving them to a subdirectory would add complexity without benefit (Guideline 01-03: inline single-use code, extended to "don't over-organize").
+The visibility-first convention (Guideline 05-06) dictates placement by access level. `ProcessNameExtractor` is public (consumers may use it), so it belongs in `Api.cs` alongside other public types. `ProcessCpuCalculator` is internal and only used by the sampling operations, so it belongs nested inside `ProcessMonitorModule` in `Internal/` — co-located with its only consumer.

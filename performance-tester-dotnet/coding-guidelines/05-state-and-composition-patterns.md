@@ -375,27 +375,39 @@ internal sealed class DockerClientWrapper
 
 - The class has no framework coupling — just make it static (Guideline 01-01) (see [Core Architecture](01-core-architecture.md))
 
-**File organization and naming:**
+**File organization — visibility-first structure:**
 
-| File | Class | Content |
-|------|-------|---------|
-| `{Concept}Module.cs` | `internal static class {Concept}Module` | Delegates, context record, phase info, enums, static operations |
-| `{Concept}BackgroundService.cs` | `internal sealed class {Concept}BackgroundService : BackgroundService` | Lifecycle wiring only |
+Library projects (consumed by other projects via `<ProjectReference>`) use a visibility-first file structure. Terminal projects (CLI, web host, workers with `<OutputType>Exe</OutputType>`) organize by domain concern instead — they have no external consumers, so `Api.cs` and `Internal/` are not needed.
 
-**Combining with Guideline 02-05 (static class as module):** The shell gets its own file because it inherits from a framework base class and cannot be static. Everything else follows Guideline 02-05 — co-locate delegate definitions, records (context, phase info, output), enums, and static functions in a single module file. No subdirectory needed.
+| Location | Contains | Visibility |
+|------|---------|---------|
+| `Api.cs` | All public types: delegates, enums, phase info records, data records, public utilities | `public` |
+| `ServiceCollectionExtensions.cs` | DI registration (`Add{SliceName}()`) | `public` |
+| `ValueObjects/` | Value objects with `Create()` factories and validation logic | `public` |
+| `Internal/{Concept}Module.cs` | Context record, static operations, nested internal utilities | `internal` |
+| `Internal/{Concept}BackgroundService.cs` | Lifecycle wiring only (thin shell) | `internal` |
 
-**Accessibility rule:** Internal types (delegates, context record, phase info, operations) belong inside the module. Public data contracts consumed by other slices (e.g., `DockerMetrics`, `ProcessMetrics`) stay in separate files at the project root — they cannot be nested inside an `internal static class` and remain accessible to other projects.
+**The rule:** Root files define the public contract; `Internal/` contains the implementation.
 
 ```
-// ✅ Good — module file + shell file, no subdirectory
+// ✅ Good — visibility-first structure
 ProcessMonitoring/
-├── ProcessMonitorModule.cs              ← internal: delegates, context, phase info, operations
-├── ProcessMonitorBackgroundService.cs   ← internal: BackgroundService shell
-├── ProcessMetrics.cs                    ← public: data record consumed by other slices
-├── ProcessCpuCalculator.cs              ← internal: standalone utility (unchanged)
-├── ProcessNameExtractor.cs              ← public: standalone utility (unchanged)
+├── Api.cs                               ← public: delegates, phase info, ProcessMetrics, ProcessNameExtractor
 ├── ServiceCollectionExtensions.cs       ← public: DI registration
-└── ValueObjects/SampleCount.cs          ← public: value object
+├── ValueObjects/SampleCount.cs          ← public: value object (has validation logic)
+└── Internal/
+    ├── ProcessMonitorModule.cs          ← internal: context record, static operations, ProcessCpuCalculator
+    └── ProcessMonitorBackgroundService.cs ← internal: BackgroundService shell
+
+// ❌ Avoid — flat at root, can't tell public from internal
+ProcessMonitoring/
+├── ProcessMonitorModule.cs              ← internal (but has public nested delegates?)
+├── ProcessMonitorBackgroundService.cs   ← internal
+├── ProcessMetrics.cs                    ← public
+├── ProcessCpuCalculator.cs              ← internal (mixed in with public files)
+├── ProcessNameExtractor.cs              ← public
+├── ServiceCollectionExtensions.cs       ← public
+└── ValueObjects/SampleCount.cs          ← public
 
 // ❌ Avoid — one-type-per-file split in subdirectory
 ProcessMonitoring/
@@ -408,9 +420,53 @@ ProcessMonitoring/
     └── ProcessMonitorService.cs          ← 216 lines, shell
 ```
 
-**Why:** Delegates, records, and enums that form a module's contract belong together — they change for the same reasons (Guideline 01-07) and are consumed together. Splitting them into individual files forces file-hopping to understand the module. The module file reads top-to-bottom: delegates → records → static operations (same reading order as Guideline 02-05).
+**Api.cs reading order** (matches Guideline 02-05): delegates → phase info (enums + record struct) → data records → public utilities. One file tells the complete public API story.
+
+**Namespace convention:**
+- `PerformanceTester.{SliceName}` — public contract (`Api.cs`, `ServiceCollectionExtensions.cs`, `ValueObjects/`)
+- `PerformanceTester.{SliceName}.Internal` — implementation (`Internal/` directory)
+
+Consumers only ever `using PerformanceTester.{SliceName};`, never `.Internal`.
+
+**Combining with Guideline 02-05 (static class as module):** The module file lives in `Internal/` and follows the same co-location principle — context record, static operations, and small internal utilities nested inside a single `internal static class`. The shell gets its own file because it inherits from a framework base class.
+
+**Internal module nesting rule:** Internal types (context record, internal utilities) belong **nested inside** the module class. Public types (delegates, phase info, data records) belong in `Api.cs` as top-level types — they cannot be nested inside an `internal static class` and remain accessible to other projects.
+
+```csharp
+// ✅ Good — Api.cs has standalone public types, module has nested internal types
+
+// Api.cs (at project root)
+namespace PerformanceTester.ProcessMonitoring;
+
+public delegate void ReportProcessMonitorProgressDelegate(ProcessMonitorPhaseInfo phaseInfo);
+public delegate Task StartProcessMonitoringDelegate(ProcessId processId, ...);
+public readonly record struct ProcessMonitorPhaseInfo(...) { ... }
+public record ProcessMetrics(...);
+
+// Internal/ProcessMonitorModule.cs
+namespace PerformanceTester.ProcessMonitoring.Internal;
+
+internal static class ProcessMonitorModule
+{
+    internal sealed record MonitorContext { ... }          // nested — only used internally
+    public static async Task RunSamplingLoopAsync(...) { ... }  // called by shell
+    private static bool CollectSample(...) { ... }
+    internal sealed class ProcessCpuCalculator { ... }    // nested — only used by operations
+}
+
+// ❌ Avoid — public delegates nested inside internal class (forces class to be public)
+namespace PerformanceTester.ProcessMonitoring;
+
+internal static class ProcessMonitorModule  // must become public for delegates to be accessible
+{
+    public delegate void ReportProcessMonitorProgressDelegate(...);  // nested public in internal = inaccessible
+    internal sealed record MonitorContext { ... }
+}
+```
 
 **When the module file grows too large:** If the co-located module exceeds ~500 lines, extract the context record as the first split point. The reading order (delegates → records → operations) stays intact in the module file.
+
+**When `Internal/` needs subfolders:** Only add subfolders inside `Internal/` when a slice has genuinely distinct subsystems. For example, DockerMonitoring has `Internal/ConnectionModule.cs`, `Internal/StatsModule.cs`, and `Internal/MonitoringModule.cs` because connection management, Docker API stats, and monitoring orchestration are separate concerns. Keep the structure flat unless organic complexity demands otherwise.
 
 **Relationship to other guidelines:**
 
