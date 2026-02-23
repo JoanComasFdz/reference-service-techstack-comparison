@@ -259,17 +259,25 @@ Guidelines 1 and 2 (see [Core Architecture](01-core-architecture.md)) say "make 
 3. **Expose the public API** — delegate to context or static functions
 
 ```csharp
-// 1. Context record — all mutable state, no logic (Guideline 32)
-internal sealed record MonitorContext(NonEmptyString ContainerName)
+// 1. Module — delegates, context record, static operations (Guideline 30)
+internal static class DockerMonitorModule
 {
-    public ConcurrentBag<DockerMetrics> CollectedMetrics { get; } = new();
-    public TaskCompletionSource StartSignal { get; } = new();
-    public bool StreamingFailed { get; set; }
-}
+    // Delegates
+    public delegate void ReportDockerMonitorProgressDelegate(DockerMonitorPhaseInfo phaseInfo);
+    public delegate Task StartDockerMonitoringDelegate(
+        ReportDockerMonitorProgressDelegate reportProgress,
+        CancellationToken ct = default);
+    public delegate IReadOnlyCollection<DockerMetrics> GetDockerMetricsDelegate();
 
-// 2. Static operations — all logic, explicit parameters, no instance state
-internal static class MonitoringOperations
-{
+    // Context record — all mutable state, no logic (Guideline 32)
+    internal sealed record MonitorContext(NonEmptyString ContainerName)
+    {
+        public ConcurrentBag<DockerMetrics> CollectedMetrics { get; } = new();
+        public TaskCompletionSource StartSignal { get; } = new();
+        public bool StreamingFailed { get; set; }
+    }
+
+    // Static operations — all logic, explicit parameters, no instance state
     public static async Task RunStreamingLoopAsync(
         MonitorContext ctx,
         ContainerId initialContainerId,
@@ -282,24 +290,24 @@ internal static class MonitoringOperations
     }
 }
 
-// 3. Thin shell — owns context, wires lifecycle, no business logic
-internal sealed class DockerMonitorService : BackgroundService
+// 2. Thin shell — owns context, wires lifecycle, no business logic
+internal sealed class DockerMonitorBackgroundService : BackgroundService
 {
-    private readonly MonitorContext _ctx;
+    private readonly DockerMonitorModule.MonitorContext _ctx;
     private readonly GetContainerIdDelegate _getContainerId;
     // ... other delegates ...
 
-    public DockerMonitorService(NonEmptyString containerName, ...)
+    public DockerMonitorBackgroundService(NonEmptyString containerName, ...)
     {
-        _ctx = new MonitorContext(containerName);
+        _ctx = new DockerMonitorModule.MonitorContext(containerName);
         // ... store delegates ...
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Lifecycle wiring only: wait for signal, resolve ID, delegate to static function
+        // Lifecycle wiring only: wait for signal, resolve ID, delegate to module
         var streamingTask = Task.Run(
-            () => MonitoringOperations.RunStreamingLoopAsync(
+            () => DockerMonitorModule.RunStreamingLoopAsync(
                 _ctx, containerId, _getContainerId, ...),
             stoppingToken);
         // ... await shutdown ...
@@ -367,13 +375,42 @@ internal sealed class DockerClientWrapper
 
 - The class has no framework coupling — just make it static (Guideline 1) (see [Core Architecture](01-core-architecture.md))
 
-**File organization:**
+**File organization and naming:**
 
-| File                          | Content                        |
-| ----------------------------- | ------------------------------ |
-| `MonitorContext.cs`           | Mutable state record           |
-| `MonitoringOperations.cs`    | Static logic functions         |
-| `DockerMonitorService.cs`    | Thin shell (lifecycle only)    |
+| File | Class | Content |
+|------|-------|---------|
+| `{Concept}Module.cs` | `internal static class {Concept}Module` | Delegates, context record, phase info, enums, static operations |
+| `{Concept}BackgroundService.cs` | `internal sealed class {Concept}BackgroundService : BackgroundService` | Lifecycle wiring only |
+
+**Combining with Guideline 30 (static class as module):** The shell gets its own file because it inherits from a framework base class and cannot be static. Everything else follows Guideline 30 — co-locate delegate definitions, records (context, phase info, output), enums, and static functions in a single module file. No subdirectory needed.
+
+**Accessibility rule:** Internal types (delegates, context record, phase info, operations) belong inside the module. Public data contracts consumed by other slices (e.g., `DockerMetrics`, `ProcessMetrics`) stay in separate files at the project root — they cannot be nested inside an `internal static class` and remain accessible to other projects.
+
+```
+// ✅ Good — module file + shell file, no subdirectory
+ProcessMonitoring/
+├── ProcessMonitorModule.cs              ← internal: delegates, context, phase info, operations
+├── ProcessMonitorBackgroundService.cs   ← internal: BackgroundService shell
+├── ProcessMetrics.cs                    ← public: data record consumed by other slices
+├── ProcessCpuCalculator.cs              ← internal: standalone utility (unchanged)
+├── ProcessNameExtractor.cs              ← public: standalone utility (unchanged)
+├── ServiceCollectionExtensions.cs       ← public: DI registration
+└── ValueObjects/SampleCount.cs          ← public: value object
+
+// ❌ Avoid — one-type-per-file split in subdirectory
+ProcessMonitoring/
+└── Monitoring/
+    ├── ProcessMonitoringDelegates.cs     ← 30 lines, 4 type declarations
+    ├── MonitorContext.cs                 ← 17 lines, 1 record
+    ├── ProcessMonitorPhaseInfo.cs        ← 131 lines, 2 enums + 1 record struct
+    ├── MonitoringOperations.cs           ← 182 lines, 1 static class
+    ├── PhaseReporting.cs                 ← 51 lines, 1 static class
+    └── ProcessMonitorService.cs          ← 216 lines, shell
+```
+
+**Why:** Delegates, records, and enums that form a module's contract belong together — they change for the same reasons (Guideline 7) and are consumed together. Splitting them into individual files forces file-hopping to understand the module. The module file reads top-to-bottom: delegates → records → static operations (same reading order as Guideline 30).
+
+**When the module file grows too large:** If the co-located module exceeds ~500 lines, extract the context record as the first split point. The reading order (delegates → records → operations) stays intact in the module file.
 
 **Relationship to other guidelines:**
 
