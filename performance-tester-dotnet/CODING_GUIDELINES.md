@@ -2,7 +2,7 @@
 
 This document outlines the architectural and design principles used in this codebase, with a focus on functional programming patterns within C#/.NET 9.
 
-The 35 guidelines are organized into 6 focused documents. Load only the document relevant to your current task.
+The 36 guidelines are organized into 6 focused documents. Load only the document relevant to your current task.
 
 ---
 
@@ -12,7 +12,7 @@ The 35 guidelines are organized into 6 focused documents. Load only the document
 |---|---|
 | Writing a new class or function | [Core Architecture](coding-guidelines/01-core-architecture.md) (Guidelines 1-11) |
 | Adding or modifying delegates, wiring dependencies | [Delegates and Dependency Wiring](coding-guidelines/02-delegates-and-dependency-wiring.md) (Guidelines 12-14, 29-30, 35) |
-| Handling errors or using Result types | [Error Handling](coding-guidelines/03-error-handling.md) (Guidelines 15-17) |
+| Handling errors, using Result types, or returning optional values | [Error Handling and Absence](coding-guidelines/03-error-handling.md) (Guidelines 15-17, 36) |
 | Creating or modifying value objects | [Value Objects](coding-guidelines/04-value-objects.md) (Guidelines 18-22) |
 | Composing lambdas, managing state, or wrapping framework classes | [State and Composition Patterns](coding-guidelines/05-state-and-composition-patterns.md) (Guidelines 23-24, 31-34) |
 | Formatting or reviewing code style | [Formatting Rules](coding-guidelines/06-formatting.md) (Guidelines 25-28) |
@@ -27,8 +27,8 @@ The 35 guidelines are organized into 6 focused documents. Load only the document
 ### [02 - Delegates and Dependency Wiring](coding-guidelines/02-delegates-and-dependency-wiring.md)
 **Guidelines 12-14, 29-30, 35.** The complete delegate system: named delegates for single-operation dependencies, named delegates over `Action<T>`/`Func<T>`, interfaces at DI boundaries vs delegates internally, dependency composition with pre-composed capabilities, static class as module (co-located dependencies), delegate suffix convention (`Delegate` suffix).
 
-### [03 - Error Handling](coding-guidelines/03-error-handling.md)
-**Guidelines 15-17.** Result types instead of exceptions, `using static` for Result construction, dunet `Match` for exhaustive consumption, `IsFailure` + early return for sequential pipelines.
+### [03 - Error Handling and Absence](coding-guidelines/03-error-handling.md)
+**Guidelines 15-17, 36.** Result types instead of exceptions, `using static` for Result construction, dunet `Match` for exhaustive consumption, `IsFailure` + early return for sequential pipelines, `Option<T>` for domain absence vs `T?` for framework interop.
 
 ### [04 - Value Objects](coding-guidelines/04-value-objects.md)
 **Guidelines 18-22.** Eliminating primitive obsession: constrained primitives as sealed records, value object structure (`Create()` factory, `ToString()` override), unwrap `.Value` at boundaries, no unit tests for trivial validation, value object families via base record.
@@ -82,3 +82,4 @@ The 35 guidelines are organized into 6 focused documents. Load only the document
 | 33 | Immutable state threading | Is this a single-threaded pipeline? Return new records via `with` / `Aggregate`, no mutation |
 | 34 | Thin shell pattern | Does this class inherit from a framework base? Own context, wire lifecycle, delegate to static functions |
 | 35 | Delegate suffix | Does the delegate type name end with `Delegate`? |
+| 36 | Option for absence | Does this method return "no value" as a domain concept? Use `Option<T>`, not `T?` |
