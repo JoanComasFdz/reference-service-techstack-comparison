@@ -3,7 +3,6 @@ using PerformanceTester.Functional;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.DockerMonitoring;
-using PerformanceTester.DockerMonitoring.Monitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.ValueObjects;
@@ -78,7 +77,7 @@ internal static class EventTestPhase
         var systemMonitor = services.GetRequiredService<ISystemMonitor>();
         var metricsCollector = services.GetRequiredService<IMetricsCollector>();
         var startProcessMonitoring = services.GetRequiredService<ProcessMonitoring.StartProcessMonitoringDelegate>();
-        var startDockerMonitoring = services.GetRequiredService<DockerMonitoring.Monitoring.StartDockerMonitoringDelegate>();
+        var startDockerMonitoring = services.GetRequiredService<DockerMonitoring.StartDockerMonitoringDelegate>();
 
         return new Dependencies(
             SystemCpuCount: CpuCount.FromInt(systemMonitor.CpuCount),

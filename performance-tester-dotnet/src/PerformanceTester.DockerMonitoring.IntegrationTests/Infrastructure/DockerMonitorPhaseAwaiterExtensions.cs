@@ -1,5 +1,4 @@
 using PerformanceTester.DockerMonitoring;
-using PerformanceTester.DockerMonitoring.Monitoring;
 using Xunit;
 
 namespace PerformanceTester.DockerMonitoring.IntegrationTests.Infrastructure;

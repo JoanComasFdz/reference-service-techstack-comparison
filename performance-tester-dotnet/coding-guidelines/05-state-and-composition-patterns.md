@@ -419,7 +419,7 @@ ProcessMonitoring/
 ├── ServiceCollectionExtensions.cs       ← public: DI registration
 ├── ValueObjects/SampleCount.cs          ← public: value object (has validation logic)
 └── Internal/
-    ├── ProcessMonitorModule.cs          ← internal: context record, static operations
+    ├── ProcessMonitorModule.cs          ← internal: context record, static operations, ProcessCpuCalculator, ProcessNameExtractor
     └── ProcessMonitorBackgroundService.cs ← internal: BackgroundService shell
 
 // ❌ Avoid — flat at root, can't tell public from internal
