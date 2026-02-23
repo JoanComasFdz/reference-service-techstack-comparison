@@ -389,6 +389,29 @@ Library projects (consumed by other projects via `<ProjectReference>`) use a vis
 
 **The rule:** Root files define the public contract; `Internal/` contains the implementation.
 
+**Type visibility in `Internal/`:** Every type declaration (class, record, struct, enum, delegate) inside the `Internal/` directory MUST use the `internal` access modifier — never `public`. Members of those internal types (methods, properties, constructors) CAN be `public` when needed for access by other internal types or by the DI registration layer. A `public` method on an `internal` class is effectively internal to the assembly; the containing type's visibility governs external accessibility.
+
+```csharp
+// ✅ Good — internal type with public members
+internal static class ProcessMonitorModule
+{
+    // Public method — callable by the internal BackgroundService shell
+    public static async Task RunSamplingLoopAsync(MonitorContext ctx, ...) { ... }
+}
+
+internal sealed class ProcessMonitorBackgroundService : BackgroundService
+{
+    // Public method — wrapped by a public delegate in ServiceCollectionExtensions.cs
+    public async Task StartMonitoringAsync(ProcessId processId, ...) { ... }
+}
+
+// ❌ Avoid — public type inside Internal/ directory
+public static class ProcessMonitorModule    // WRONG: type itself must be internal
+{
+    public static async Task RunSamplingLoopAsync(...) { ... }
+}
+```
+
 ```
 // ✅ Good — visibility-first structure
 ProcessMonitoring/
