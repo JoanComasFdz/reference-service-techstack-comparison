@@ -99,7 +99,7 @@ internal static class StatsModule
     /// <summary>
     /// Resolves container name to container ID (cached).
     /// </summary>
-    public static async Task<Result<string, DockerError>> GetContainerIdAsync(
+    private static async Task<Result<string, DockerError>> GetContainerIdAsync(
         DockerClient client,
         ConcurrentDictionary<string, string> cache,
         string containerName,
@@ -142,7 +142,7 @@ internal static class StatsModule
     /// Streams raw Docker stats as an async enumerable.
     /// Bridges Docker.DotNet's IProgress callback to IAsyncEnumerable via Channel.
     /// </summary>
-    public static async IAsyncEnumerable<ContainerStatsResponse> StreamStatsRawAsync(
+    private static async IAsyncEnumerable<ContainerStatsResponse> StreamStatsRawAsync(
         DockerClient client,
         string containerId,
         [EnumeratorCancellation] CancellationToken ct)
@@ -169,7 +169,7 @@ internal static class StatsModule
     /// Gets a single container stats snapshot (non-streaming).
     /// Uses TaskCompletionSource to bridge Docker.DotNet's IProgress callback.
     /// </summary>
-    public static async Task<Result<ContainerStatsResponse, DockerError>> GetSnapshotAsync(
+    private static async Task<Result<ContainerStatsResponse, DockerError>> GetSnapshotAsync(
         DockerClient client,
         string containerId,
         CancellationToken ct = default)
@@ -200,7 +200,7 @@ internal static class StatsModule
     /// Composes raw stats stream with <see cref="TryConvertToMetrics"/>,
     /// filtering out invalid stats (zeroed PreCPUStats).
     /// </summary>
-    public static async IAsyncEnumerable<DockerMetrics> StreamMetricsAsync(
+    private static async IAsyncEnumerable<DockerMetrics> StreamMetricsAsync(
         DockerClient client,
         string containerId,
         NonEmptyString containerName,
@@ -222,7 +222,7 @@ internal static class StatsModule
     /// Converts a raw Docker stats response into a <see cref="DockerMetrics"/> if the stats are valid.
     /// Returns None when PreCPUStats are invalid (first stats push from Docker has zeroed values).
     /// </summary>
-    public static Option<DockerMetrics> TryConvertToMetrics(
+    private static Option<DockerMetrics> TryConvertToMetrics(
         ContainerStatsResponse stats,
         NonEmptyString containerName,
         DateTime timestamp)
@@ -246,7 +246,7 @@ internal static class StatsModule
     /// Validates that ContainerStatsResponse has valid PreCPUStats for CPU calculation.
     /// The first stats from a stream often have zeroed PreCPUStats.
     /// </summary>
-    public static bool HasValidPreCpuStats(ContainerStatsResponse stats) => stats.PreCPUStats.SystemUsage > 0;
+    private static bool HasValidPreCpuStats(ContainerStatsResponse stats) => stats.PreCPUStats.SystemUsage > 0;
 
     /// <summary>
     /// Calculates CPU percentage from Docker stats.
@@ -256,7 +256,7 @@ internal static class StatsModule
     /// Matches Docker CLI (<c>docker stats</c>) and Python reference implementation.
     /// Stateless: Docker API provides both current and previous stats in a single response.
     /// </remarks>
-    public static double CalculateCpuPercent(ContainerStatsResponse stats)
+    private static double CalculateCpuPercent(ContainerStatsResponse stats)
     {
         var cpuDelta = stats.CPUStats.CPUUsage.TotalUsage -
                        stats.PreCPUStats.CPUUsage.TotalUsage;

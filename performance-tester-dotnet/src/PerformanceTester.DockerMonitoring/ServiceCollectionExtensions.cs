@@ -47,16 +47,23 @@ public static class ServiceCollectionExtensions
                 sp => sp.GetRequiredKeyedService<DockerMonitorBackgroundService>(name.Value));
         });
 
-        IEnumerable<DockerMonitorBackgroundService> resolveMonitors(IServiceProvider sp) => containerNames
-            .Select(name => sp.GetRequiredKeyedService<DockerMonitorBackgroundService>(name.Value));
+        IEnumerable<DockerMonitorBackgroundService> resolveMonitors(IServiceProvider sp)
+        {
+            return containerNames
+                .Select(name => sp.GetRequiredKeyedService<DockerMonitorBackgroundService>(name.Value));
+        }
+
+        Task forAllMonitors(IServiceProvider sp, Func<DockerMonitorBackgroundService, Task> action)
+        {
+            return Task.WhenAll(resolveMonitors(sp).Select(action));
+        }
 
         // Register the 3 public named delegates
         services.AddSingleton<WarmupDockerMonitorsDelegate>(
-            sp => ct => Task.WhenAll(resolveMonitors(sp).Select(m => m.WarmupAsync(ct))));
+            sp => ct => forAllMonitors(sp, m => m.WarmupAsync(ct)));
 
         services.AddSingleton<StartDockerMonitoringDelegate>(
-            sp => (progress, ct) => Task.WhenAll(
-                resolveMonitors(sp).Select(m => m.StartMonitoringAsync(progress, ct))));
+            sp => (progress, ct) => forAllMonitors(sp, m => m.StartMonitoringAsync(progress, ct)));
 
         services.AddSingleton<GetDockerMetricsDelegate>(
             sp => containerName => resolveMonitors(sp)

@@ -86,10 +86,13 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
         _logger.LogInformation("First sample collected for container {ContainerName}", _ctx.ContainerName);
     }
 
-    public IReadOnlyCollection<DockerMetrics> GetCollectedMetrics() => _ctx.CollectedMetrics
-        .OrderBy(m => m.Timestamp)
-        .ToList()
-        .AsReadOnly();
+    public IReadOnlyCollection<DockerMetrics> GetCollectedMetrics()
+    {
+        return _ctx.CollectedMetrics
+            .OrderBy(m => m.Timestamp)
+            .ToList()
+            .AsReadOnly();
+    }
 
     // --- Lifecycle (thin orchestration only) ---
 

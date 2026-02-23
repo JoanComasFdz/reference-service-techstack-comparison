@@ -184,16 +184,15 @@ internal static class MonitoringModule
 
             var idResult = await deps.GetContainerId(ctx.ContainerName.Value, ct);
 
-            if (idResult.IsFailure)
-            {
-                logger.LogWarning(
-                    "Container {ContainerName} not found during reconnection",
-                    ctx.ContainerName);
-            }
-
-            var resolvedContainerId = idResult.IsSuccess
-                ? ContainerId.FromString(idResult.SuccessValue)
-                : disconnectedState.ContainerId;
+            var resolvedContainerId = idResult.Match(
+                success: s => ContainerId.FromString(s.Value),
+                failure: f =>
+                {
+                    logger.LogWarning(
+                        "Container {ContainerName} not found during reconnection",
+                        ctx.ContainerName);
+                    return disconnectedState.ContainerId;
+                });
 
             return new ConnectionState.Connecting(
                 resolvedContainerId,
@@ -219,36 +218,31 @@ internal static class MonitoringModule
             ConnectionState state,
             NonEmptyString containerName) => state switch
         {
-            ConnectionState.Connecting { AttemptNumber.Value: 0 } =>
-                DockerMonitorPhaseInfo.Starting(
-                    DockerMonitorPhase.StreamConnecting,
-                    containerName,
-                    message: $"Connecting to {containerName}..."),
+            ConnectionState.Connecting { AttemptNumber.Value: 0 } => DockerMonitorPhaseInfo.Starting(
+                DockerMonitorPhase.StreamConnecting,
+                containerName,
+                message: $"Connecting to {containerName}..."),
 
-            ConnectionState.Connecting c =>
-                DockerMonitorPhaseInfo.Starting(
-                    DockerMonitorPhase.StreamConnecting,
-                    containerName,
-                    message: $"Reconnecting to {containerName} (attempt {c.AttemptNumber + 1})..."),
+            ConnectionState.Connecting c => DockerMonitorPhaseInfo.Starting(
+                DockerMonitorPhase.StreamConnecting,
+                containerName,
+                message: $"Reconnecting to {containerName} (attempt {c.AttemptNumber + 1})..."),
 
-            ConnectionState.Connected =>
-                DockerMonitorPhaseInfo.Completed(
-                    DockerMonitorPhase.StreamConnected,
-                    containerName,
-                    message: $"Connected to {containerName}"),
+            ConnectionState.Connected => DockerMonitorPhaseInfo.Completed(
+                DockerMonitorPhase.StreamConnected,
+                containerName,
+                message: $"Connected to {containerName}"),
 
-            ConnectionState.Disconnected d =>
-                DockerMonitorPhaseInfo.Failed(
-                    DockerMonitorPhase.StreamDisconnected,
-                    containerName,
-                    message: $"Disconnected, retrying in {d.NextBackoff.TotalSeconds:F1}s " +
-                             $"(attempt {d.ConsecutiveFailures}/{StreamingConstants.MaxReconnectAttempts})"),
+            ConnectionState.Disconnected d => DockerMonitorPhaseInfo.Failed(
+                DockerMonitorPhase.StreamDisconnected,
+                containerName,
+                message: $"Disconnected, retrying in {d.NextBackoff.TotalSeconds:F1}s " +
+                         $"(attempt {d.ConsecutiveFailures}/{StreamingConstants.MaxReconnectAttempts})"),
 
-            ConnectionState.Failed f =>
-                DockerMonitorPhaseInfo.Failed(
-                    DockerMonitorPhase.StreamFailed,
-                    containerName,
-                    message: $"Connection failed permanently after {f.TotalAttempts} attempts"),
+            ConnectionState.Failed f => DockerMonitorPhaseInfo.Failed(
+                DockerMonitorPhase.StreamFailed,
+                containerName,
+                message: $"Connection failed permanently after {f.TotalAttempts} attempts"),
 
             _ => throw new ArgumentOutOfRangeException(nameof(state))
         };
