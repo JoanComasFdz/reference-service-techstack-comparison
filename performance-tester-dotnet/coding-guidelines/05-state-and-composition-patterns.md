@@ -1,6 +1,6 @@
 # State and Composition Patterns
 
-> Guidelines 23-24, 31-34. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
+> Guidelines 05-01 through 05-06. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
 
 Advanced patterns for composing functions, binding lambdas, and managing state. Covers higher-order helpers, lambda binding lifetime buckets, mutable vs immutable state records, and the thin shell pattern for framework-coupled classes.
 
@@ -8,7 +8,7 @@ Advanced patterns for composing functions, binding lambdas, and managing state. 
 
 ## Function Composition
 
-### 23. Higher-Order Helper Functions for Structural Duplication
+### 05-01. Higher-Order Helper Functions for Structural Duplication
 
 When the same structure (e.g., iterate + await all) is repeated across call sites with only the operation changing, extract the structure as a function that takes a function.
 
@@ -27,7 +27,7 @@ Task forAllMonitors(Func<IMonitor, Task> action) => Task.WhenAll(monitors.Select
 
 **When NOT to use:** Only one call site, or the structure is trivial (one-liner with no repetition).
 
-### 24. Behavioral Decisions Belong in the Consumer, Not the Caller
+### 05-02. Behavioral Decisions Belong in the Consumer, Not the Caller
 
 When a class receives a shared function whose signature has a parameter it doesn't need, that class should accept the full signature and provide the default internally. The caller shouldn't encode knowledge about what the consumer does or doesn't care about.
 
@@ -45,7 +45,7 @@ var task = trackEvents(count, timeout, progress: null);
 
 ## Lambda Binding Strategy
 
-### 31. Three-Bucket Rule for Lambda Binding
+### 05-03. Three-Bucket Rule for Lambda Binding
 
 When composing delegates (lambdas) in a dependencies class or factory, every value falls into one of three buckets based on its **lifetime**. Choosing the wrong bucket leads to either stale closures or unnecessary parameters.
 
@@ -122,12 +122,12 @@ var deps = new Dependencies(
 
 **Why this matters:**
 
-- **Baking in a runtime value** forces you to delay delegate construction, breaking the clean Configure → Build → Run separation (Guideline 29) (see [Delegates and Dependency Wiring](02-delegates-and-dependency-wiring.md))
+- **Baking in a runtime value** forces you to delay delegate construction, breaking the clean Configure → Build → Run separation (Guideline 02-04) (see [Delegates and Dependency Wiring](02-delegates-and-dependency-wiring.md))
 - **Passing a fixed value as a parameter** clutters every call site with values that never change
 - **Baking in a mutable value** creates stale closures that silently use outdated data
 - **Using a reader delegate for an immutable value** adds unnecessary indirection
 
-### 32. Context Record Pattern (Shared Mutable State)
+### 05-04. Context Record Pattern (Shared Mutable State)
 
 When a class or function group has mutable state, centralize all mutable state in a single record. Pass the record explicitly to static functions. The value is **visibility** — all state that can change lives in one place.
 
@@ -174,7 +174,7 @@ ctx = ctx with { StreamingFailed = true };  // creates new record
 if (ctx.StreamingFailed) { ... }  // always false — different reference
 ```
 
-Types like `ConcurrentBag<T>`, `TaskCompletionSource`, and `SemaphoreSlim` are inherently mutable — other code holds references to the original instances. Copying them into a new record would fork the state. For single-threaded pipelines where immutability IS possible, see Guideline 33.
+Types like `ConcurrentBag<T>`, `TaskCompletionSource`, and `SemaphoreSlim` are inherently mutable — other code holds references to the original instances. Copying them into a new record would fork the state. For single-threaded pipelines where immutability IS possible, see Guideline 05-05.
 
 **When to use:** Any class or function group that has mutable state — even a single field.
 
@@ -188,11 +188,11 @@ Types like `ConcurrentBag<T>`, `TaskCompletionSource`, and `SemaphoreSlim` are i
 
 **Relationship to other guidelines:**
 
-- Extends **Guideline 2** (explicit parameters) from single values to state bundles (see [Core Architecture](01-core-architecture.md))
-- Used by **Guideline 34** (thin shell) as the state extraction technique
-- For sequential code, prefer **Guideline 33** (immutable state threading)
+- Extends **Guideline 01-02** (explicit parameters) from single values to state bundles (see [Core Architecture](01-core-architecture.md))
+- Used by **Guideline 05-06** (thin shell) as the state extraction technique
+- For sequential code, prefer **Guideline 05-05** (immutable state threading)
 
-### 33. Immutable State Threading (Sequential Pipelines)
+### 05-05. Immutable State Threading (Sequential Pipelines)
 
 When state flows through a single-threaded pipeline — no concurrent access, one step at a time — return a **new** record from each step instead of mutating. The caller reassigns the variable; the record itself is never mutated. This is the FP fold/reduce pattern in C#.
 
@@ -226,13 +226,13 @@ foreach (var line in lines)
 }
 ```
 
-**Why this works here but not in Guideline 32:** There is only one reference to the state. Reassigning `state = ...` updates the only copy. No other thread holds a stale reference.
+**Why this works here but not in Guideline 05-04:** There is only one reference to the state. Reassigning `state = ...` updates the only copy. No other thread holds a stale reference.
 
 **When to use:** Sequential processing (loops, pipelines, fold/reduce patterns) where state accumulates across steps but is only accessed by one thread.
 
 **When NOT to use:**
 
-- State is shared across concurrent tasks — use Guideline 32 (mutable context record)
+- State is shared across concurrent tasks — use Guideline 05-04 (mutable context record)
 - State contains inherently mutable types (`ConcurrentBag`, `TaskCompletionSource`) — these can't be copied meaningfully
 
 **Structure:**
@@ -244,22 +244,22 @@ foreach (var line in lines)
 
 **Relationship to other guidelines:**
 
-- Companion to **Guideline 32** — same idea (explicit state), different concurrency model
-- Extends **Guideline 1** (static classes) — static functions that transform state (see [Core Architecture](01-core-architecture.md))
-- Extends **Guideline 2** (explicit parameters) — state is an input AND an output (see [Core Architecture](01-core-architecture.md))
+- Companion to **Guideline 05-04** — same idea (explicit state), different concurrency model
+- Extends **Guideline 01-01** (static classes) — static functions that transform state (see [Core Architecture](01-core-architecture.md))
+- Extends **Guideline 01-02** (explicit parameters) — state is an input AND an output (see [Core Architecture](01-core-architecture.md))
 
-### 34. Thin Shell Pattern for Framework-Coupled Classes
+### 05-06. Thin Shell Pattern for Framework-Coupled Classes
 
-Guidelines 1 and 2 (see [Core Architecture](01-core-architecture.md)) say "make it static" and "pass all dependencies explicitly." But some classes _can't_ be static — they inherit from framework base classes (`BackgroundService`, `DbContext`, `ControllerBase`). These classes accumulate mutable state fields, business logic methods, and lifecycle management in one file, making them hard to test and reason about.
+Guidelines 01-01 and 01-02 (see [Core Architecture](01-core-architecture.md)) say "make it static" and "pass all dependencies explicitly." But some classes _can't_ be static — they inherit from framework base classes (`BackgroundService`, `DbContext`, `ControllerBase`). These classes accumulate mutable state fields, business logic methods, and lifecycle management in one file, making them hard to test and reason about.
 
 **The pattern:** Extract everything out. The framework-inheriting class becomes a **thin shell** with three responsibilities only:
 
-1. **Own the context** — a context record holding all mutable state (Guideline 32 or 33)
+1. **Own the context** — a context record holding all mutable state (Guideline 05-04 or 05-05)
 2. **Wire lifecycle** — connect framework hooks to static functions
 3. **Expose the public API** — delegate to context or static functions
 
 ```csharp
-// 1. Module — delegates, context record, static operations (Guideline 30)
+// 1. Module — delegates, context record, static operations (Guideline 02-05)
 internal static class DockerMonitorModule
 {
     // Delegates
@@ -269,7 +269,7 @@ internal static class DockerMonitorModule
         CancellationToken ct = default);
     public delegate IReadOnlyCollection<DockerMetrics> GetDockerMetricsDelegate();
 
-    // Context record — all mutable state, no logic (Guideline 32)
+    // Context record — all mutable state, no logic (Guideline 05-04)
     internal sealed record MonitorContext(NonEmptyString ContainerName)
     {
         public ConcurrentBag<DockerMetrics> CollectedMetrics { get; } = new();
@@ -373,7 +373,7 @@ internal sealed class DockerClientWrapper
 
 **When NOT to use:**
 
-- The class has no framework coupling — just make it static (Guideline 1) (see [Core Architecture](01-core-architecture.md))
+- The class has no framework coupling — just make it static (Guideline 01-01) (see [Core Architecture](01-core-architecture.md))
 
 **File organization and naming:**
 
@@ -382,7 +382,7 @@ internal sealed class DockerClientWrapper
 | `{Concept}Module.cs` | `internal static class {Concept}Module` | Delegates, context record, phase info, enums, static operations |
 | `{Concept}BackgroundService.cs` | `internal sealed class {Concept}BackgroundService : BackgroundService` | Lifecycle wiring only |
 
-**Combining with Guideline 30 (static class as module):** The shell gets its own file because it inherits from a framework base class and cannot be static. Everything else follows Guideline 30 — co-locate delegate definitions, records (context, phase info, output), enums, and static functions in a single module file. No subdirectory needed.
+**Combining with Guideline 02-05 (static class as module):** The shell gets its own file because it inherits from a framework base class and cannot be static. Everything else follows Guideline 02-05 — co-locate delegate definitions, records (context, phase info, output), enums, and static functions in a single module file. No subdirectory needed.
 
 **Accessibility rule:** Internal types (delegates, context record, phase info, operations) belong inside the module. Public data contracts consumed by other slices (e.g., `DockerMetrics`, `ProcessMetrics`) stay in separate files at the project root — they cannot be nested inside an `internal static class` and remain accessible to other projects.
 
@@ -408,14 +408,14 @@ ProcessMonitoring/
     └── ProcessMonitorService.cs          ← 216 lines, shell
 ```
 
-**Why:** Delegates, records, and enums that form a module's contract belong together — they change for the same reasons (Guideline 7) and are consumed together. Splitting them into individual files forces file-hopping to understand the module. The module file reads top-to-bottom: delegates → records → static operations (same reading order as Guideline 30).
+**Why:** Delegates, records, and enums that form a module's contract belong together — they change for the same reasons (Guideline 01-07) and are consumed together. Splitting them into individual files forces file-hopping to understand the module. The module file reads top-to-bottom: delegates → records → static operations (same reading order as Guideline 02-05).
 
 **When the module file grows too large:** If the co-located module exceeds ~500 lines, extract the context record as the first split point. The reading order (delegates → records → operations) stays intact in the module file.
 
 **Relationship to other guidelines:**
 
-- Applies **Guideline 32** (context record) or **Guideline 33** (immutable state) for the state extraction
-- Extends **Guideline 1** (static classes) to cases where the class itself can't be static (see [Core Architecture](01-core-architecture.md))
-- Applies **Guideline 2** (explicit parameters) — static functions take context + delegates, not fields (see [Core Architecture](01-core-architecture.md))
-- Uses **Guideline 12** (named delegates) for the operations that the shell passes to static functions (see [Delegates and Dependency Wiring](02-delegates-and-dependency-wiring.md))
-- Follows **Guideline 14** (interfaces at DI boundaries, delegates internally) — the shell wires delegates to static functions (see [Delegates and Dependency Wiring](02-delegates-and-dependency-wiring.md))
+- Applies **Guideline 05-04** (context record) or **Guideline 05-05** (immutable state) for the state extraction
+- Extends **Guideline 01-01** (static classes) to cases where the class itself can't be static (see [Core Architecture](01-core-architecture.md))
+- Applies **Guideline 01-02** (explicit parameters) — static functions take context + delegates, not fields (see [Core Architecture](01-core-architecture.md))
+- Uses **Guideline 02-01** (named delegates) for the operations that the shell passes to static functions (see [Delegates and Dependency Wiring](02-delegates-and-dependency-wiring.md))
+- Follows **Guideline 02-03** (interfaces at DI boundaries, delegates internally) — the shell wires delegates to static functions (see [Delegates and Dependency Wiring](02-delegates-and-dependency-wiring.md))
