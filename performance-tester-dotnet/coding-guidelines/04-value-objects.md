@@ -1,12 +1,12 @@
 # Value Objects (Eliminating Primitive Obsession)
 
-> Guidelines 18-22. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
+> Guidelines 04-01 through 04-05. For the full index and routing table, see [CODING_GUIDELINES.md](../CODING_GUIDELINES.md).
 
 When a primitive (`int`, `string`, `TimeSpan`) has domain rules (valid range, format, non-empty), wrap it in a sealed record with a `Create()` factory returning `Result<T, TError>`. Once constructed, the value is guaranteed valid — "parse, don't validate."
 
 ---
 
-### 18. Use Value Objects for Constrained Primitives
+### 04-01. Use Value Objects for Constrained Primitives
 
 ```csharp
 // ✅ Good - invalid state is unrepresentable
@@ -42,7 +42,7 @@ if (options.Events < 1 || options.Events > 1_000_000) return "error";
 - The constraint is only checked once at a single boundary
 - The overhead outweighs the clarity (e.g., internal loop counters)
 
-### 19. Value Object Structure
+### 04-02. Value Object Structure
 
 Follow this exact structure for consistency:
 
@@ -77,7 +77,7 @@ public sealed record EventCount
 - **`Create()` accepts the wider type** — e.g., `Create(int)` even if internal storage is `ushort`, to avoid casting noise at call sites
 - **`ToString()` override** — enables seamless use in string interpolation and structured logging
 
-### 20. Unwrap `.Value` at Boundaries, Not Everywhere
+### 04-03. Unwrap `.Value` at Boundaries, Not Everywhere
 
 Downstream interfaces (e.g., `IEventPublisher.PublishEventsAsync(int count)`) still accept primitives. Unwrap `.Value` at the call site where the boundary is crossed.
 
@@ -95,7 +95,7 @@ var count = config.EventCount.Value;
 _logger.LogInformation("Processing {Count} events", count);
 ```
 
-### 21. No Unit Tests for Value Objects
+### 04-04. No Unit Tests for Value Objects
 
 Value object validation logic (range checks, format checks) is trivially correct by inspection. The factory + Result pattern makes invalid construction impossible at compile time. Existing integration and validator tests exercise the parse path indirectly.
 
@@ -111,7 +111,7 @@ EventCount.Create(1000001) // → Failure("Events must be between 1 and 1,000,00
 
 **Exception:** If a value object has complex parsing logic (regex, multi-step validation), tests may be warranted.
 
-### 22. Value Object Families via Base Record
+### 04-05. Value Object Families via Base Record
 
 When multiple value objects share identical validation but represent distinct domain concepts, use a non-sealed base `record` with a `protected` constructor and a generic `Create<T>` factory. Derive sealed tag types that delegate to the base. This eliminates code duplication while providing compile-time swap prevention — you cannot accidentally pass a `RabbitMqContainerName` where a `PostgresContainerName` is expected.
 
