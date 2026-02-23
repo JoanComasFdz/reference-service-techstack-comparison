@@ -3,7 +3,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.IntegrationTesting.Logging;
-using PerformanceTester.ProcessMonitoring.Monitoring;
 using Xunit.Abstractions;
 
 namespace PerformanceTester.ProcessMonitoring.IntegrationTests.Infrastructure;
@@ -71,22 +70,6 @@ public sealed class ProcessMonitoring : IAsyncDisposable
         }
 
         await _host.StartAsync(cancellationToken);
-    }
-
-    /// <summary>
-    /// Starts monitoring the specified process asynchronously.
-    /// Must be called after StartAsync() and before monitoring can begin.
-    /// </summary>
-    /// <param name="processId">Process ID to monitor.</param>
-    /// <param name="reportProgress">Progress reporter for phase notifications.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Task that completes when the first sample has been collected.</returns>
-    public async Task StartMonitoringAsync(
-        ProcessId processId,
-        ReportProcessMonitorProgressDelegate reportProgress,
-        CancellationToken cancellationToken = default)
-    {
-        await StartMonitoring(processId, reportProgress, cancellationToken);
     }
 
     /// <summary>

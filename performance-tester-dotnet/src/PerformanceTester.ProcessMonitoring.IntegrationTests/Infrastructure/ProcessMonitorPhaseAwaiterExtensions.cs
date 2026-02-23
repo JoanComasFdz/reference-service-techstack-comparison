@@ -1,4 +1,3 @@
-using PerformanceTester.ProcessMonitoring.Monitoring;
 using Xunit;
 
 namespace PerformanceTester.ProcessMonitoring.IntegrationTests.Infrastructure;

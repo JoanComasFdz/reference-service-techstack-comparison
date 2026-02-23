@@ -27,7 +27,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
         // Start monitoring the current process (waits for first sample - returns after first sample collected)
-        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter.Report);
+        await System.ProcessMonitoring.StartMonitoring(currentProcessId, phaseAwaiter.Report);
 
         // Stop BackgroundServices (allows metrics collection to complete)
         await System.ProcessMonitoring.StopAsync();
@@ -51,7 +51,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
         // Start monitoring the current process
-        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter.Report);
+        await System.ProcessMonitoring.StartMonitoring(currentProcessId, phaseAwaiter.Report);
 
         // Act - Wait for exactly 5 samples (deterministic, no timing assumption)
         await phaseAwaiter.WaitForSampleCountAsync(minimumSampleCount: 5);
@@ -77,7 +77,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
         // Start monitoring
-        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter.Report);
+        await System.ProcessMonitoring.StartMonitoring(currentProcessId, phaseAwaiter.Report);
 
         // Wait for first sample before generating load
         await phaseAwaiter.WaitForSampleCountAsync(minimumSampleCount: 1);
@@ -110,7 +110,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
 
         // Start monitoring
-        await System.ProcessMonitoring.StartMonitoringAsync(currentProcessId, phaseAwaiter.Report);
+        await System.ProcessMonitoring.StartMonitoring(currentProcessId, phaseAwaiter.Report);
 
         // Act - Wait for at least 3 samples to verify chronological order
         await phaseAwaiter.WaitForSampleCountAsync(minimumSampleCount: 3);

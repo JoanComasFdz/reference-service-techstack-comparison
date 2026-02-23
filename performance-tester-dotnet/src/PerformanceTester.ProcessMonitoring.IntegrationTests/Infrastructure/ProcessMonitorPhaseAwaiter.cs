@@ -1,5 +1,3 @@
-using PerformanceTester.ProcessMonitoring.Monitoring;
-
 namespace PerformanceTester.ProcessMonitoring.IntegrationTests.Infrastructure;
 
 /// <summary>

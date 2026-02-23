@@ -1,6 +1,5 @@
 using JoanComasFdz.AssertingThat;
 using PerformanceTester.Infrastructure.ValueObjects;
-using PerformanceTester.ProcessMonitoring.Monitoring;
 using Xunit;
 
 namespace PerformanceTester.ProcessMonitoring.IntegrationTests.Infrastructure;
