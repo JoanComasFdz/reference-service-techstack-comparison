@@ -7,17 +7,17 @@
 
 ---
 
-## Amendment 1: New Guideline 18 — Option<T> for Domain Absence
+## Amendment 1: New Guideline 36 — Option<T> for Domain Absence
 
 ### Placement
 
-Insert as **Guideline 18** in `coding-guidelines/03-error-handling.md`.
+Append as **Guideline 36** in `coding-guidelines/03-error-handling.md`. Non-contiguous numbering within a document is established practice (document 02 has Guidelines 12-14, 29-30, 35).
 
 - Rename document title: "Error Handling with Result Types" → "Error Handling and Absence"
-- Update header: "Guidelines 15-17" → "Guidelines 15-18"
-- Renumber existing Guidelines 18-22 (Value Objects) → 19-23
-- Update `04-value-objects.md` header: "Guidelines 18-22" → "Guidelines 19-23"
-- Update routing table in `CODING_GUIDELINES.md` and all cross-references in other docs
+- Update header: "Guidelines 15-17" → "Guidelines 15-17, 36"
+- Update routing table in `CODING_GUIDELINES.md`: add Guideline 36 to error handling row, update "35 guidelines" → "36 guidelines"
+- Update `CLAUDE.md`: update "35 guidelines" count (3 occurrences)
+- **No renumbering** of any existing guidelines
 
 ### Guideline Content
 
@@ -179,16 +179,14 @@ ProcessMonitoring/
 
 | File | Change |
 |------|--------|
-| `coding-guidelines/03-error-handling.md` | Add Guideline 18, rename title, update header |
-| `coding-guidelines/04-value-objects.md` | Renumber 18-22 → 19-23, update header |
+| `coding-guidelines/03-error-handling.md` | Add Guideline 36, rename title, update header |
 | `coding-guidelines/05-state-and-composition-patterns.md` | Amend Guideline 34 file organization section |
-| `CODING_GUIDELINES.md` | Update routing table, renumber summary checklist |
+| `CODING_GUIDELINES.md` | Update routing table, add row 36 to summary checklist, update "35 guidelines" → "36 guidelines" |
+| `CLAUDE.md` | Update "35 guidelines" count (3 occurrences) |
 
-### Cross-References to Update
+### No Renumbering
 
-All guideline documents that reference Guidelines 18-22 by number must be updated to 19-23. Search for:
-- "Guideline 18" / "Guideline 19" / "Guideline 20" / "Guideline 21" / "Guideline 22"
-- "#18" / "#19" / "#20" / "#21" / "#22" in markdown links
+Guideline 36 is appended — no existing guidelines change number. No cross-reference updates needed beyond the files listed above.
 
 ### No Code Changes
 
