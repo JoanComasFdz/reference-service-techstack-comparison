@@ -3,9 +3,10 @@ using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.ProcessMonitoring;
+using PerformanceTester.Orchestration;
 using PerformanceTester.Reporting;
 
-namespace PerformanceTester.Orchestration;
+namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Internal aggregation of test results from all phases.

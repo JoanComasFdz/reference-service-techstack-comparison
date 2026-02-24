@@ -6,10 +6,11 @@ using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.ValueObjects;
+using PerformanceTester.Orchestration;
 using Serilog.Context;
 using static PerformanceTester.Functional.Result<PerformanceTester.Infrastructure.ValueObjects.ProcessId, string>;
 
-namespace PerformanceTester.Orchestration;
+namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Phase 0: Service discovery, infrastructure initialization, database/queue clearing.

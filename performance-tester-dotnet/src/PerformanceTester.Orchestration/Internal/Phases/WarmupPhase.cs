@@ -4,10 +4,11 @@ using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.Orchestration.ValueObjects;
+using PerformanceTester.Orchestration;
 using Serilog.Context;
 using static PerformanceTester.Functional.Result<PerformanceTester.Functional.Unit, string>;
 
-namespace PerformanceTester.Orchestration;
+namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Phase 0.5: Non-measured warmup events and API calls. Failures abort the test.

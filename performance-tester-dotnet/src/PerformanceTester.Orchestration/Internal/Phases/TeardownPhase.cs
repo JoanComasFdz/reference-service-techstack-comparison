@@ -6,7 +6,7 @@ using PerformanceTester.EventPublishing;
 using Serilog.Context;
 using static PerformanceTester.Functional.Result<PerformanceTester.Functional.Unit, string>;
 
-namespace PerformanceTester.Orchestration;
+namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Teardown phase: disconnect event publisher and stop monitoring services.

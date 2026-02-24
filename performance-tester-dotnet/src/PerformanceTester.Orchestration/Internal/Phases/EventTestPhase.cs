@@ -8,10 +8,11 @@ using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.SystemMonitoring;
+using PerformanceTester.Orchestration;
 using Serilog.Context;
-using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.EventTestPhase.Output, string>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.Internal.EventTestPhase.Output, string>;
 
-namespace PerformanceTester.Orchestration;
+namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Phase 1: Measured concurrent publish/consume event throughput test.

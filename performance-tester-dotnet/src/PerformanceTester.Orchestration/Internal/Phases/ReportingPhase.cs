@@ -9,10 +9,11 @@ using PerformanceTester.Reporting.ChartGeneration;
 using PerformanceTester.Reporting.ReportGeneration;
 using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.SystemMonitoring;
+using PerformanceTester.Orchestration;
 using Serilog.Context;
 using static PerformanceTester.Functional.Result<PerformanceTester.Reporting.TestReport, string>;
 
-namespace PerformanceTester.Orchestration;
+namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Phase 3: Collect metrics, build report, generate JSON and chart.

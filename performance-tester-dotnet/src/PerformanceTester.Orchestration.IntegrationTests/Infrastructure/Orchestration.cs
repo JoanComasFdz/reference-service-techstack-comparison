@@ -62,7 +62,7 @@ public sealed class Orchestration : IDisposable
 
         // Create logger for orchestrator
         this.Logger = _host.Services.GetRequiredService<ILoggerFactory>()
-            .CreateLogger(typeof(TestOrchestrator).FullName!);
+            .CreateLogger("PerformanceTester.Orchestration.Internal.TestOrchestrator");
 
         output?.WriteLine("[ORCH] ✅ Orchestration IHost creation complete");
     }
@@ -83,8 +83,8 @@ public sealed class Orchestration : IDisposable
             throw new InvalidOperationException("Host not initialized");
         }
 
-        var deps = TestOrchestrator.BuildDependencies(_host.Services, config, progress ?? NoOpProgress, Logger, cancellationToken);
-        return TestOrchestrator.RunTestAsync(deps, config, Logger);
+        var runTest = _host.Services.GetRequiredService<RunPerformanceTestDelegate>();
+        return runTest(_host.Services, config, progress ?? NoOpProgress, Logger, cancellationToken);
     }
 
     /// <summary>

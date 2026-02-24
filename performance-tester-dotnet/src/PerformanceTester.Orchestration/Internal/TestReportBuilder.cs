@@ -2,9 +2,10 @@ using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
+using PerformanceTester.Orchestration;
 using PerformanceTester.SystemMonitoring;
 
-namespace PerformanceTester.Orchestration;
+namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Transforms raw TestResult and collected metrics into the final TestReport.

@@ -10,9 +10,10 @@ using PerformanceTester.Infrastructure.RabbitMQ;
 using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
+using PerformanceTester.Orchestration;
 using Serilog.Context;
 
-namespace PerformanceTester.Orchestration;
+namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Orchestrates complete performance test workflow from setup through reporting.

@@ -10,6 +10,8 @@ using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Reporting;
 using PerformanceTester.SystemMonitoring;
 
+using PerformanceTester.Orchestration.Internal;
+
 namespace PerformanceTester.Orchestration;
 
 /// <summary>
@@ -78,6 +80,16 @@ public static class ServiceCollectionExtensions
         services.Configure<HostOptions>(options =>
         {
             options.ShutdownTimeout = TimeSpan.FromSeconds(60);
+        });
+
+        // Public delegate wrapping internal orchestrator (Guideline 05-06: consumers never using .Internal)
+        services.AddSingleton<RunPerformanceTestDelegate>(sp =>
+        {
+            return (services, config, reportProgress, logger, ct) =>
+            {
+                var deps = TestOrchestrator.BuildDependencies(services, config, reportProgress, logger, ct);
+                return TestOrchestrator.RunTestAsync(deps, config, logger);
+            };
         });
 
         return services;

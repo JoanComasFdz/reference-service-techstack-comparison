@@ -4,7 +4,7 @@ using PerformanceTester.EventPublishing;
 using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.Orchestration;
+namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Shared named delegates used across multiple test phases.
