@@ -37,7 +37,7 @@ internal static class TeardownPhaseModule
 
     // -- Factory (how to build what I need from DI) --------------------------------
 
-    public static Dependencies BuildDependencies(IServiceProvider services, CancellationToken ct)
+    public static Dependencies BuildDependencies(IServiceProvider services)
     {
         var disconnectPublisher = services.GetRequiredService<DisconnectPublisherDelegate>();
         var host = services.GetRequiredService<IHost>();

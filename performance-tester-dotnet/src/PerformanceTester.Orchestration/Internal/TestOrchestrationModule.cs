@@ -126,7 +126,7 @@ internal static class TestOrchestrationModule
                 reportProgress,
                 ct);
 
-        var teardownDeps = TeardownPhaseModule.BuildDependencies(services, ct);
+        var teardownDeps = TeardownPhaseModule.BuildDependencies(services);
 
         return new Dependencies(
             RunSetup: BuildRunSetup(services, clearDatabase, clearAllQueues, config, logger, ct),
