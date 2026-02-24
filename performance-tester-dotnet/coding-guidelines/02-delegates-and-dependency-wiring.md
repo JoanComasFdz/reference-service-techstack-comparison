@@ -249,6 +249,8 @@ internal static class SetupPhaseDependencies
 
 **Why:** In FP languages, a module contains both its types and its functions — there's no separate "builder" concept. C# static classes serve the same role. Co-locating definitions, bundling, construction, and execution gives a top-to-bottom reading flow and eliminates file-hopping.
 
+**File placement:** See Guideline 05-06 (see [State and Composition Patterns](05-state-and-composition-patterns.md)) for where Module files belong in the directory structure (`Internal/{Concept}Module.cs`) and the visibility-first file organization rules.
+
 **When to use:**
 
 - A static method has many delegate parameters (4+) that are always passed together

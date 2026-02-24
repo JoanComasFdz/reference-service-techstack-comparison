@@ -384,7 +384,7 @@ Library projects (consumed by other projects via `<ProjectReference>`) use a vis
 | `Api.cs` | All public types: delegates, enums, phase info records, data records, public utilities | `public` |
 | `ServiceCollectionExtensions.cs` | DI registration (`Add{SliceName}()`) | `public` |
 | `ValueObjects/` | Value objects with `Create()` factories and validation logic | `public` |
-| `Internal/{Concept}Module.cs` | Context record, static operations, nested internal utilities | `internal` |
+| `Internal/{Concept}Module.cs` | Context record, static operations, nested internal utilities (the `Module` suffix is defined by Guideline 02-05 — see [Delegates and Dependency Wiring](02-delegates-and-dependency-wiring.md)) | `internal` |
 | `Internal/{Concept}BackgroundService.cs` | Lifecycle wiring only (thin shell) | `internal` |
 
 **The rule:** Root files define the public contract; `Internal/` contains the implementation.
@@ -476,7 +476,7 @@ PerformanceTester.Functional/
 
 Consumers only ever `using PerformanceTester.{SliceName};`, never `.Internal`.
 
-**Combining with Guideline 02-05 (static class as module):** The module file lives in `Internal/` and follows the same co-location principle — context record, static operations, and small internal utilities nested inside a single `internal static class`. The shell gets its own file because it inherits from a framework base class.
+**Combining with Guideline 02-05 (static class as module):** The module file lives in `Internal/` and follows the same co-location principle — context record, static operations, and small internal utilities nested inside a single `internal static class`. The shell gets its own file because it inherits from a framework base class. **Module naming** is owned by Guideline 02-05 (see [Delegates and Dependency Wiring](02-delegates-and-dependency-wiring.md)) — it defines which classes qualify for the `Module` suffix. The file name mirrors the class name: if the class is `SetupPhaseModule`, the file is `SetupPhaseModule.cs`. This guideline (05-06) specifies WHERE the file goes (`Internal/`), not what earns the `Module` name.
 
 **Internal module nesting rule:** Internal types (context record, internal utilities) belong **nested inside** the module class. Public types (delegates, phase info, data records) belong in `Api.cs` as top-level types — they cannot be nested inside an `internal static class` and remain accessible to other projects.
 
