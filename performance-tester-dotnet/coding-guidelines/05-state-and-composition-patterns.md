@@ -443,6 +443,31 @@ ProcessMonitoring/
     └── ProcessMonitorService.cs          ← 216 lines, shell
 ```
 
+**Foundational library exception:** Not all library projects need the `Api.cs` + `Internal/` structure. **Foundational libraries** — projects where nearly everything is public surface with no internal implementation to hide — use a simpler layout. Examples: a `Functional` project offering `Result<T, E>`, `Option<T>`, and extension methods; a pure utility library with standalone public types.
+
+**How to tell the difference:** If the project would have an `Api.cs` that merely re-lists every file in the project, and an `Internal/` folder that is empty or trivial, it's a foundational library. The types themselves _are_ the entire offering — each with its own validation, factories, or extension methods.
+
+These are still library projects (consumed via `<ProjectReference>`), not terminal projects. The distinction is between **slice-oriented libraries** (public contract + hidden implementation → `Api.cs` + `Internal/`) and **foundational libraries** (all contract, no hidden implementation → one type per file at root).
+
+```
+// ✅ Good — foundational library, all public surface, no internal implementation
+PerformanceTester.Functional/
+├── Result.cs                  ← public: Result<T, E> + factory methods
+├── Option.cs                  ← public: Option<T> + factory methods
+├── Unit.cs                    ← public: Unit type
+└── Extensions/
+    ├── ResultExtensions.cs    ← public: LINQ-style extensions for Result
+    └── OptionExtensions.cs    ← public: LINQ-style extensions for Option
+
+// ❌ Avoid — forcing slice-oriented structure onto a foundational library
+PerformanceTester.Functional/
+├── Api.cs                     ← duplicates what the file listing already shows
+├── Internal/                  ← empty or trivial (nothing to hide)
+├── Result.cs
+├── Option.cs
+└── Unit.cs
+```
+
 **Api.cs reading order** (matches Guideline 02-05): delegates → phase info (enums + record struct) → data records → public utilities. One file tells the complete public API story.
 
 **Namespace convention:**

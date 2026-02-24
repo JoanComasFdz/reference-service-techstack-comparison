@@ -174,9 +174,29 @@ A static class can serve as an **FP-style module** — owning its delegate defin
 
 This improves discoverability, especially for delegates where IDE Ctrl+Click navigation doesn't work. Everything reads top-to-bottom: **what I need → how to bundle it → how to build it → what I do with it**.
 
+**Naming:** Use the `Module` suffix for any static class that follows this pattern (delegates + Dependencies record + BuildDependencies factory + execution method). The suffix signals that this is a cohesive FP-style module — not a toolbox class, not a pure calculation class, not a single-function utility. The rest of the name describes the domain responsibility.
+
+| Class | Why "Module" | Domain meaning |
+|---|---|---|
+| `SetupPhaseModule` | delegates + Dependencies + factory + ExecuteAsync | The module that implements the setup phase |
+| `ApiTestPhaseModule` | delegates + Dependencies + factory + ExecuteAsync | The module that implements the API test phase |
+| `TestOrchestrationModule` | delegates + Dependencies + factory + RunTestAsync | The module that orchestrates the full test run |
+| `MonitoringModule` | context + Dependencies + static operations | The module that implements Docker container monitoring |
+| `ProcessMonitorModule` | context + static operations | The module that implements process monitoring |
+| `StatsModule` | delegates + composition root | The module that implements Docker stats operations |
+
+What does **not** get the `Module` suffix:
+
+- `PhasesToolbox` — shared utility delegates, no Dependencies record, no execution method
+- `TestReportBuilder` — single pure function, no delegates, no Dependencies
+- `ProcessNameExtractor` — pure calculation class nested inside a module
+- `ConnectionStateMachine` — pure state transition logic, no Dependencies
+
+The suffix answers a question at a glance: "Is this a cohesive unit with its own delegates, dependency wiring, and execution — or is it something simpler?" It also mirrors FP language conventions where "module" is a first-class organizational concept (F# modules, Haskell modules, OCaml modules). In C# we don't have native modules, but the suffix makes the intent explicit.
+
 ```csharp
 // ✅ Good - self-contained module: types → bundle → factory → execution
-internal static class SetupPhase
+internal static class SetupPhaseModule
 {
     // 1. Delegate definitions (what I need)
     public delegate Task<Result<int, string>> FindServiceProcessId();
