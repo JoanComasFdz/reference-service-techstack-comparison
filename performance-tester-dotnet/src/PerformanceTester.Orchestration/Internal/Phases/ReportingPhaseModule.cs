@@ -95,8 +95,10 @@ internal static class ReportingPhaseModule
             GetRabbitMqMetrics: () => getDockerMetrics(config.RabbitMqContainerName),
             GetPostgresMetrics: () => getDockerMetrics(config.PostgresContainerName),
             GetSystemInfo: () => systemInfoDetector.GetSystemInfoAsync(ct),
-            GenerateReport: (folder, report) => reportGenerator.GenerateReportAsync(folder, report, ct),
-            GenerateChart: (folder, report, log) => ChartGenerator.GenerateChartAsync(folder, report, log, ct));
+            GenerateReport: (folder, report) =>
+                reportGenerator.GenerateReportAsync(folder, report, ct),
+            GenerateChart: (folder, report, log) =>
+                ChartGenerator.GenerateChartAsync(folder, report, log, ct));
     }
 
     // -- Execution (what I do with it) ---------------------------------------------

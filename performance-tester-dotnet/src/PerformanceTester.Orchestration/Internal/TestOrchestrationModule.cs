@@ -119,7 +119,12 @@ internal static class TestOrchestrationModule
 
         SharedPhaseDelegates.PublishEventsDelegate publishEvents = (count) => publishEventsOp(count, ct);
 
-        SharedPhaseDelegates.TrackEventsDelegate trackEvents = (count, timeout, reportProgress) => eventConsumer.StartTrackingEventsAsync(count, timeout, reportProgress, ct);
+        SharedPhaseDelegates.TrackEventsDelegate trackEvents = (count, timeout, reportProgress) =>
+            eventConsumer.StartTrackingEventsAsync(
+                count,
+                timeout,
+                reportProgress,
+                ct);
 
         var teardownDeps = TeardownPhaseModule.BuildDependencies(services, ct);
 
@@ -334,8 +339,14 @@ internal static class TestOrchestrationModule
         finally
         {
             // Best-effort cleanup -- non-cancellable, must complete even after failure
-            try { await deps.CleanupResources(); }
-            catch (Exception ex) { logger.LogWarning(ex, "Failed during resource cleanup"); }
+            try
+            {
+                await deps.CleanupResources();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed during resource cleanup");
+            }
         }
     }
 }

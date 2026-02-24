@@ -60,8 +60,15 @@ internal static class ApiTestPhaseModule
             reportProgress(PhaseInfo.Starting(TestPhase.ApiTest, $"API: {info.ElapsedSeconds:F1}s/{info.TotalSeconds:F1}s ({info.RequestCount} req)"));
 
         return new Dependencies(
-            StartApiLoadTest: (url, duration, vus, maxFail, dir) => apiLoadTester.StartTestAsync(url.Value, duration.Value, vus.Value, reportApiProgress, maxFail.Value, dir.Value, ct)
-            );
+            StartApiLoadTest: (url, duration, vus, maxFail, dir) =>
+                apiLoadTester.StartTestAsync(
+                    url.Value,
+                    duration.Value,
+                    vus.Value,
+                    reportApiProgress,
+                    maxFail.Value,
+                    dir.Value,
+                    ct));
     }
 
     // -- Execution (what I do with it) --------------------------------------------

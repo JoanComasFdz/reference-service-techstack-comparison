@@ -73,7 +73,10 @@ internal static class SetupPhaseModule
         var connectPublisher = services.GetRequiredService<ConnectPublisherDelegate>();
 
         return new Dependencies(
-            FindServiceProcessId: () => findServiceProcessId(config.ServicePort, TimeSpan.FromSeconds(30), ct),
+            FindServiceProcessId: () => findServiceProcessId(
+                config.ServicePort,
+                TimeSpan.FromSeconds(30),
+                ct),
             IsMonitoringStarted: () => hostLifetime.ApplicationStarted.IsCancellationRequested,
             StartMonitoring: () => host.StartAsync(ct),
             WarmupDockerApi: () => warmupDockerMonitors(ct),

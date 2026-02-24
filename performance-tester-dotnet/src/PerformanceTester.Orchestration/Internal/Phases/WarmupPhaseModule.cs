@@ -160,9 +160,9 @@ internal static class WarmupPhaseModule
         }
 
         logger.LogInformation(
-                "Warmup: API calls complete - {Success} succeeded, {Failed} failed",
-                successCount,
-                failCount);
+            "Warmup: API calls complete - {Success} succeeded, {Failed} failed",
+            successCount,
+            failCount);
 
         return Unit.Value;
     }
