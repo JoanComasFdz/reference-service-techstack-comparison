@@ -304,8 +304,7 @@ internal static class TestOrchestrationModule
                 ThroughputSamples = Array.Empty<EventThroughputSample>(),
                 ProcessMetrics = Array.Empty<ProcessMetrics>(),
                 RabbitMqMetrics = Array.Empty<DockerMetrics>(),
-                PostgresMetrics = Array.Empty<DockerMetrics>(),
-                SystemInfo = null
+                PostgresMetrics = Array.Empty<DockerMetrics>()
             };
 
             // Phase: Teardown (cancellable during normal flow)

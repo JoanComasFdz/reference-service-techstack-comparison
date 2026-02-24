@@ -49,7 +49,7 @@ internal static class ReportingPhaseModule
     /// <summary>
     /// Detects and returns system hardware/OS information.
     /// </summary>
-    public delegate Task<SystemInfo?> GetSystemInfoDelegate();
+    public delegate Task<Result<SystemInfo, string>> GetSystemInfoDelegate();
 
     /// <summary>
     /// Generates JSON report files to the specified output folder.
@@ -94,7 +94,14 @@ internal static class ReportingPhaseModule
             GetSystemMetrics: systemMonitor.GetCollectedMetrics,
             GetRabbitMqMetrics: () => getDockerMetrics(config.RabbitMqContainerName),
             GetPostgresMetrics: () => getDockerMetrics(config.PostgresContainerName),
-            GetSystemInfo: () => systemInfoDetector.GetSystemInfoAsync(ct),
+            GetSystemInfo: async () =>
+            {
+                var info = await systemInfoDetector.GetSystemInfoAsync(ct);
+                return info is not null
+                    ? new Result<SystemInfo, string>.Success(info)
+                    : new Result<SystemInfo, string>.Failure(
+                        "System info detection failed — cannot generate report without hardware/OS information");
+            },
             GenerateReport: (folder, report) =>
                 reportGenerator.GenerateReportAsync(folder, report, ct),
             GenerateChart: (folder, report, log) =>
@@ -135,12 +142,13 @@ internal static class ReportingPhaseModule
                 postgresMetrics.Count);
 
             // Step 4: Get system information (cached)
-            var systemInfo = await deps.GetSystemInfo();
-
-            if (systemInfo is null)
+            var systemInfoResult = await deps.GetSystemInfo();
+            if (systemInfoResult.IsFailure)
             {
-                return new Failure("System info detection failed — cannot generate report without hardware/OS information");
+                return new Failure(systemInfoResult.FailureError);
             }
+
+            var systemInfo = systemInfoResult.SuccessValue;
 
             // Step 5: Build TestReport
             logger.LogInformation("Building test report...");

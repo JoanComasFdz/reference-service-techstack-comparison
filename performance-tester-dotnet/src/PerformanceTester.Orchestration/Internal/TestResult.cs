@@ -43,6 +43,4 @@ internal record TestResult
     public required IReadOnlyCollection<DockerMetrics> RabbitMqMetrics { get; init; }
     public required IReadOnlyCollection<DockerMetrics> PostgresMetrics { get; init; }
 
-    // System information
-    public required SystemInfo? SystemInfo { get; init; }
 }
