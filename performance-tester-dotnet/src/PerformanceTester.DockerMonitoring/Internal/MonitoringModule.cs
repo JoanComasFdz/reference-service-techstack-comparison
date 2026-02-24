@@ -28,6 +28,8 @@ internal static class MonitoringModule
         public TaskCompletionSource FirstSampleCollected { get; } = new();
         public TaskCompletionSource FirstValidStatsReceived { get; } = new();
         public bool StreamingFailed { get; set; }
+        public ReportDockerMonitorProgressDelegate? Progress { get; set; }
+        public bool Started { get; set; }
     }
 
     // ── Dependencies Record ──────────────────────────────────────────────────

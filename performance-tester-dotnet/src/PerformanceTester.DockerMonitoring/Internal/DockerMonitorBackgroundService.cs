@@ -17,9 +17,6 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
     private readonly StatsModule.Dependencies _statsDeps;
     private readonly ILogger<DockerMonitorBackgroundService> _logger;
 
-    private ReportDockerMonitorProgressDelegate _progress = null!;
-    private bool _started;
-
     public string ContainerName => _ctx.ContainerName.Value;
 
     public DockerMonitorBackgroundService(
@@ -60,16 +57,16 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
         ReportDockerMonitorProgressDelegate progress,
         CancellationToken cancellationToken = default)
     {
-        if (_started)
+        if (_ctx.Started)
         {
             throw new InvalidOperationException(
                 $"Monitoring has already been started for container {_ctx.ContainerName}");
         }
 
-        _started = true;
-        _progress = progress;
+        _ctx.Started = true;
+        _ctx.Progress = progress;
 
-        _progress(DockerMonitorPhaseInfo.Starting(
+        _ctx.Progress(DockerMonitorPhaseInfo.Starting(
             DockerMonitorPhase.MonitoringRequested,
             _ctx.ContainerName,
             message: $"Starting streaming monitor for container {_ctx.ContainerName}"));
@@ -124,7 +121,7 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
                 _ctx.ContainerName,
                 idResult.FailureError.Message);
             _ctx.FirstSampleCollected.TrySetResult();
-            _progress(DockerMonitorPhaseInfo.Failed(
+            _ctx.Progress!(DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
                 _ctx.ContainerName,
                 message: $"Failed to resolve container: {idResult.FailureError.Message}"));
@@ -141,7 +138,7 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
             GetContainerId: _statsDeps.GetContainerId,
             StreamMetrics: _statsDeps.StreamMetrics,
             InvalidateCache: _statsDeps.InvalidateCache,
-            ReportProgress: _progress);
+            ReportProgress: _ctx.Progress!);
 
         // Start streaming in background task with state machine reconnection
         using var streamingCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
@@ -200,7 +197,7 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
 
             if (!_ctx.StreamingFailed)
             {
-                _progress(DockerMonitorPhaseInfo.Completed(
+                _ctx.Progress!(DockerMonitorPhaseInfo.Completed(
                     DockerMonitorPhase.MonitoringCompleted,
                     _ctx.ContainerName,
                     SampleCount.FromInt(_ctx.CollectedMetrics.Count),
