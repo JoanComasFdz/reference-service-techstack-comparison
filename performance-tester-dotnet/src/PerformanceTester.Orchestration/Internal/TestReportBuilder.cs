@@ -112,7 +112,7 @@ internal static class TestReportBuilder
             MonitoredProcess = new MonitoredProcess
             {
                 Name = serviceName,
-                Pid = testResult.ServiceProcessId,
+                Pid = testResult.ServiceProcessId.Value,
                 Port = config.ServicePort.Value
             },
             System = systemInfo,

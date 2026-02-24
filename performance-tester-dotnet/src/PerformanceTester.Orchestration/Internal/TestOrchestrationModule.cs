@@ -291,7 +291,7 @@ internal static class TestOrchestrationModule
                 TestStartTime = testStartTime,
                 TestEndTime = testEndTime,
                 Configuration = configuration,
-                ServiceProcessId = serviceProcessId.Value,
+                ServiceProcessId = serviceProcessId,
                 ServiceProcessName = "service",
                 WarmupStartTime = warmupStartTime,
                 WarmupEndTime = warmupEndTime,

@@ -2,6 +2,7 @@ using PerformanceTester.ApiLoadTesting;
 using PerformanceTester.DockerMonitoring;
 using PerformanceTester.EventConsuming;
 using PerformanceTester.EventPublishing;
+using PerformanceTester.Infrastructure.ValueObjects;
 using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.Orchestration;
 using PerformanceTester.Reporting;
@@ -21,7 +22,7 @@ internal record TestResult
     public required TestConfiguration Configuration { get; init; }
 
     // Service information
-    public required int ServiceProcessId { get; init; }
+    public required ProcessId ServiceProcessId { get; init; }
     public required string ServiceProcessName { get; init; }
 
     // Phase timestamps
