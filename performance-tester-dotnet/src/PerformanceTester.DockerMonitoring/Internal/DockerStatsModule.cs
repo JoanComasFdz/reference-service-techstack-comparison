@@ -227,7 +227,8 @@ internal static class DockerStatsModule
         NonEmptyString containerName,
         DateTime timestamp)
     {
-        if (!HasValidPreCpuStats(stats))
+        // Skip first stats push — Docker zeroes PreCPUStats on initial response
+        if (stats.PreCPUStats.SystemUsage <= 0)
         {
             return new None();
         }
@@ -241,12 +242,6 @@ internal static class DockerStatsModule
             MemoryMB = MemoryMB.FromDouble(Math.Round(stats.MemoryStats.Usage / 1024.0 / 1024.0, 2))
         });
     }
-
-    /// <summary>
-    /// Validates that ContainerStatsResponse has valid PreCPUStats for CPU calculation.
-    /// The first stats from a stream often have zeroed PreCPUStats.
-    /// </summary>
-    private static bool HasValidPreCpuStats(ContainerStatsResponse stats) => stats.PreCPUStats.SystemUsage > 0;
 
     /// <summary>
     /// Calculates CPU percentage from Docker stats.
