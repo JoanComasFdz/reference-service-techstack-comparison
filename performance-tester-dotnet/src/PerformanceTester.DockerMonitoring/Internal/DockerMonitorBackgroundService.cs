@@ -49,10 +49,9 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
 
         var idResult = await _statsDeps.GetContainerId(_ctx.ContainerName.Value, cancellationToken);
 
-        if (idResult.IsSuccess)
-        {
-            await _statsDeps.GetSnapshot(idResult.SuccessValue, cancellationToken);
-        }
+        await idResult.Match(
+            success: s => _statsDeps.GetSnapshot(s.Value, cancellationToken),
+            failure: _ => Task.CompletedTask);
 
         _logger.LogDebug("Docker API warmup complete for container {ContainerName}", _ctx.ContainerName);
     }
