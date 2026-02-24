@@ -480,6 +480,8 @@ Consumers only ever `using PerformanceTester.{SliceName};`, never `.Internal`.
 
 **Internal module nesting rule:** Internal types (context record, internal utilities) belong **nested inside** the module class. Public types (delegates, phase info, data records) belong in `Api.cs` as top-level types — they cannot be nested inside an `internal static class` and remain accessible to other projects.
 
+**Dunet `[Union]` exception:** Types decorated with `[Union]` cannot be nested inside a module class — even an `internal` one. Dunet's source generator emits `public` extension methods (e.g., `Match`, `MatchAsync`) at namespace level that reference the union type in their signatures. Nesting the union inside an `internal` class causes **CS0051** (inconsistent accessibility). Place `[Union]` types at namespace level in the same module file, with a `<see cref="...Module"/>` doc comment linking them back. They are logically part of the module but structurally must remain top-level. See also Guideline 03-01 placement constraint.
+
 ```csharp
 // ✅ Good — Api.cs has standalone public types, module has nested internal types
 
@@ -510,11 +512,41 @@ internal static class ProcessMonitorModule  // must become public for delegates 
     public delegate void ReportProcessMonitorProgressDelegate(...);  // nested public in internal = inaccessible
     internal sealed record MonitorContext { ... }
 }
+
+// ❌ Avoid — Dunet [Union] nested inside module class (CS0051: inconsistent accessibility)
+namespace PerformanceTester.DockerMonitoring.Internal;
+
+internal static class ConnectionModule
+{
+    [Union]
+    internal partial record ConnectionState  // Dunet generates public Match extensions referencing this type
+    {
+        partial record Connecting(...);      // source-generated public methods can't see this
+    }
+}
+
+// ✅ Good — Dunet [Union] at namespace level, non-Dunet types nested in module
+namespace PerformanceTester.DockerMonitoring.Internal;
+
+/// <remarks>Part of <see cref="ConnectionModule"/>
+/// (kept at namespace level for Dunet source-generator compatibility).</remarks>
+[Union]
+internal partial record ConnectionState
+{
+    partial record Connecting(...);
+}
+
+internal static class ConnectionModule
+{
+    internal sealed record AttemptCount : NonNegativeInt { ... }    // nested — not a [Union]
+    internal static class StateMachine { ... }                      // nested — not a [Union]
+    internal static class StreamingConstants { ... }                // nested — not a [Union]
+}
 ```
 
 **When the module file grows too large:** If the co-located module exceeds ~500 lines, extract the context record as the first split point. The reading order (delegates → records → operations) stays intact in the module file.
 
-**When `Internal/` needs subfolders:** Only add subfolders inside `Internal/` when a slice has genuinely distinct subsystems. For example, DockerMonitoring has `Internal/ConnectionModule.cs`, `Internal/StatsModule.cs`, and `Internal/MonitoringModule.cs` because connection management, Docker API stats, and monitoring orchestration are separate concerns. Keep the structure flat unless organic complexity demands otherwise.
+**When `Internal/` needs subfolders:** Only add subfolders inside `Internal/` when a slice has genuinely distinct subsystems. For example, DockerMonitoring has `Internal/ConnectionModule.cs`, `Internal/DockerStatsModule.cs`, and `Internal/MonitoringModule.cs` because connection management, Docker API stats, and monitoring orchestration are separate concerns. Keep the structure flat unless organic complexity demands otherwise.
 
 **Relationship to other guidelines:**
 

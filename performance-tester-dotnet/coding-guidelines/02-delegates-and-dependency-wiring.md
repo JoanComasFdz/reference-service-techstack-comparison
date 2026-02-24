@@ -183,14 +183,15 @@ This improves discoverability, especially for delegates where IDE Ctrl+Click nav
 | `TestOrchestrationModule` | delegates + Dependencies + factory + RunTestAsync | The module that orchestrates the full test run |
 | `MonitoringModule` | context + Dependencies + static operations | The module that implements Docker container monitoring |
 | `ProcessMonitorModule` | context + static operations | The module that implements process monitoring |
-| `StatsModule` | delegates + composition root | The module that implements Docker stats operations |
+| `DockerStatsModule` | delegates + composition root | The module that implements Docker stats operations |
+| `ConnectionModule` | value object + state machine + policy + constants | The module that owns Docker streaming connection lifecycle |
 
 What does **not** get the `Module` suffix:
 
 - `PhasesToolbox` — shared utility delegates, no Dependencies record, no execution method
 - `TestReportBuilder` — single pure function, no delegates, no Dependencies
 - `ProcessNameExtractor` — pure calculation class nested inside a module
-- `ConnectionStateMachine` — pure state transition logic, no Dependencies
+- `ConnectionModule.StateMachine` — pure state transition logic, nested inside ConnectionModule
 
 The suffix answers a question at a glance: "Is this a cohesive unit with its own delegates, dependency wiring, and execution — or is it something simpler?" It also mirrors FP language conventions where "module" is a first-class organizational concept (F# modules, Haskell modules, OCaml modules). In C# we don't have native modules, but the suffix makes the intent explicit.
 

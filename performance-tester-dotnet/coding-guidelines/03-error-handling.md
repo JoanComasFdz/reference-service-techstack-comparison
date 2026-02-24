@@ -41,6 +41,8 @@ public static TimeSpan Parse(string duration)
 | **Has value** | `Result<TValue>`          | `Result<TValue, TFailure>` |
 | **Void**      | `Result<Unit>`            | `Result<Unit, TFailure>`   |
 
+**Placement constraint:** `[Union]` types must be declared at namespace level, never nested inside another class. Dunet's source generator emits `public` extension methods at namespace level that reference the union type — nesting it inside an `internal` class causes CS0051 (inconsistent accessibility). When a `[Union]` type logically belongs to a module, place it at namespace level in the same file and link it with a `<see cref="...Module"/>` doc comment. See also Guideline 05-06.
+
 **Naming failure union types:** Use `{MethodAction}Error` — the name describes what failed, not where. Each variant carries contextual data. Define the union alongside the method that returns it.
 
 ```csharp
