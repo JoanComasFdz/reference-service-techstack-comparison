@@ -264,14 +264,12 @@ internal static class StatsModule
         var systemDelta = stats.CPUStats.SystemUsage -
                           stats.PreCPUStats.SystemUsage;
 
-        var cpuCount = stats.CPUStats.OnlineCPUs;
-
-        if (systemDelta > 0 && cpuDelta > 0)
+        if (systemDelta <= 0 || cpuDelta <= 0)
         {
-            var cpuPercent = (double)cpuDelta / systemDelta * cpuCount * 100.0;
-            return Math.Round(cpuPercent, 2);
+            return 0.0;
         }
 
-        return 0.0;
+        var cpuCount = stats.CPUStats.OnlineCPUs;
+        return Math.Round((double)cpuDelta / systemDelta * cpuCount * 100.0, 2);
     }
 }
