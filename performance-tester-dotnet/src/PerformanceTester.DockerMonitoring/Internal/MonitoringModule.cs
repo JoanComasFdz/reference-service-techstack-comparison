@@ -35,13 +35,13 @@ internal static class MonitoringModule
 
     /// <summary>
     /// Bundles all delegates needed by the monitoring state machine.
-    /// Built by <see cref="DockerMonitorBackgroundService"/> from <see cref="StatsModule.Dependencies"/>
+    /// Built by <see cref="DockerMonitorBackgroundService"/> from <see cref="DockerStatsModule.Dependencies"/>
     /// plus the runtime progress delegate.
     /// </summary>
     internal record Dependencies(
-        StatsModule.GetContainerIdDelegate GetContainerId,
-        StatsModule.StreamMetricsDelegate StreamMetrics,
-        StatsModule.InvalidateContainerCacheDelegate InvalidateCache,
+        DockerStatsModule.GetContainerIdDelegate GetContainerId,
+        DockerStatsModule.StreamMetricsDelegate StreamMetrics,
+        DockerStatsModule.InvalidateContainerCacheDelegate InvalidateCache,
         ReportDockerMonitorProgressDelegate ReportProgress);
 
     // ── Execution Methods ────────────────────────────────────────────────────

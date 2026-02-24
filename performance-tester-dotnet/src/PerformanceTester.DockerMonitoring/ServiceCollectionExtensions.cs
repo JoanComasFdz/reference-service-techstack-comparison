@@ -31,7 +31,7 @@ public static class ServiceCollectionExtensions
         NonEmptyString[] containerNames = [rabbitMqContainerName, postgresContainerName];
 
         // Build Docker stats dependencies (DockerClient + cache, captured in closures)
-        var statsDeps = StatsModule.BuildDependencies();
+        var statsDeps = DockerStatsModule.BuildDependencies();
 
         // Register one BackgroundService per container (keyed singletons)
         containerNames.ToList().ForEach(name =>

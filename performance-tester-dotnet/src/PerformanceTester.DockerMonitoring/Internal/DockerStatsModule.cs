@@ -8,8 +8,8 @@ using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.ValueObjects;
 using static PerformanceTester.Functional.Option<PerformanceTester.DockerMonitoring.DockerMetrics>;
-using static PerformanceTester.Functional.Result<string, PerformanceTester.DockerMonitoring.Internal.StatsModule.DockerError>;
-using SnapshotResult = PerformanceTester.Functional.Result<Docker.DotNet.Models.ContainerStatsResponse, PerformanceTester.DockerMonitoring.Internal.StatsModule.DockerError>;
+using static PerformanceTester.Functional.Result<string, PerformanceTester.DockerMonitoring.Internal.DockerStatsModule.DockerError>;
+using SnapshotResult = PerformanceTester.Functional.Result<Docker.DotNet.Models.ContainerStatsResponse, PerformanceTester.DockerMonitoring.Internal.DockerStatsModule.DockerError>;
 
 namespace PerformanceTester.DockerMonitoring.Internal;
 
@@ -18,7 +18,7 @@ namespace PerformanceTester.DockerMonitoring.Internal;
 /// Owns delegate definitions, Dependencies record, factory, and all Docker API operations.
 /// Reads top-to-bottom: types → delegates → bundle → factory → operations → processing.
 /// </summary>
-internal static class StatsModule
+internal static class DockerStatsModule
 {
     // ── Types ────────────────────────────────────────────────────────────────
 

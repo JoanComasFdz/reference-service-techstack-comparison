@@ -8,19 +8,19 @@ namespace PerformanceTester.DockerMonitoring.Internal;
 /// <summary>
 /// Thin BackgroundService shell. Owns MonitorContext and wires the hosted service lifecycle
 /// to MonitoringModule static functions. Contains no business logic.
-/// Receives <see cref="StatsModule.Dependencies"/> bundle instead of individual delegates.
+/// Receives <see cref="DockerStatsModule.Dependencies"/> bundle instead of individual delegates.
 /// </summary>
 internal sealed class DockerMonitorBackgroundService : BackgroundService
 {
     private readonly MonitoringModule.MonitorContext _ctx;
-    private readonly StatsModule.Dependencies _statsDeps;
+    private readonly DockerStatsModule.Dependencies _statsDeps;
     private readonly ILogger<DockerMonitorBackgroundService> _logger;
 
     public string ContainerName => _ctx.ContainerName.Value;
 
     public DockerMonitorBackgroundService(
         NonEmptyString containerName,
-        StatsModule.Dependencies statsDeps,
+        DockerStatsModule.Dependencies statsDeps,
         ILogger<DockerMonitorBackgroundService> logger)
     {
         _ctx = new MonitoringModule.MonitorContext(containerName);
