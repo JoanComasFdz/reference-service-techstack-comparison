@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.DockerMonitoring.Internal.Connection;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
@@ -156,14 +155,14 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
         try
         {
             await _ctx.FirstValidStatsReceived.Task
-                .WaitAsync(StreamingConstants.FirstStatsTimeout, stoppingToken);
+                .WaitAsync(ConnectionModule.StreamingConstants.FirstStatsTimeout, stoppingToken);
         }
         catch (TimeoutException)
         {
             _logger.LogWarning(
                 "Timeout waiting for first valid stats from container {ContainerName} after {Timeout}s",
                 _ctx.ContainerName,
-                StreamingConstants.FirstStatsTimeout.TotalSeconds);
+                ConnectionModule.StreamingConstants.FirstStatsTimeout.TotalSeconds);
         }
 
         // Wait for cancellation (streaming loop runs independently)
@@ -183,7 +182,7 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
 
             try
             {
-                await streamingTask.WaitAsync(StreamingConstants.StreamingShutdownTimeout);
+                await streamingTask.WaitAsync(ConnectionModule.StreamingConstants.StreamingShutdownTimeout);
             }
             catch
             {
