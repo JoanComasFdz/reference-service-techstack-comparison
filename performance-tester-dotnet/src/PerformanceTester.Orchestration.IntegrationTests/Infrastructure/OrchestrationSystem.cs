@@ -8,7 +8,7 @@ namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 /// <summary>
 /// System under test for Orchestration integration tests.
 /// Provides access to:
-/// - Orchestration facade (wraps TestOrchestrator)
+/// - Orchestration facade (wraps TestOrchestrationModule)
 /// - ConfigurableReferenceService (bi-directional mock service for testing)
 /// - IEventConsumer (direct access for testing consumer timeout behavior)
 /// - Infrastructure helpers (PostgreSQL, RabbitMQ)

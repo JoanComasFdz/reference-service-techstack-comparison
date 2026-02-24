@@ -11,9 +11,9 @@ using Xunit.Abstractions;
 namespace PerformanceTester.Orchestration.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// Facade for accessing TestOrchestrator.
+/// Facade for accessing TestOrchestrationModule.
 /// Creates IHost with all Phase 1-3 services registered via AddOrchestration().
-/// Wraps TestOrchestrator.BuildDependencies() + TestOrchestrator.RunTestAsync() into a single public method.
+/// Wraps TestOrchestrationModule.BuildDependencies() + TestOrchestrationModule.RunTestAsync() into a single public method.
 /// </summary>
 public sealed class Orchestration : IDisposable
 {
@@ -62,14 +62,14 @@ public sealed class Orchestration : IDisposable
 
         // Create logger for orchestrator
         this.Logger = _host.Services.GetRequiredService<ILoggerFactory>()
-            .CreateLogger("PerformanceTester.Orchestration.Internal.TestOrchestrator");
+            .CreateLogger("PerformanceTester.Orchestration.Internal.TestOrchestrationModule");
 
         output?.WriteLine("[ORCH] ✅ Orchestration IHost creation complete");
     }
 
     /// <summary>
     /// Builds phase delegates and runs the full test orchestration.
-    /// Wraps TestOrchestrator.BuildDependencies() + TestOrchestrator.RunTestAsync().
+    /// Wraps TestOrchestrationModule.BuildDependencies() + TestOrchestrationModule.RunTestAsync().
     /// </summary>
     private static readonly ReportPhaseProgressDelegate NoOpProgress = static (_) => { };
 

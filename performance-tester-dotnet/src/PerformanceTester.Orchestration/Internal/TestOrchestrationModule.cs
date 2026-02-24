@@ -21,7 +21,7 @@ namespace PerformanceTester.Orchestration.Internal;
 /// builds them from DI via <see cref="BuildDependencies"/>,
 /// and sequences execution in <see cref="RunTestAsync"/>.
 /// </summary>
-internal static class TestOrchestrator
+internal static class TestOrchestrationModule
 {
     // -- Delegate definitions (what I need) ----------------------------------------
 

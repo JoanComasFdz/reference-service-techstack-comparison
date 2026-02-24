@@ -82,7 +82,7 @@ public sealed class PhaseAwaiter
     }
 
     /// <summary>
-    /// Called by TestOrchestrator via the ReportPhaseProgress delegate.
+    /// Called by TestOrchestrationModule via the ReportPhaseProgress delegate.
     /// </summary>
     public void Report(PhaseInfo value)
     {

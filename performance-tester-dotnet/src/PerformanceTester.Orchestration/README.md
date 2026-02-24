@@ -17,10 +17,10 @@ The Orchestration slice coordinates all phases of performance testing:
 
 ## API
 
-### TestOrchestrator (Static Module)
+### TestOrchestrationModule (Static Module)
 
 ```csharp
-internal static class TestOrchestrator
+internal static class TestOrchestrationModule
 {
     // Delegate definitions (RunSetup, RunWarmup, RunEventTest, etc.)
 
@@ -140,9 +140,9 @@ builder.Services.AddOrchestration(
 var host = builder.Build();
 
 // Note: Do NOT call host.StartAsync() - orchestrator manages IHost lifecycle
-// Use TestOrchestrator.BuildDependencies() + TestOrchestrator.RunTestAsync()
-var deps = TestOrchestrator.BuildDependencies(host.Services, config, logger, ct);
-var result = await TestOrchestrator.RunTestAsync(deps, config, progress, logger);
+// Use TestOrchestrationModule.BuildDependencies() + TestOrchestrationModule.RunTestAsync()
+var deps = TestOrchestrationModule.BuildDependencies(host.Services, config, logger, ct);
+var result = await TestOrchestrationModule.RunTestAsync(deps, config, progress, logger);
 ```
 
 ### Registered Services
@@ -166,7 +166,7 @@ var result = await TestOrchestrator.RunTestAsync(deps, config, progress, logger)
 - `IReportGenerator` - JSON report generation
 - `IChartGenerator` - PNG chart generation
 
-**Note:** `IProcessMonitor` is NOT registered by `AddOrchestration()` because it requires a process ID that's only discovered at runtime. `TestOrchestrator.BuildDependencies()` handles process monitoring registration separately after service discovery. The orchestrator itself (`TestOrchestrator`) is a static class -- not registered in DI -- and receives pre-composed delegates via `TestOrchestrator.Dependencies`.
+**Note:** `IProcessMonitor` is NOT registered by `AddOrchestration()` because it requires a process ID that's only discovered at runtime. `TestOrchestrationModule.BuildDependencies()` handles process monitoring registration separately after service discovery. The orchestrator itself (`TestOrchestrationModule`) is a static class -- not registered in DI -- and receives pre-composed delegates via `TestOrchestrationModule.Dependencies`.
 
 ## Usage Example
 
@@ -194,8 +194,8 @@ var config = new TestConfiguration(
     ResultsFolder: "./test-results");
 
 // Run test
-var deps = TestOrchestrator.BuildDependencies(host.Services, config, logger, cancellationToken);
-var result = await TestOrchestrator.RunTestAsync(deps, config, progress: null, logger);
+var deps = TestOrchestrationModule.BuildDependencies(host.Services, config, logger, cancellationToken);
+var result = await TestOrchestrationModule.RunTestAsync(deps, config, progress: null, logger);
 
 result.Match(
     success: s => Console.WriteLine($"Test complete: {s.Value.Results.Phase2Consume.ThroughputEventsPerSec:F2} events/s"),

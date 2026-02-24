@@ -87,8 +87,8 @@ public static class ServiceCollectionExtensions
         {
             return (services, config, reportProgress, logger, ct) =>
             {
-                var deps = TestOrchestrator.BuildDependencies(services, config, reportProgress, logger, ct);
-                return TestOrchestrator.RunTestAsync(deps, config, logger);
+                var deps = TestOrchestrationModule.BuildDependencies(services, config, reportProgress, logger, ct);
+                return TestOrchestrationModule.RunTestAsync(deps, config, logger);
             };
         });
 
