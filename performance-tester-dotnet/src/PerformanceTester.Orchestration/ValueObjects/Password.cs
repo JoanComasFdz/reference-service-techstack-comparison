@@ -9,6 +9,8 @@ public sealed record Password : NonEmptyString
 
     public static Result<Password, string> Create(string value) => Create(value, "Password", v => new Password(v));
 
+    public static Password FromString(string value) => new(value);
+
     /// <summary>Never expose password in logs or ToString().</summary>
     public override string ToString() => "***";
 }
