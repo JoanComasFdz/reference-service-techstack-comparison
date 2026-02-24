@@ -1,6 +1,6 @@
 using Dunet;
 
-namespace PerformanceTester.DockerMonitoring.Connection;
+namespace PerformanceTester.DockerMonitoring.Internal.Connection;
 
 /// <summary>
 /// Events that can occur during a Docker stats streaming session.

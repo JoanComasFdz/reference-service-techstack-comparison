@@ -1,7 +1,7 @@
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring.Connection;
+namespace PerformanceTester.DockerMonitoring.Internal.Connection;
 
 /// <summary>
 /// Pure state transition function for Docker streaming connection lifecycle.

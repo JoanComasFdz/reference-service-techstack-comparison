@@ -1,6 +1,6 @@
 using PerformanceTester.DockerMonitoring.ValueObjects;
 
-namespace PerformanceTester.DockerMonitoring.Connection;
+namespace PerformanceTester.DockerMonitoring.Internal.Connection;
 
 /// <summary>
 /// Constants for Docker streaming mode configuration.

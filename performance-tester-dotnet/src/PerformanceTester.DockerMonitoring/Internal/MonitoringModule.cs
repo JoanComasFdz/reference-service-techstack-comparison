@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.DockerMonitoring.Connection;
+using PerformanceTester.DockerMonitoring.Internal.Connection;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
