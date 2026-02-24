@@ -41,12 +41,12 @@ internal static class TestOrchestrator
     /// Runs Event Test phase: concurrent publish/consume with monitoring.
     /// serviceProcessId comes from Setup output.
     /// </summary>
-    public delegate Task<Result<EventTestPhase.Output, string>> RunEventTestDelegate(ProcessId serviceProcessId);
+    public delegate Task<Result<EventTestPhaseModule.Output, string>> RunEventTestDelegate(ProcessId serviceProcessId);
 
     /// <summary>
     /// Runs API Load Test phase: k6 load test execution.
     /// </summary>
-    public delegate Task<Result<ApiTestPhase.Output, string>> RunApiTestDelegate();
+    public delegate Task<Result<ApiTestPhaseModule.Output, string>> RunApiTestDelegate();
 
     /// <summary>
     /// Runs Teardown phase: disconnect event publisher, stop monitoring services.
@@ -121,16 +121,16 @@ internal static class TestOrchestrator
 
         SharedPhaseDelegates.TrackEventsDelegate trackEvents = (count, timeout, reportProgress) => eventConsumer.StartTrackingEventsAsync(count, timeout, reportProgress, ct);
 
-        var teardownDeps = TeardownPhase.BuildDependencies(services, ct);
+        var teardownDeps = TeardownPhaseModule.BuildDependencies(services, ct);
 
         return new Dependencies(
             RunSetup: BuildRunSetup(services, clearDatabase, clearAllQueues, config, logger, ct),
             RunWarmup: BuildRunWarmup(trackEvents, publishEvents, clearDatabase, clearAllQueues, config, logger, ct),
             RunEventTest: BuildRunEventTest(services, trackEvents, publishEvents, config, reportProgress, logger, ct),
             RunApiTest: BuildRunApiTest(services, config, reportProgress, logger, ct),
-            RunTeardown: () => TeardownPhase.ExecuteAsync(teardownDeps, ct, logger),
+            RunTeardown: () => TeardownPhaseModule.ExecuteAsync(teardownDeps, ct, logger),
             RunReporting: BuildRunReporting(services, config, logger, ct),
-            CleanupResources: () => TeardownPhase.ExecuteAsync(teardownDeps, CancellationToken.None, logger),
+            CleanupResources: () => TeardownPhaseModule.ExecuteAsync(teardownDeps, CancellationToken.None, logger),
             ReportProgress: reportProgress
             );
     }
@@ -143,8 +143,8 @@ internal static class TestOrchestrator
         ILogger logger,
         CancellationToken ct)
     {
-        var deps = SetupPhase.BuildDependencies(services, clearDatabase, clearAllQueues, config, ct);
-        return (testRunId) => SetupPhase.ExecuteAsync(testRunId, deps, logger);
+        var deps = SetupPhaseModule.BuildDependencies(services, clearDatabase, clearAllQueues, config, ct);
+        return (testRunId) => SetupPhaseModule.ExecuteAsync(testRunId, deps, logger);
     }
 
     private static RunWarmupDelegate BuildRunWarmup(
@@ -156,8 +156,8 @@ internal static class TestOrchestrator
         ILogger logger,
         CancellationToken ct)
     {
-        var deps = WarmupPhase.BuildDependencies(trackEvents, publishEvents, clearDatabase, clearAllQueues);
-        return () => WarmupPhase.ExecuteAsync(config, deps, logger, ct);
+        var deps = WarmupPhaseModule.BuildDependencies(trackEvents, publishEvents, clearDatabase, clearAllQueues);
+        return () => WarmupPhaseModule.ExecuteAsync(config, deps, logger, ct);
     }
 
     private static RunEventTestDelegate BuildRunEventTest(
@@ -169,8 +169,8 @@ internal static class TestOrchestrator
         ILogger logger,
         CancellationToken ct)
     {
-        var deps = EventTestPhase.BuildDependencies(services, trackEvents, publishEvents, config, reportProgress, ct);
-        return (serviceProcessId) => EventTestPhase.ExecuteAsync(serviceProcessId, config, deps, logger);
+        var deps = EventTestPhaseModule.BuildDependencies(services, trackEvents, publishEvents, config, reportProgress, ct);
+        return (serviceProcessId) => EventTestPhaseModule.ExecuteAsync(serviceProcessId, config, deps, logger);
     }
 
     private static RunApiTestDelegate BuildRunApiTest(
@@ -180,8 +180,8 @@ internal static class TestOrchestrator
         ILogger logger,
         CancellationToken ct)
     {
-        var deps = ApiTestPhase.BuildDependencies(services, reportProgress, ct);
-        return () => ApiTestPhase.ExecuteAsync(config, deps, logger);
+        var deps = ApiTestPhaseModule.BuildDependencies(services, reportProgress, ct);
+        return () => ApiTestPhaseModule.ExecuteAsync(config, deps, logger);
     }
 
     private static RunReportingDelegate BuildRunReporting(
@@ -190,8 +190,8 @@ internal static class TestOrchestrator
         ILogger logger,
         CancellationToken ct)
     {
-        var deps = ReportingPhase.BuildDependencies(services, config, ct);
-        return (testResult) => ReportingPhase.ExecuteAsync(testResult, config, deps, logger);
+        var deps = ReportingPhaseModule.BuildDependencies(services, config, ct);
+        return (testResult) => ReportingPhaseModule.ExecuteAsync(testResult, config, deps, logger);
     }
 
     // -- Execution (what I do with it) ---------------------------------------------

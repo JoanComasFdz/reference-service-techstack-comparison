@@ -13,7 +13,7 @@ namespace PerformanceTester.Orchestration.Internal;
 /// <summary>
 /// Phase 0.5: Non-measured warmup events and API calls. Failures abort the test.
 /// </summary>
-internal static class WarmupPhase
+internal static class WarmupPhaseModule
 {
     /// <summary>
     /// Bundles all phase-level and shared delegates needed by <see cref="ExecuteAsync"/>.

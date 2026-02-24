@@ -10,14 +10,14 @@ using PerformanceTester.ProcessMonitoring;
 using PerformanceTester.SystemMonitoring;
 using PerformanceTester.Orchestration;
 using Serilog.Context;
-using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.Internal.EventTestPhase.Output, string>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.Internal.EventTestPhaseModule.Output, string>;
 
 namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Phase 1: Measured concurrent publish/consume event throughput test.
 /// </summary>
-internal static class EventTestPhase
+internal static class EventTestPhaseModule
 {
     /// <summary>
     /// Clears all collected throughput samples before the measured test starts.

@@ -19,7 +19,7 @@ namespace PerformanceTester.Orchestration.Internal;
 /// Phase 3: Collect metrics, build report, generate JSON and chart.
 /// Expects monitors to be already stopped by the orchestrator.
 /// </summary>
-internal static class ReportingPhase
+internal static class ReportingPhaseModule
 {
     /// <summary>
     /// Returns throughput samples collected during the event test.

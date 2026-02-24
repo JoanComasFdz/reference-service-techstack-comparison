@@ -6,14 +6,14 @@ using PerformanceTester.Orchestration.ValueObjects;
 using PerformanceTester.Reporting.ValueObjects;
 using PerformanceTester.Orchestration;
 using Serilog.Context;
-using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.Internal.ApiTestPhase.Output, string>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.Internal.ApiTestPhaseModule.Output, string>;
 
 namespace PerformanceTester.Orchestration.Internal;
 
 /// <summary>
 /// Phase 2: Measured HTTP API load test using k6.
 /// </summary>
-internal static class ApiTestPhase
+internal static class ApiTestPhaseModule
 {
     // -- Delegate definitions (what I need) ----------------------------------------
 

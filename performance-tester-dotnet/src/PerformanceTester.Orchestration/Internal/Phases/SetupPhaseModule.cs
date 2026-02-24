@@ -15,7 +15,7 @@ namespace PerformanceTester.Orchestration.Internal;
 /// <summary>
 /// Phase 0: Service discovery, infrastructure initialization, database/queue clearing.
 /// </summary>
-internal static class SetupPhase
+internal static class SetupPhaseModule
 {
     /// <summary>
     /// Discovers the service process ID listening on the target port.

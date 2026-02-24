@@ -15,7 +15,7 @@ namespace PerformanceTester.Orchestration.Internal;
 /// Each operation is independently try/caught so a single failure
 /// does not prevent the remaining cleanup from running.
 /// </summary>
-internal static class TeardownPhase
+internal static class TeardownPhaseModule
 {
     // -- Delegate definitions (what I need) ----------------------------------------
 
