@@ -109,4 +109,29 @@ public static class ProcessMonitoringAssertions
 
         return assertingThat;
     }
+
+    /// <summary>
+    /// Asserts that calling StartMonitoring twice does not throw (idempotent behavior).
+    /// </summary>
+    /// <param name="assertingThat">The asserting instance.</param>
+    /// <param name="processId">The process ID to monitor.</param>
+    /// <returns>The asserting instance for fluent chaining.</returns>
+    public static async Task<AssertingThat<ProcessMonitoring>> AllowsIdempotentStart(
+        this AssertingThat<ProcessMonitoring> assertingThat,
+        ProcessId processId)
+    {
+        var pm = assertingThat.InstanceToAssert;
+        var phaseAwaiter = new ProcessMonitorPhaseAwaiter();
+
+        // First call — normal start
+        await pm.StartMonitoring(processId, phaseAwaiter.Report);
+
+        // Second call — should not throw
+        var exception = await Record.ExceptionAsync(() =>
+            pm.StartMonitoring(processId, phaseAwaiter.Report));
+
+        Assert.Null(exception);
+
+        return assertingThat;
+    }
 }

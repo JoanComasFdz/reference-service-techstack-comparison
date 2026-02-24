@@ -134,4 +134,18 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         // Act & Assert
         Asserting.That(System).RejectsInvalidProcessId(invalidProcessId: -1);
     }
+
+    [Fact]
+    public async Task StartMonitoring_WhenCalledTwice_ShouldNotThrow()
+    {
+        // Arrange - Monitor current test process
+        var currentProcessId = ProcessId.FromInt(Environment.ProcessId);
+        System.CreateProcessMonitoring(samplingInterval: TimeSpan.FromMilliseconds(100));
+        await System.ProcessMonitoring.StartAsync();
+
+        // Act & Assert — second call is idempotent
+        await Asserting.That(System.ProcessMonitoring).AllowsIdempotentStart(currentProcessId);
+
+        await System.ProcessMonitoring.StopAsync();
+    }
 }

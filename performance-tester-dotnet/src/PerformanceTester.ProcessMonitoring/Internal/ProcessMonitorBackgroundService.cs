@@ -43,8 +43,10 @@ internal sealed class ProcessMonitorBackgroundService : BackgroundService
     {
         if (_ctx.Started)
         {
-            throw new InvalidOperationException(
-                $"Monitoring has already been started for process {_ctx.ProcessId}");
+            _logger.LogWarning(
+                "StartMonitoringAsync called again, monitoring already active for process {ProcessId}",
+                _ctx.ProcessId);
+            return;
         }
 
         _ctx.Started = true;
