@@ -14,10 +14,6 @@ internal sealed class ProcessMonitorBackgroundService : BackgroundService
     private readonly TimeSpan _samplingInterval;
     private readonly ILogger<ProcessMonitorBackgroundService> _logger;
 
-    private bool _started;
-    private ProcessId? _processId;
-    private ReportProcessMonitorProgressDelegate? _reportProgress;
-
     public ProcessMonitorBackgroundService(
         TimeSpan samplingInterval,
         ILogger<ProcessMonitorBackgroundService> logger)
@@ -45,15 +41,15 @@ internal sealed class ProcessMonitorBackgroundService : BackgroundService
         ReportProcessMonitorProgressDelegate reportProgress,
         CancellationToken cancellationToken = default)
     {
-        if (_started)
+        if (_ctx.Started)
         {
             throw new InvalidOperationException(
-                $"Monitoring has already been started for process {_processId}");
+                $"Monitoring has already been started for process {_ctx.ProcessId}");
         }
 
-        _started = true;
-        _processId = processId;
-        _reportProgress = reportProgress;
+        _ctx.Started = true;
+        _ctx.ProcessId = processId;
+        _ctx.ReportProgress = reportProgress;
 
         reportProgress(ProcessMonitorPhaseInfo.Starting(
             ProcessMonitorPhase.MonitoringRequested,
@@ -100,9 +96,9 @@ internal sealed class ProcessMonitorBackgroundService : BackgroundService
         // Delegate all sampling logic to module
         await ProcessMonitorModule.RunSamplingLoopAsync(
             _ctx,
-            _processId!,
+            _ctx.ProcessId!,
             _samplingInterval,
-            _reportProgress!,
+            _ctx.ReportProgress!,
             _logger,
             stoppingToken);
     }

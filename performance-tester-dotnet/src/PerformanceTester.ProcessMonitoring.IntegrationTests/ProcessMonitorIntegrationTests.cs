@@ -94,7 +94,7 @@ public sealed class ProcessMonitorIntegrationTests(ITestOutputHelper output) : I
         await System.ProcessMonitoring.StopAsync();
 
         // Assert
-        Asserting.That(System.ProcessMonitoring.GetMetrics).HasValidMetrics(currentProcessId.Value);
+        Asserting.That(System.ProcessMonitoring.GetMetrics).HasValidMetrics(currentProcessId);
     }
 
     [Fact]
