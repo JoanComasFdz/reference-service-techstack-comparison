@@ -33,7 +33,7 @@ internal static class TestOrchestrationModule
         IServiceProvider services, TestConfiguration config,
         ILogger logger, CancellationToken ct);
 
-    public static Task<Result<TestReport, TestRunFailure>> RunTestAsync(
+    public static Task<Result<TestReport, TestRunError>> RunTestAsync(
         Dependencies deps, TestConfiguration configuration,
         IProgress<PhaseInfo>? progress, ILogger logger);
 }

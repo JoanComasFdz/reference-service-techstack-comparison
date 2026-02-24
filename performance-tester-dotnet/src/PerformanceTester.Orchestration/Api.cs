@@ -24,7 +24,7 @@ public delegate void ReportPhaseProgressDelegate(PhaseInfo phaseInfo);
 /// This is the public entry point to the orchestration workflow.
 /// Consumers use this delegate instead of accessing internal types directly.
 /// </summary>
-public delegate Task<Result<TestReport, TestRunFailure>> RunPerformanceTestDelegate(
+public delegate Task<Result<TestReport, TestRunError>> RunPerformanceTestDelegate(
     IServiceProvider services,
     TestConfiguration config,
     ReportPhaseProgressDelegate reportProgress,
@@ -146,7 +146,7 @@ public readonly record struct PhaseInfo(
 /// Represents a managed (non-exceptional) failure of a test run,
 /// identifying which phase failed and why.
 /// </summary>
-public sealed record TestRunFailure(TestPhase Phase, string Message);
+public sealed record TestRunError(TestPhase Phase, string Message);
 
 /// <summary>
 /// Configuration for a complete performance test run.

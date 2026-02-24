@@ -73,7 +73,7 @@ public sealed class Orchestration : IDisposable
     /// </summary>
     private static readonly ReportPhaseProgressDelegate NoOpProgress = static (_) => { };
 
-    public Task<Result<TestReport, TestRunFailure>> RunTestAsync(
+    public Task<Result<TestReport, TestRunError>> RunTestAsync(
         TestConfiguration config,
         ReportPhaseProgressDelegate? progress = null,
         CancellationToken cancellationToken = default)

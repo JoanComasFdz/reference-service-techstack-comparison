@@ -20,7 +20,7 @@ internal static class TestReportBuilder
         IReadOnlyCollection<SystemMetrics> systemMetrics,
         IReadOnlyCollection<DockerMetrics> rabbitMqMetrics,
         IReadOnlyCollection<DockerMetrics> postgresMetrics,
-        SystemInfo? systemInfo)
+        SystemInfo systemInfo)
     {
         // Calculate phase durations
         var warmupDuration = testResult.WarmupEndTime - testResult.WarmupStartTime;
@@ -115,7 +115,7 @@ internal static class TestReportBuilder
                 Pid = testResult.ServiceProcessId,
                 Port = config.ServicePort.Value
             },
-            System = systemInfo ?? throw new InvalidOperationException("System info is required"),
+            System = systemInfo,
             Configuration = new Reporting.TestConfiguration
             {
                 NumEvents = config.EventCount.Value,

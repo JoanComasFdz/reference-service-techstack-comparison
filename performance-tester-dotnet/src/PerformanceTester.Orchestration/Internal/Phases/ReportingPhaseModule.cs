@@ -135,6 +135,11 @@ internal static class ReportingPhaseModule
             // Step 4: Get system information (cached)
             var systemInfo = await deps.GetSystemInfo();
 
+            if (systemInfo is null)
+            {
+                return new Failure("System info detection failed — cannot generate report without hardware/OS information");
+            }
+
             // Step 5: Build TestReport
             logger.LogInformation("Building test report...");
 

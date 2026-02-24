@@ -196,7 +196,7 @@ internal static class TestOrchestrationModule
 
     // -- Execution (what I do with it) ---------------------------------------------
 
-    public static async Task<Result<TestReport, TestRunFailure>> RunTestAsync(
+    public static async Task<Result<TestReport, TestRunError>> RunTestAsync(
         Dependencies deps,
         TestConfiguration configuration,
         ILogger logger)
@@ -213,11 +213,11 @@ internal static class TestOrchestrationModule
             testRunId,
             configuration.ServicePort);
 
-        TestRunFailure Fail(TestPhase phase, string message)
+        TestRunError Fail(TestPhase phase, string message)
         {
             logger.LogError("Performance test run {TestRunId} failed in {Phase}: {Message}", testRunId, phase, message);
             deps.ReportProgress(PhaseInfo.Failed(phase, message));
-            return new TestRunFailure(phase, message);
+            return new TestRunError(phase, message);
         }
 
         try
