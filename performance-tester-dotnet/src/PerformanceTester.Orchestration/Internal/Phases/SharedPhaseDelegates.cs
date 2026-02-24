@@ -9,7 +9,7 @@ namespace PerformanceTester.Orchestration.Internal;
 /// <summary>
 /// Shared named delegates used across multiple test phases.
 /// </summary>
-internal static class PhasesToolbox
+internal static class SharedPhaseDelegates
 {
     /// <summary>
     /// Clears all data from the target database.

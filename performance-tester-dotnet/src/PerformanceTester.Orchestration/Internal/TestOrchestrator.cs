@@ -108,18 +108,18 @@ internal static class TestOrchestrator
         var eventConsumer = services.GetRequiredService<IEventConsumer>();
 
         // Shared operation-level delegates (reused across phases)
-        PhasesToolbox.ClearDatabaseDelegate clearDatabase = () => clearDatabaseAsync(config.DatabaseName, ct);
+        SharedPhaseDelegates.ClearDatabaseDelegate clearDatabase = () => clearDatabaseAsync(config.DatabaseName, ct);
 
-        PhasesToolbox.ClearAllQueuesDelegate clearAllQueues = async () =>
+        SharedPhaseDelegates.ClearAllQueuesDelegate clearAllQueues = async () =>
         {
             var result = await clearAllQueuesOp(ct);
             await Task.Delay(TimeSpan.FromMilliseconds(500), ct);
             return result;
         };
 
-        PhasesToolbox.PublishEventsDelegate publishEvents = (count) => publishEventsOp(count, ct);
+        SharedPhaseDelegates.PublishEventsDelegate publishEvents = (count) => publishEventsOp(count, ct);
 
-        PhasesToolbox.TrackEventsDelegate trackEvents = (count, timeout, reportProgress) => eventConsumer.StartTrackingEventsAsync(count, timeout, reportProgress, ct);
+        SharedPhaseDelegates.TrackEventsDelegate trackEvents = (count, timeout, reportProgress) => eventConsumer.StartTrackingEventsAsync(count, timeout, reportProgress, ct);
 
         var teardownDeps = TeardownPhase.BuildDependencies(services, ct);
 
@@ -137,8 +137,8 @@ internal static class TestOrchestrator
 
     private static RunSetupDelegate BuildRunSetup(
         IServiceProvider services,
-        PhasesToolbox.ClearDatabaseDelegate clearDatabase,
-        PhasesToolbox.ClearAllQueuesDelegate clearAllQueues,
+        SharedPhaseDelegates.ClearDatabaseDelegate clearDatabase,
+        SharedPhaseDelegates.ClearAllQueuesDelegate clearAllQueues,
         TestConfiguration config,
         ILogger logger,
         CancellationToken ct)
@@ -148,10 +148,10 @@ internal static class TestOrchestrator
     }
 
     private static RunWarmupDelegate BuildRunWarmup(
-        PhasesToolbox.TrackEventsDelegate trackEvents,
-        PhasesToolbox.PublishEventsDelegate publishEvents,
-        PhasesToolbox.ClearDatabaseDelegate clearDatabase,
-        PhasesToolbox.ClearAllQueuesDelegate clearAllQueues,
+        SharedPhaseDelegates.TrackEventsDelegate trackEvents,
+        SharedPhaseDelegates.PublishEventsDelegate publishEvents,
+        SharedPhaseDelegates.ClearDatabaseDelegate clearDatabase,
+        SharedPhaseDelegates.ClearAllQueuesDelegate clearAllQueues,
         TestConfiguration config,
         ILogger logger,
         CancellationToken ct)
@@ -162,8 +162,8 @@ internal static class TestOrchestrator
 
     private static RunEventTestDelegate BuildRunEventTest(
         IServiceProvider services,
-        PhasesToolbox.TrackEventsDelegate trackEvents,
-        PhasesToolbox.PublishEventsDelegate publishEvents,
+        SharedPhaseDelegates.TrackEventsDelegate trackEvents,
+        SharedPhaseDelegates.PublishEventsDelegate publishEvents,
         TestConfiguration config,
         ReportPhaseProgressDelegate reportProgress,
         ILogger logger,

@@ -60,8 +60,8 @@ internal static class EventTestPhase
         StartProcessMonitoringDelegate StartProcessMonitoring,
         StartSystemMonitoringDelegate StartSystemMonitoring,
         StartDockerMonitoringDelegate StartDockerMonitoring,
-        PhasesToolbox.TrackEventsDelegate TrackEvents,
-        PhasesToolbox.PublishEventsDelegate PublishEvents,
+        SharedPhaseDelegates.TrackEventsDelegate TrackEvents,
+        SharedPhaseDelegates.PublishEventsDelegate PublishEvents,
         ReportConsumerProgressDelegate ReportConsumerProgress);
 
     /// <summary>
@@ -69,8 +69,8 @@ internal static class EventTestPhase
     /// </summary>
     public static Dependencies BuildDependencies(
         IServiceProvider services,
-        PhasesToolbox.TrackEventsDelegate trackEvents,
-        PhasesToolbox.PublishEventsDelegate publishEvents,
+        SharedPhaseDelegates.TrackEventsDelegate trackEvents,
+        SharedPhaseDelegates.PublishEventsDelegate publishEvents,
         TestConfiguration config,
         ReportPhaseProgressDelegate reportProgress,
         CancellationToken ct)

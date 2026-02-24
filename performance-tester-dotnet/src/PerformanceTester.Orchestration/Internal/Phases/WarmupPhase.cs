@@ -19,10 +19,10 @@ internal static class WarmupPhase
     /// Bundles all phase-level and shared delegates needed by <see cref="ExecuteAsync"/>.
     /// </summary>
     public record Dependencies(
-        PhasesToolbox.TrackEventsDelegate TrackEvents,
-        PhasesToolbox.PublishEventsDelegate PublishEvents,
-        PhasesToolbox.ClearDatabaseDelegate ClearDatabase,
-        PhasesToolbox.ClearAllQueuesDelegate ClearAllQueues);
+        SharedPhaseDelegates.TrackEventsDelegate TrackEvents,
+        SharedPhaseDelegates.PublishEventsDelegate PublishEvents,
+        SharedPhaseDelegates.ClearDatabaseDelegate ClearDatabase,
+        SharedPhaseDelegates.ClearAllQueuesDelegate ClearAllQueues);
 
     /// <summary>
     /// Composes phase-level delegates into a <see cref="Dependencies"/> bundle.
@@ -30,10 +30,10 @@ internal static class WarmupPhase
     /// closure captures it for HTTP call logging.
     /// </summary>
     public static Dependencies BuildDependencies(
-        PhasesToolbox.TrackEventsDelegate trackEvents,
-        PhasesToolbox.PublishEventsDelegate publishEvents,
-        PhasesToolbox.ClearDatabaseDelegate clearDatabase,
-        PhasesToolbox.ClearAllQueuesDelegate clearAllQueues)
+        SharedPhaseDelegates.TrackEventsDelegate trackEvents,
+        SharedPhaseDelegates.PublishEventsDelegate publishEvents,
+        SharedPhaseDelegates.ClearDatabaseDelegate clearDatabase,
+        SharedPhaseDelegates.ClearAllQueuesDelegate clearAllQueues)
     {
         return new Dependencies(
             TrackEvents: trackEvents,

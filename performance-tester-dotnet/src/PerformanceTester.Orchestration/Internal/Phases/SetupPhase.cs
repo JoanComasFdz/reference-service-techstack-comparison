@@ -52,8 +52,8 @@ internal static class SetupPhase
         IsMonitoringStartedDelegate IsMonitoringStarted,
         StartMonitoringDelegate StartMonitoring,
         WarmupDockerApiDelegate WarmupDockerApi,
-        PhasesToolbox.ClearDatabaseDelegate ClearDatabase,
-        PhasesToolbox.ClearAllQueuesDelegate ClearAllQueues,
+        SharedPhaseDelegates.ClearDatabaseDelegate ClearDatabase,
+        SharedPhaseDelegates.ClearAllQueuesDelegate ClearAllQueues,
         ConnectEventPublisherDelegate ConnectEventPublisher);
 
     /// <summary>
@@ -61,8 +61,8 @@ internal static class SetupPhase
     /// </summary>
     public static Dependencies BuildDependencies(
         IServiceProvider services,
-        PhasesToolbox.ClearDatabaseDelegate clearDatabase,
-        PhasesToolbox.ClearAllQueuesDelegate clearAllQueues,
+        SharedPhaseDelegates.ClearDatabaseDelegate clearDatabase,
+        SharedPhaseDelegates.ClearAllQueuesDelegate clearAllQueues,
         TestConfiguration config,
         CancellationToken ct)
     {
