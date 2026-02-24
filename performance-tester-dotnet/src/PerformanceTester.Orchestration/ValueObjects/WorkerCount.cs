@@ -11,7 +11,12 @@ public sealed record WorkerCount : NonNegativeInt
 {
     private WorkerCount(int value) : base(value) { }
 
-    public static Result<WorkerCount, string> Create(int value) => value >= 1
+    public static Result<WorkerCount, string> Create(int value)
+    {
+        return value >= 1
             ? new Success(new WorkerCount(value))
             : new Failure($"API workers must be at least 1 (got: {value})");
+    }
+
+    public static WorkerCount FromInt(int value) => new(value);
 }

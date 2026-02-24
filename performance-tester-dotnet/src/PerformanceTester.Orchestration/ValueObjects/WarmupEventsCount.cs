@@ -1,6 +1,5 @@
 using PerformanceTester.Functional;
 using PerformanceTester.Infrastructure.ValueObjects;
-using static PerformanceTester.Functional.Result<PerformanceTester.Orchestration.ValueObjects.WarmupEventsCount, string>;
 
 namespace PerformanceTester.Orchestration.ValueObjects;
 
@@ -12,13 +11,8 @@ public sealed record WarmupEventsCount : EventCount
 {
     private WarmupEventsCount(int value) : base(value) { }
 
-    /// <summary>
-    /// Creates a <see cref="WarmupEventsCount"/> from a raw integer.
-    /// Returns Failure if the value is negative.
-    /// </summary>
-    public static new Result<WarmupEventsCount, string> Create(int value) => value >= 0
-            ? new Success(new WarmupEventsCount(value))
-            : new Failure($"Warmup event count cannot be negative (got: {value})");
+    public static new Result<WarmupEventsCount, string> Create(int value) =>
+        Create(value, "Warmup event count", v => new WarmupEventsCount(v));
 
     public static WarmupEventsCount FromInt(int value) => new(value);
 }
