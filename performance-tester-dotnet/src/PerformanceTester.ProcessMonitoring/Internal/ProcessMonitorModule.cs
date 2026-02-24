@@ -39,6 +39,15 @@ internal static class ProcessMonitorModule
 
         /// <summary>Wall-clock timestamp of the previous sample (null = not yet initialized).</summary>
         public DateTime? PreviousTimestamp { get; set; }
+
+        /// <summary>Whether StartMonitoringAsync has been called (deferred start guard).</summary>
+        public bool Started { get; set; }
+
+        /// <summary>Process ID to monitor (set by StartMonitoringAsync).</summary>
+        public ProcessId? ProcessId { get; set; }
+
+        /// <summary>Progress reporting delegate (set by StartMonitoringAsync).</summary>
+        public ReportProcessMonitorProgressDelegate? ReportProgress { get; set; }
     }
 
     /// <summary>
