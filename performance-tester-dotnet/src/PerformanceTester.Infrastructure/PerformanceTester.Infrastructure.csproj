@@ -21,7 +21,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PerformanceTester.Functional\PerformanceTester.Functional.csproj" />
-    <ProjectReference Include="..\PerformanceTester.Common\PerformanceTester.Common.csproj" />
   </ItemGroup>
 
 </Project>

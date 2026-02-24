@@ -1,14 +1,29 @@
 using System.Runtime.InteropServices;
+using Dunet;
 using PerformanceTester.Functional;
-using static PerformanceTester.Functional.Result<PerformanceTester.Common.SupportedPlatform, string>;
+using static PerformanceTester.Functional.Result<PerformanceTester.Infrastructure.SupportedPlatform, string>;
 
-namespace PerformanceTester.Common;
+namespace PerformanceTester.Infrastructure;
+
+/// <summary>
+/// Supported operating system platforms.
+/// Dunet union provides exhaustive <see cref="Match"/> — missing cases are compile-time errors.
+/// </summary>
+[Union]
+internal partial record SupportedPlatform
+{
+    /// <summary>Windows operating system.</summary>
+    public partial record Windows;
+
+    /// <summary>Linux operating system.</summary>
+    public partial record Linux;
+}
 
 /// <summary>
 /// Detects the current operating system platform.
 /// Uses RuntimeInformation to detect Windows or Linux.
 /// </summary>
-public static class OSPlatformDetector
+internal static class OSPlatformDetector
 {
     /// <summary>
     /// Gets the current operating system platform.

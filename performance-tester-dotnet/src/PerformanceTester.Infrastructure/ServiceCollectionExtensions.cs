@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.Common;
 using PerformanceTester.Infrastructure.Database;
 using PerformanceTester.Infrastructure.ProcessFinding;
 using PerformanceTester.Infrastructure.RabbitMQ;

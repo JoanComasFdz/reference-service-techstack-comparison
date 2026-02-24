@@ -15,7 +15,7 @@ global using System.Threading.Tasks;
 global using MathNet.Numerics.Statistics;
 global using PerformanceTester.ApiLoadTesting;
 // Common Library
-global using PerformanceTester.Common;
+global using PerformanceTester.Infrastructure;
 global using PerformanceTester.DockerMonitoring;
 global using PerformanceTester.EventConsuming;
 // Phase 2 Models

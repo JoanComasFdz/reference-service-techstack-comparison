@@ -21,8 +21,6 @@
     <!-- Result Type (for Value Object Create methods) -->
     <ProjectReference Include="..\PerformanceTester.Functional\PerformanceTester.Functional.csproj" />
 
-    <!-- Common Library (OS Detection) -->
-    <ProjectReference Include="..\PerformanceTester.Common\PerformanceTester.Common.csproj" />
 
     <!-- Phase 2 Slice Dependencies (Models) -->
     <ProjectReference Include="..\PerformanceTester.EventPublishing\PerformanceTester.EventPublishing.csproj" />
