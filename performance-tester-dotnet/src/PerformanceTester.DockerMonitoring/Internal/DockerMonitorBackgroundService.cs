@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.DockerMonitoring.Internal.Connection;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
@@ -9,19 +8,19 @@ namespace PerformanceTester.DockerMonitoring.Internal;
 /// <summary>
 /// Thin BackgroundService shell. Owns MonitorContext and wires the hosted service lifecycle
 /// to MonitoringModule static functions. Contains no business logic.
-/// Receives <see cref="StatsModule.Dependencies"/> bundle instead of individual delegates.
+/// Receives <see cref="DockerStatsModule.Dependencies"/> bundle instead of individual delegates.
 /// </summary>
 internal sealed class DockerMonitorBackgroundService : BackgroundService
 {
     private readonly MonitoringModule.MonitorContext _ctx;
-    private readonly StatsModule.Dependencies _statsDeps;
+    private readonly DockerStatsModule.Dependencies _statsDeps;
     private readonly ILogger<DockerMonitorBackgroundService> _logger;
 
     public string ContainerName => _ctx.ContainerName.Value;
 
     public DockerMonitorBackgroundService(
         NonEmptyString containerName,
-        StatsModule.Dependencies statsDeps,
+        DockerStatsModule.Dependencies statsDeps,
         ILogger<DockerMonitorBackgroundService> logger)
     {
         _ctx = new MonitoringModule.MonitorContext(containerName);
@@ -156,14 +155,14 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
         try
         {
             await _ctx.FirstValidStatsReceived.Task
-                .WaitAsync(StreamingConstants.FirstStatsTimeout, stoppingToken);
+                .WaitAsync(ConnectionModule.StreamingConstants.FirstStatsTimeout, stoppingToken);
         }
         catch (TimeoutException)
         {
             _logger.LogWarning(
                 "Timeout waiting for first valid stats from container {ContainerName} after {Timeout}s",
                 _ctx.ContainerName,
-                StreamingConstants.FirstStatsTimeout.TotalSeconds);
+                ConnectionModule.StreamingConstants.FirstStatsTimeout.TotalSeconds);
         }
 
         // Wait for cancellation (streaming loop runs independently)
@@ -183,7 +182,7 @@ internal sealed class DockerMonitorBackgroundService : BackgroundService
 
             try
             {
-                await streamingTask.WaitAsync(StreamingConstants.StreamingShutdownTimeout);
+                await streamingTask.WaitAsync(ConnectionModule.StreamingConstants.StreamingShutdownTimeout);
             }
             catch
             {

@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
-using PerformanceTester.DockerMonitoring.Internal.Connection;
 using PerformanceTester.DockerMonitoring.ValueObjects;
 using PerformanceTester.Infrastructure.ValueObjects;
 
@@ -36,20 +35,20 @@ internal static class MonitoringModule
 
     /// <summary>
     /// Bundles all delegates needed by the monitoring state machine.
-    /// Built by <see cref="DockerMonitorBackgroundService"/> from <see cref="StatsModule.Dependencies"/>
+    /// Built by <see cref="DockerMonitorBackgroundService"/> from <see cref="DockerStatsModule.Dependencies"/>
     /// plus the runtime progress delegate.
     /// </summary>
     internal record Dependencies(
-        StatsModule.GetContainerIdDelegate GetContainerId,
-        StatsModule.StreamMetricsDelegate StreamMetrics,
-        StatsModule.InvalidateContainerCacheDelegate InvalidateCache,
+        DockerStatsModule.GetContainerIdDelegate GetContainerId,
+        DockerStatsModule.StreamMetricsDelegate StreamMetrics,
+        DockerStatsModule.InvalidateContainerCacheDelegate InvalidateCache,
         ReportDockerMonitorProgressDelegate ReportProgress);
 
     // ── Execution Methods ────────────────────────────────────────────────────
 
     /// <summary>
     /// State machine interpreter loop.
-    /// Pure <see cref="ConnectionStateMachine.Transition"/> decides state changes;
+    /// Pure <see cref="ConnectionModule.StateMachine.Transition"/> decides state changes;
     /// this method interprets states as effects.
     /// </summary>
     public static async Task RunStreamingLoopAsync(
@@ -61,8 +60,8 @@ internal static class MonitoringModule
     {
         ConnectionState state = new ConnectionState.Connecting(
             initialContainerId,
-            AttemptCount.FromInt(0),
-            StreamingConstants.InitialReconnectDelay);
+            ConnectionModule.AttemptCount.FromInt(0),
+            ConnectionModule.StreamingConstants.InitialReconnectDelay);
 
         while (state is not ConnectionState.Failed && !ct.IsCancellationRequested)
         {
@@ -108,11 +107,11 @@ internal static class MonitoringModule
             {
                 if (currentState is ConnectionState.Connecting)
                 {
-                    currentState = ConnectionStateMachine.Transition(
+                    currentState = ConnectionModule.StateMachine.Transition(
                         currentState,
                         new StreamEvent.StatsReceived(),
-                        StreamingConstants.MaxReconnectAttempts,
-                        StreamingConstants.MaxReconnectDelay);
+                        ConnectionModule.StreamingConstants.MaxReconnectAttempts,
+                        ConnectionModule.StreamingConstants.MaxReconnectDelay);
 
                     deps.ReportProgress(PhaseReporting.ToPhaseInfo(currentState, ctx.ContainerName));
                     ctx.FirstValidStatsReceived.TrySetResult();
@@ -144,11 +143,11 @@ internal static class MonitoringModule
         {
             deps.InvalidateCache(ctx.ContainerName.Value);
 
-            var nextState = ConnectionStateMachine.Transition(
+            var nextState = ConnectionModule.StateMachine.Transition(
                 currentState,
                 new StreamEvent.Error(ex),
-                StreamingConstants.MaxReconnectAttempts,
-                StreamingConstants.MaxReconnectDelay);
+                ConnectionModule.StreamingConstants.MaxReconnectAttempts,
+                ConnectionModule.StreamingConstants.MaxReconnectDelay);
 
             if (nextState is ConnectionState.Disconnected d)
             {
@@ -158,7 +157,7 @@ internal static class MonitoringModule
                     ctx.ContainerName,
                     d.NextBackoff.TotalSeconds,
                     d.ConsecutiveFailures,
-                    StreamingConstants.MaxReconnectAttempts);
+                    ConnectionModule.StreamingConstants.MaxReconnectAttempts);
             }
 
             return nextState;
@@ -178,7 +177,7 @@ internal static class MonitoringModule
     {
         try
         {
-            var backoff = ReconnectionPolicy.CalculateBackoff(disconnectedState.NextBackoff, StreamingConstants.MaxReconnectDelay);
+            var backoff = ConnectionModule.ReconnectionPolicy.CalculateBackoff(disconnectedState.NextBackoff, ConnectionModule.StreamingConstants.MaxReconnectDelay);
 
             await Task.Delay(backoff.DelayToUse, ct);
 
@@ -239,7 +238,7 @@ internal static class MonitoringModule
                 DockerMonitorPhase.StreamDisconnected,
                 containerName,
                 message: $"Disconnected, retrying in {d.NextBackoff.TotalSeconds:F1}s " +
-                         $"(attempt {d.ConsecutiveFailures}/{StreamingConstants.MaxReconnectAttempts})"),
+                         $"(attempt {d.ConsecutiveFailures}/{ConnectionModule.StreamingConstants.MaxReconnectAttempts})"),
 
             ConnectionState.Failed f => DockerMonitorPhaseInfo.Failed(
                 DockerMonitorPhase.StreamFailed,
