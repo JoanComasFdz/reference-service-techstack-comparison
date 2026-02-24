@@ -336,7 +336,7 @@ internal static class ProcessMonitorModule
 
             var metrics = new ProcessMetrics(
                 Timestamp: DateTimeOffset.UtcNow,
-                ProcessId: processId.Value,
+                ProcessId: processId,
                 ProcessName: ctx.CachedProcessName ?? process.ProcessName,
                 CpuPercent: Math.Round(cpuPercent, 2),
                 MemoryMB: Math.Round(memoryMB, 2),

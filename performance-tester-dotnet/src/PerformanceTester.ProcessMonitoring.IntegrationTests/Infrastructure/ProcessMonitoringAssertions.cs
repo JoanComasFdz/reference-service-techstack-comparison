@@ -50,7 +50,7 @@ public static class ProcessMonitoringAssertions
     /// <returns>The asserting instance for fluent chaining.</returns>
     public static AssertingThat<GetProcessMetricsDelegate> HasValidMetrics(
         this AssertingThat<GetProcessMetricsDelegate> assertingThat,
-        int expectedProcessId)
+        ProcessId expectedProcessId)
     {
         var metrics = assertingThat.InstanceToAssert();
         foreach (var metric in metrics)

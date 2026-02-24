@@ -160,7 +160,7 @@ public readonly record struct ProcessMonitorPhaseInfo(
 /// <param name="ThreadCount">Number of threads in the process.</param>
 public record ProcessMetrics(
     DateTimeOffset Timestamp,
-    int ProcessId,
+    ProcessId ProcessId,
     string ProcessName,
     double CpuPercent,
     double MemoryMB,
