@@ -72,6 +72,12 @@ public partial record AppError
 }
 ```
 
+> **03-01 vs 04-01 — constructor guards for primitive parameters:** When a constructor validates a primitive parameter and throws (e.g., `if (samplingInterval <= TimeSpan.Zero) throw ...`), the preferred fix is **not** a Result-returning factory on the enclosing class. It is a **Value Object** for that parameter (Guideline 04-01). The Value Object's `Create()` returns `Result`; the constructor then receives an already-valid type and needs no guard. **Do NOT report such a throw guard as a 03-01 violation — it belongs exclusively to 04-01.**
+>
+> Apply a Result-returning factory on the enclosing class only when the class itself has construction failures that aren't reducible to a single constrained parameter (e.g., establishing a connection, parsing a composite configuration from multiple inputs).
+>
+> **03-01 vs 03-05 — null guards on DI-injected parameters:** A `?? throw new ArgumentNullException(...)` guard on a DI-injected constructor parameter is **not** a 03-01 violation — it belongs exclusively to Guideline 03-05. Do NOT report it here.
+
 ### 03-02. Use `using static` to Shorten Result Construction
 
 Producer methods that return `Result<TSuccess, TFailure>` should add a `using static` directive to avoid repeating the full generic type on every `new Success(...)` / `new Failure(...)`.
@@ -285,3 +291,33 @@ if (report is null)
 - Framework APIs return null (`JsonSerializer`, `Process.GetProcessById`, file reads)
 - The method is a thin wrapper around a nullable .NET API
 - Private helpers where the calling code is within the same class and the null-coalescing pattern (`?? fallback`) is clear
+
+---
+
+### 03-05. Do Not Null-Check DI-Injected Constructor Parameters
+
+Constructors that receive services from the DI container must not guard against null with `ArgumentNullException`. The container guarantees that all registered services are non-null. A null check here is defensive code for a misconfiguration scenario that cannot occur at runtime — it adds noise and implies a doubt about the DI infrastructure that is not warranted.
+
+```csharp
+// ✅ Good — assign directly, trust the container
+public ProcessMonitorBackgroundService(
+    TimeSpan samplingInterval,
+    ILogger<ProcessMonitorBackgroundService> logger)
+{
+    _samplingInterval = samplingInterval;
+    _logger = logger;
+}
+
+// ❌ Avoid — redundant null guard on a DI-injected parameter
+public ProcessMonitorBackgroundService(
+    TimeSpan samplingInterval,
+    ILogger<ProcessMonitorBackgroundService> logger)
+{
+    _samplingInterval = samplingInterval;
+    _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+}
+```
+
+This rule applies to every DI-injected type: `ILogger<T>`, named delegates, hosted services, options classes, and any other service resolved from the container. If the container is misconfigured (e.g., a service was never registered), it throws at resolution time — before the constructor body runs — so a runtime null guard in the constructor is never reached anyway.
+
+**Scope:** This rule covers constructor parameters resolved by DI. It does not apply to public API methods that accept nullable arguments from untrusted callers, or to factory/static methods where the caller supplies the value directly.
