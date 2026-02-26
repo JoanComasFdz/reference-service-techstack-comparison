@@ -2,7 +2,7 @@
 
 This document outlines the architectural and design principles used in this codebase, with a focus on functional programming patterns within C#/.NET 9.
 
-The 36 guidelines are organized into 6 focused documents. Load only the document relevant to your current task.
+The 37 guidelines are organized into 6 focused documents. Load only the document relevant to your current task.
 
 ---
 
@@ -10,33 +10,33 @@ The 36 guidelines are organized into 6 focused documents. Load only the document
 
 | If you are... | Read |
 |---|---|
-| Writing a new class or function | [Core Architecture](coding-guidelines/01-core-architecture.md) (Guidelines 01-01 to 01-11) |
-| Adding or modifying delegates, wiring dependencies | [Delegates and Dependency Wiring](coding-guidelines/02-delegates-and-dependency-wiring.md) (Guidelines 02-01 to 02-06) |
-| Handling errors, using Result types, or returning optional values | [Error Handling and Absence](coding-guidelines/03-error-handling.md) (Guidelines 03-01 to 03-04) |
-| Creating or modifying value objects | [Value Objects](coding-guidelines/04-value-objects.md) (Guidelines 04-01 to 04-05) |
-| Composing lambdas, managing state, or wrapping framework classes | [State and Composition Patterns](coding-guidelines/05-state-and-composition-patterns.md) (Guidelines 05-01 to 05-06) |
-| Formatting or reviewing code style | [Formatting Rules](coding-guidelines/06-formatting.md) (Guidelines 06-01 to 06-04) |
+| Writing a new class or function | [Core Architecture](coding-guidelines/01-core-architecture/01-01-static-classes.md) (Guidelines 01-01 to 01-11) |
+| Adding or modifying delegates, wiring dependencies | [Delegates and Dependency Wiring](coding-guidelines/02-delegates-and-dependency-wiring/02-01-named-delegates.md) (Guidelines 02-01 to 02-06) |
+| Handling errors, using Result types, or returning optional values | [Error Handling and Absence](coding-guidelines/03-error-handling/03-01-result-over-exceptions.md) (Guidelines 03-01 to 03-05) |
+| Creating or modifying value objects, or finding a constructor throw guard for a primitive parameter | [Value Objects](coding-guidelines/04-value-objects/04-01-use-value-objects.md) (Guidelines 04-01 to 04-05) |
+| Composing lambdas, managing state, or wrapping framework classes | [State and Composition Patterns](coding-guidelines/05-state-and-composition-patterns/05-01-higher-order-helpers.md) (Guidelines 05-01 to 05-06) |
+| Formatting or reviewing code style | [Formatting Rules](coding-guidelines/06-formatting/06-01-always-use-braces.md) (Guidelines 06-01 to 06-04) |
 
 ---
 
 ## Document Overview
 
-### [01 - Core Architecture](coding-guidelines/01-core-architecture.md)
+### [01 - Core Architecture](coding-guidelines/01-core-architecture/01-01-static-classes.md)
 **Guidelines 01-01 to 01-11.** Foundational structure: static classes for pure logic, explicit parameters, inline single-use code, descriptive names, toolbox pattern, vertical slice ownership, different reasons for change, explicit over implicit, no wrapper functions, composition over interfaces, return early.
 
-### [02 - Delegates and Dependency Wiring](coding-guidelines/02-delegates-and-dependency-wiring.md)
+### [02 - Delegates and Dependency Wiring](coding-guidelines/02-delegates-and-dependency-wiring/02-01-named-delegates.md)
 **Guidelines 02-01 to 02-06.** The complete delegate system: named delegates for single-operation dependencies, named delegates over `Action<T>`/`Func<T>`, interfaces at DI boundaries vs delegates internally, dependency composition with pre-composed capabilities, static class as module (co-located dependencies), delegate suffix convention (`Delegate` suffix).
 
-### [03 - Error Handling and Absence](coding-guidelines/03-error-handling.md)
-**Guidelines 03-01 to 03-04.** Result types instead of exceptions, `using static` for Result construction, dunet `Match` for exhaustive consumption, `IsFailure` + early return for sequential pipelines, `Option<T>` for domain absence vs `T?` for framework interop.
+### [03 - Error Handling and Absence](coding-guidelines/03-error-handling/03-01-result-over-exceptions.md)
+**Guidelines 03-01 to 03-05.** Result types instead of exceptions, `using static` for Result construction, dunet `Match` for exhaustive consumption, `IsFailure` + early return for sequential pipelines, `Option<T>` for domain absence vs `T?` for framework interop, no null checks on DI-injected constructor parameters.
 
-### [04 - Value Objects](coding-guidelines/04-value-objects.md)
+### [04 - Value Objects](coding-guidelines/04-value-objects/04-01-use-value-objects.md)
 **Guidelines 04-01 to 04-05.** Eliminating primitive obsession: constrained primitives as sealed records, value object structure (`Create()` factory, `ToString()` override), unwrap `.Value` at boundaries, no unit tests for trivial validation, value object families via base record.
 
-### [05 - State and Composition Patterns](coding-guidelines/05-state-and-composition-patterns.md)
+### [05 - State and Composition Patterns](coding-guidelines/05-state-and-composition-patterns/05-01-higher-order-helpers.md)
 **Guidelines 05-01 to 05-06.** Advanced patterns: higher-order helper functions, behavioral decisions in the consumer, three-bucket rule for lambda binding (bake in / parameter / reader delegate), context record pattern (shared mutable state), immutable state threading (sequential pipelines), thin shell pattern (framework-coupled classes).
 
-### [06 - Formatting Rules](coding-guidelines/06-formatting.md)
+### [06 - Formatting Rules](coding-guidelines/06-formatting/06-01-always-use-braces.md)
 **Guidelines 06-01 to 06-04.** Always use braces, blank line after closing brace, all-or-nothing parameter wrapping, expression body (`=>`) stays on same line.
 
 ---
@@ -49,7 +49,7 @@ The 36 guidelines are organized into 6 focused documents. Load only the document
 |---|-----------|----------------|
 | 01-01 | Static classes | Does this class have instance state? If no → make it static |
 | 01-02 | Explicit parameters | Can I see all inputs at the call site? |
-| 01-03 | Inline single-use | Is this only used once? Inline it with a comment |
+| 01-03 | Inline single-use | Is the name vague AND the body trivial? → Inline or rename to something specific. Does the name precisely label a multi-step operation? → Keep it. |
 | 01-04 | Descriptive names | Does the name say exactly what it does? |
 | 01-05 | Toolbox pattern | Is this function small, pure, and single-purpose? |
 | 01-06 | Vertical slice | Can I understand this file without opening others? |
@@ -64,11 +64,12 @@ The 36 guidelines are organized into 6 focused documents. Load only the document
 | 02-04 | Dependency composition | Am I receiving interfaces? Contain them in a dependencies class, expose delegates at the right level |
 | 02-05 | Static class as module | Can I co-locate delegates, bundle record, factory, and execution in one static class? |
 | 02-06 | Delegate suffix | Does the delegate type name end with `Delegate`? |
-| 03-01 | Result over exceptions | Is this failure expected? Use Result, not exceptions |
+| 03-01 | Result over exceptions | Is this failure expected? Use Result, not exceptions. Is a constructor throwing for an invalid primitive? → Value Object (04-01), not a Result factory on the class |
 | 03-02 | `using static` for Results | Am I producing Results? Shorten with `using static` |
 | 03-03 | dunet Match | Am I consuming a Result? Use `Match` (consumption) or `IsFailure` (pipelines) |
 | 03-04 | Option for absence | Does this method return "no value" as a domain concept? Use `Option<T>`, not `T?` |
-| 04-01 | Value objects | Does this primitive have domain constraints? Wrap it |
+| 03-05 | No null checks in constructors | Is this parameter injected by DI? Assign directly — no `?? throw`, no `ArgumentNullException` |
+| 04-01 | Value objects | Does this primitive have domain constraints? Does a constructor throw for an invalid primitive? → Wrap it in a Value Object |
 | 04-02 | Value object structure | sealed record, private ctor, `Create()` → Result, `ToString()` |
 | 04-03 | Unwrap at boundaries | Am I crossing into a primitive-typed API? Use `.Value` |
 | 04-04 | No VO unit tests | Is the validation trivially correct? Skip the test |
