@@ -35,6 +35,41 @@ if (options.Events < 1 || options.Events > 1_000_000) return "error";
 - The primitive has a valid range or format (e.g., 1–1,000,000)
 - Multiple callers need to trust the value is valid
 - The constraint is a domain rule, not a one-off check
+- A constructor or method validates a primitive parameter with a throw guard — the guard is a signal that the parameter needs a Value Object. Move the validation into `Create()`; the constructor receives an already-valid type and needs no guard at all (see also Guideline 03-01).
+
+```csharp
+// ❌ Signal — constructor throw guard on a primitive: the parameter needs a Value Object
+internal sealed class ProcessMonitorBackgroundService : BackgroundService
+{
+    public ProcessMonitorBackgroundService(TimeSpan samplingInterval, ILogger logger)
+    {
+        if (samplingInterval <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(samplingInterval));  // ← signal
+    }
+}
+
+// ✅ Fix — Value Object carries the Result; constructor receives an already-valid type
+public sealed record SamplingInterval
+{
+    public TimeSpan Value { get; }
+    private SamplingInterval(TimeSpan value) => Value = value;
+
+    public static Result<SamplingInterval, string> Create(TimeSpan value) =>
+        value > TimeSpan.Zero
+            ? new Success(new SamplingInterval(value))
+            : new Failure($"Sampling interval must be positive (got: {value})");
+
+    public override string ToString() => Value.ToString();
+}
+
+internal sealed class ProcessMonitorBackgroundService : BackgroundService
+{
+    public ProcessMonitorBackgroundService(SamplingInterval samplingInterval, ILogger logger)
+    {
+        // No guard needed — SamplingInterval.Create() already ensured validity
+    }
+}
+```
 
 **When NOT to use value objects:**
 

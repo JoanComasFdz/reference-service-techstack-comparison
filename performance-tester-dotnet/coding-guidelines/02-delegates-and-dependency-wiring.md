@@ -250,6 +250,8 @@ internal static class SetupPhaseDependencies
 
 **Why:** In FP languages, a module contains both its types and its functions — there's no separate "builder" concept. C# static classes serve the same role. Co-locating definitions, bundling, construction, and execution gives a top-to-bottom reading flow and eliminates file-hopping.
 
+**`BuildDependencies` is always present, even when trivial.** If a module receives all its dependencies pre-composed (e.g., shared delegates passed in directly from the orchestration level), `BuildDependencies` may do nothing more than forward parameters into `new Dependencies(...)`. This is still correct — the factory slot must remain occupied to maintain the four-part structure and preserve the top-to-bottom reading contract. A module where one phase happens to need only shared delegates is an accident of that phase's current requirements, not an architectural signal to simplify. Removing or inlining `BuildDependencies` breaks pattern uniformity and makes that module look different from all others without good reason. This is explicitly exempt from Guideline 01-09 (No Wrapper Functions) (see [Core Architecture](01-core-architecture.md)).
+
 **File placement:** See Guideline 05-06 (see [State and Composition Patterns](05-state-and-composition-patterns.md)) for where Module files belong in the directory structure (`Internal/{Concept}Module.cs`) and the visibility-first file organization rules.
 
 **When to use:**
