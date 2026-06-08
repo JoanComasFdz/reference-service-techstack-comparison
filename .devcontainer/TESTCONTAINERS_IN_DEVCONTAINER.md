@@ -39,101 +39,29 @@ The devcontainer must mount the host Docker socket:
 {
   "mounts": [
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
-  ],
-  "runArgs": [
-    "--cap-add=NET_ADMIN",
-    "--cap-add=NET_RAW"
   ]
 }
 ```
 
-**Why these capabilities?** The firewall initialization script needs NET_ADMIN and NET_RAW to configure iptables rules.
+### 2. Startup Network Connection
 
-### 2. iptables Chain Recreation Script
-
-**File:** `fix-docker-iptables.sh`
-
-This script recreates Docker's required iptables chains after the firewall initialization:
-
-```bash
-#!/bin/bash
-# Create Docker iptables chains for Testcontainers support
-# Note: Script is run with sudo, no internal sudo needed
-
-iptables -t nat -N DOCKER 2>/dev/null || true
-iptables -t filter -N DOCKER 2>/dev/null || true
-iptables -t filter -N DOCKER-FORWARD 2>/dev/null || true
-iptables -t filter -N DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
-iptables -t filter -N DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
-iptables -t filter -N DOCKER-USER 2>/dev/null || true
-iptables -t filter -N DOCKER-CT 2>/dev/null || true
-iptables -t filter -N DOCKER-BRIDGE 2>/dev/null || true
-
-# Allow Testcontainers network traffic (172.19.0.0/16)
-iptables -I OUTPUT 1 -d 172.19.0.0/16 -j ACCEPT
-iptables -I INPUT 1 -s 172.19.0.0/16 -j ACCEPT
-```
-
-**Why is this needed?** The `init-firewall.sh` script (run before this) configures firewall rules and can affect Docker networking. Even with socket mounting, the host Docker daemon expects certain iptables chains to exist for network isolation and traffic routing. This script ensures those chains are present and allows traffic to the Testcontainers network.
-
-**Required iptables chains:**
-- `DOCKER` (nat table) - Port mapping and NAT rules
-- `DOCKER` (filter table) - Container traffic filtering
-- `DOCKER-FORWARD` - Traffic forwarding between containers and host
-- `DOCKER-ISOLATION-STAGE-1/2` - Network isolation between Docker networks
-- `DOCKER-USER` - Custom user-defined rules
-- `DOCKER-CT` - Connection tracking
-- `DOCKER-BRIDGE` - Bridge network rules
-
-**Testcontainers network:** The script explicitly allows traffic to/from `172.19.0.0/16`, which is the default network range used by Testcontainers. This is crucial because the devcontainer will be connected to this network.
-
-### 3. Dockerfile Configuration
-
-The script must be copied into the container and granted passwordless sudo execution:
-
-```dockerfile
-# Copy firewall scripts to /usr/local/bin/
-COPY init-firewall.sh /usr/local/bin/
-COPY fix-docker-iptables.sh /usr/local/bin/
-
-USER root
-RUN chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/fix-docker-iptables.sh && \
-  echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
-  echo "node ALL=(root) NOPASSWD: /usr/local/bin/fix-docker-iptables.sh" >> /etc/sudoers.d/node-firewall && \
-  echo "node ALL=(root) NOPASSWD: /usr/local/share/docker-init.sh*" >> /etc/sudoers.d/node-firewall && \
-  echo "node ALL=(root) NOPASSWD: /bin/sh -c * dockerd *" >> /etc/sudoers.d/node-firewall && \
-  echo "node ALL=(root) NOPASSWD: /usr/bin/pkill *" >> /etc/sudoers.d/node-firewall && \
-  chmod 0440 /etc/sudoers.d/node-firewall
-
-USER node
-```
-
-**Why passwordless sudo?** The scripts run automatically during container startup via `postStartCommand`. Password prompts would block the startup process.
-
-### 4. Startup Integration and Network Connection
-
-The devcontainer must be connected to the Testcontainers network:
+The devcontainer must be connected to the Testcontainers network on startup:
 
 ```json
 {
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/fix-docker-iptables.sh && docker network connect performance-tester-testcontainers-network $(hostname) 2>/dev/null || true"
+  "postStartCommand": "bash /workspace/.devcontainer/poststart-wrapper.sh"
 }
 ```
 
-**Execution order:**
-1. `init-firewall.sh` - Configure firewall rules
-2. `fix-docker-iptables.sh` - Recreate Docker chains and allow Testcontainers traffic
-3. `docker network connect` - Connect the devcontainer to the Testcontainers network
+The `poststart-wrapper.sh` script runs `connect-to-testcontainers-network.sh`, which connects the devcontainer to the Testcontainers network.
 
 **Why connect to the network?** This is the key step that enables the devcontainer to communicate with test containers using their container IPs. Without this, the devcontainer would be isolated from the Testcontainers network.
 
 ## How It Works
 
 1. **Devcontainer starts** → Mounts host Docker socket at `/var/run/docker.sock`
-2. **Firewall initialization** → `init-firewall.sh` sets up network restrictions
-3. **iptables configuration** → `fix-docker-iptables.sh` ensures Docker chains exist and allows Testcontainers network traffic
-4. **Network connection** → Devcontainer joins the Testcontainers network (`performance-tester-testcontainers-network`)
-5. **Testcontainers ready** → Integration tests can create containers on host Docker and communicate with them via container IPs
+2. **Network connection** → Devcontainer joins the Testcontainers network (`performance-tester-testcontainers-network`)
+3. **Testcontainers ready** → Integration tests can create containers on host Docker and communicate with them via container IPs
 
 ## ContainerManager Configuration
 
@@ -186,16 +114,12 @@ dotnet test
 
 ## Common Issues
 
-**Problem:** Tests fail with "iptables: No chain/target/match by that name"
-**Solution:** Ensure `fix-docker-iptables.sh` runs after `init-firewall.sh` in `postStartCommand`
-
 **Problem:** Permission denied when running Docker commands
 **Solution:** Verify Docker socket is mounted (`/var/run/docker.sock`) and user has permissions (may need to add user to docker group on host)
 
 **Problem:** Cannot reach Docker containers from tests
 **Solution:**
 - Check that devcontainer is connected to the network: `docker network inspect performance-tester-testcontainers-network`
-- Verify `172.19.0.0/16` network range is allowed in iptables rules
 - Ensure test code uses container IPs when `DEVCONTAINER=true` environment variable is set
 
 **Problem:** Tests work on host but fail in devcontainer

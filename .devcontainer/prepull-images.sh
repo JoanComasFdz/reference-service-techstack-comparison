@@ -1,6 +1,5 @@
 #!/bin/bash
-# Pre-pull Docker images before firewall is enabled
-# This ensures images are cached and firewall doesn't block pulls
+# Pre-pull Docker images for faster infrastructure startup
 
 set -e  # Exit on error
 

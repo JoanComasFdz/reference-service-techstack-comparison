@@ -9,9 +9,7 @@
     }
   },
   "runArgs": [
-    "--name=reference-service-techstack-comparison",
-    "--cap-add=NET_ADMIN",
-    "--cap-add=NET_RAW"
+    "--name=reference-service-techstack-comparison"
   ],
   "customizations": {
     "vscode": {

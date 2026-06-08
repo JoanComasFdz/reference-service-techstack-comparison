@@ -20,8 +20,6 @@ The devcontainer configuration has been refactored to separate concerns and impr
 ├── ccstatusline.settings.json  # Status line configuration for Claude Code
 ├── install-k6.sh              # k6 load testing tool installation
 ├── prepull-images.sh          # Pre-pull Docker images for performance
-├── init-firewall.sh           # Firewall rules setup
-├── fix-docker-iptables.sh     # Docker iptables chains configuration
 ├── connect-to-testcontainers-network.sh  # Connect to testcontainers network
 ├── MIGRATION_PLAN.md          # Migration planning documentation
 ├── TESTCONTAINERS_IN_DEVCONTAINER.md  # Testcontainers setup guide
@@ -50,15 +48,13 @@ The devcontainer configuration has been refactored to separate concerns and impr
 **When:** Runs EVERY TIME the container starts (including after restart)
 
 **What it does:**
-1. Runs `init-firewall.sh` - Sets up firewall rules with allowed domains
-2. Runs `fix-docker-iptables.sh` - Configures Docker iptables chains
-3. Runs `connect-to-testcontainers-network.sh` - Connects container to testcontainers network
-4. Runs `connect-to-infrastructure-network.sh` - Connects devcontainer to infrastructure network
-5. Runs `start-claude-devtools.sh` - Starts claude-devtools web UI container
+1. Runs `connect-to-testcontainers-network.sh` - Connects container to testcontainers network
+2. Runs `connect-to-infrastructure-network.sh` - Connects devcontainer to infrastructure network
+3. Runs `start-claude-devtools.sh` - Starts claude-devtools web UI container
 
 **Log file:** `/tmp/poststart.log`
 
-**Modify when:** You need to change firewall rules, Docker networking, or startup behavior
+**Modify when:** You need to change Docker networking or startup behavior
 
 ## Adding New Setup Steps
 
@@ -127,31 +123,12 @@ docker exec <container-id> cat /tmp/poststart.log
 - Wrapper script handles all complexity
 - Full logging and error reporting
 
-## Firewall Configuration
-
-The firewall setup (`init-firewall.sh`) restricts outbound network access to only allowed domains for security. This prevents accidental data leaks or unwanted network access.
-
-**Allowed domains include:**
-- GitHub (for git operations)
-- NuGet, npm, PyPI (package managers)
-- Docker Hub (container images)
-- VS Code marketplace
-- Anthropic API (Claude Code)
-- Microsoft/Azure CDN (VS Code extensions)
-- Cloudflare (Docker Hub CDN)
-
-**To add new domains:**
-Edit `init-firewall.sh` and add to either:
-- `cdn_domains` - For CDN-backed services (resolved 5 times for multiple IPs)
-- `non_cdn_domains` - For stable domains (resolved once)
-
 ## Docker Networking
 
 The devcontainer uses Docker-in-Docker to run the performance testing infrastructure. The networking scripts ensure:
 1. The devcontainer can access Docker socket
 2. The devcontainer is connected to the testcontainers network
-3. Docker iptables chains are properly configured
-4. Firewall allows Docker bridge network traffic
+3. The devcontainer is connected to the infrastructure network
 
 ## Claude DevTools
 
@@ -213,11 +190,8 @@ When modifying the devcontainer:
 **Issue:** postStartCommand fails
 **Solution:** Check `/tmp/poststart.log` to see which script failed
 
-**Issue:** Firewall blocks needed domain
-**Solution:** Add domain to `init-firewall.sh` (see "Firewall Configuration" above)
-
 **Issue:** Docker networking issues
-**Solution:** Check that `--cap-add=NET_ADMIN` and `--cap-add=NET_RAW` are in `runArgs`
+**Solution:** Check Docker socket is accessible and networks are connected
 
 **Issue:** Changes to scripts not taking effect
 **Solution:** Rebuild the container to pick up workspace file changes

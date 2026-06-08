@@ -6,7 +6,7 @@ ENV TZ="$TZ"
 # Upgrade npm to latest stable version
 RUN npm install -g npm@latest
 
-# Install basic development tools and iptables/ipset
+# Install basic development tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
   less \
   git \
@@ -18,12 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   unzip \
   gnupg2 \
   gh \
-  iptables \
-  ipset \
   iproute2 \
   iputils-ping \
   dnsutils \
-  aggregate \
   jq \
   lsof \
   nano \
@@ -108,18 +105,13 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
   -a "export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
   -x
 
-# Copy and set up firewall scripts and configure sudoers for Docker-in-Docker
-COPY init-firewall.sh /usr/local/bin/
-COPY fix-docker-iptables.sh /usr/local/bin/
+# Configure sudoers for Docker-in-Docker
 USER root
-RUN chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/fix-docker-iptables.sh && \
-  echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
-  echo "node ALL=(root) NOPASSWD: /usr/local/bin/fix-docker-iptables.sh" >> /etc/sudoers.d/node-firewall && \
-  echo "node ALL=(root) NOPASSWD: /usr/bin/pkill *" >> /etc/sudoers.d/node-firewall && \
-  echo "node ALL=(root) NOPASSWD: /bin/chmod 666 /var/run/docker.sock" >> /etc/sudoers.d/node-firewall && \
-  echo "node ALL=(root) NOPASSWD: /usr/bin/apt-get *" >> /etc/sudoers.d/node-firewall && \
-  echo "node ALL=(root) NOPASSWD: /usr/bin/snap *" >> /etc/sudoers.d/node-firewall && \
-  chmod 0440 /etc/sudoers.d/node-firewall
+RUN echo "node ALL=(root) NOPASSWD: /usr/bin/pkill *" > /etc/sudoers.d/node-devcontainer && \
+  echo "node ALL=(root) NOPASSWD: /bin/chmod 666 /var/run/docker.sock" >> /etc/sudoers.d/node-devcontainer && \
+  echo "node ALL=(root) NOPASSWD: /usr/bin/apt-get *" >> /etc/sudoers.d/node-devcontainer && \
+  echo "node ALL=(root) NOPASSWD: /usr/bin/snap *" >> /etc/sudoers.d/node-devcontainer && \
+  chmod 0440 /etc/sudoers.d/node-devcontainer
 
 # Configure docker group (GID 1001) to match WSL2 Docker Desktop socket ownership
 RUN groupmod -g 1001 docker 2>/dev/null || groupadd -g 1001 docker && \

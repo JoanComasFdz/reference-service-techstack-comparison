@@ -14,33 +14,7 @@ log "========================================="
 log "POSTSTART WRAPPER STARTING"
 log "========================================="
 
-log "Step 1: Running init-firewall.sh..."
-FIREWALL_OUTPUT=$(sudo /usr/local/bin/init-firewall.sh 2>&1) && {
-    echo "$FIREWALL_OUTPUT" >> "$LOGFILE"
-    log "✓ init-firewall.sh completed successfully"
-} || {
-    EXIT_CODE=$?
-    echo "$FIREWALL_OUTPUT" >> "$LOGFILE"
-    log "⚠ init-firewall.sh FAILED with exit code $EXIT_CODE (non-fatal)"
-    log "  Firewall setup is optional - devcontainer will work without network restrictions"
-    log "  Common causes: GitHub API rate limit (shared IP/corporate network), transient network issues"
-    log "  To fix: set GITHUB_TOKEN env var, or retry 'sudo /usr/local/bin/init-firewall.sh' manually"
-    log "Error output (last 10 lines):"
-    echo "$FIREWALL_OUTPUT" | tail -10
-    # Don't exit - devcontainer should still work without firewall
-}
-
-log "Step 2: Running fix-docker-iptables.sh..."
-if sudo /usr/local/bin/fix-docker-iptables.sh >> "$LOGFILE" 2>&1; then
-    log "✓ fix-docker-iptables.sh completed successfully"
-else
-    EXIT_CODE=$?
-    log "✗ fix-docker-iptables.sh FAILED with exit code $EXIT_CODE"
-    log "Check $LOGFILE for details"
-    exit $EXIT_CODE
-fi
-
-log "Step 3: Running connect-to-testcontainers-network.sh..."
+log "Step 1: Running connect-to-testcontainers-network.sh..."
 # Fix docker socket permissions (needed for Windows Docker Desktop)
 sudo /bin/chmod 666 /var/run/docker.sock 2>/dev/null || true
 if bash /workspace/.devcontainer/connect-to-testcontainers-network.sh >> "$LOGFILE" 2>&1; then
@@ -53,7 +27,7 @@ else
     # Don't exit - this is not critical for devcontainer operation
 fi
 
-log "Step 4: Running connect-to-infrastructure-network.sh..."
+log "Step 2: Running connect-to-infrastructure-network.sh..."
 if bash /workspace/.devcontainer/connect-to-infrastructure-network.sh >> "$LOGFILE" 2>&1; then
     log "✓ connect-to-infrastructure-network.sh completed successfully"
     log "  PostgreSQL: performancetest-postgres:5432"
@@ -66,7 +40,7 @@ else
     # Don't exit - user can manually connect or use host.docker.internal
 fi
 
-log "Step 5: Starting claude-devtools container..."
+log "Step 3: Starting claude-devtools container..."
 if bash /workspace/.devcontainer/start-claude-devtools.sh >> "$LOGFILE" 2>&1; then
     log "✓ claude-devtools started at http://localhost:3456"
 else
