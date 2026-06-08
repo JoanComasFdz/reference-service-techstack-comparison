@@ -1,5 +1,7 @@
 # 01-06. Vertical Slice Ownership
 
+> **Scope:** This is a design principle for human developers and PR reviewers, particularly when evaluating proposals to extract shared builders or base classes. It is not subject to automated audit because deciding when to extract, what constitutes duplication, and where module boundaries fall are inherently context-dependent judgments.
+
 Each builder owns its complete rendering logic. Open the file → see everything it does. No need to navigate elsewhere.
 
 ```

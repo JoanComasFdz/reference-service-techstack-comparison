@@ -10,33 +10,33 @@ The 37 guidelines are organized into 6 focused documents. Load only the document
 
 | If you are... | Read |
 |---|---|
-| Writing a new class or function | [Core Architecture](coding-guidelines/01-core-architecture/01-01-static-classes.md) (Guidelines 01-01 to 01-11) |
-| Adding or modifying delegates, wiring dependencies | [Delegates and Dependency Wiring](coding-guidelines/02-delegates-and-dependency-wiring/02-01-named-delegates.md) (Guidelines 02-01 to 02-06) |
-| Handling errors, using Result types, or returning optional values | [Error Handling and Absence](coding-guidelines/03-error-handling/03-01-result-over-exceptions.md) (Guidelines 03-01 to 03-05) |
-| Creating or modifying value objects, or finding a constructor throw guard for a primitive parameter | [Value Objects](coding-guidelines/04-value-objects/04-01-use-value-objects.md) (Guidelines 04-01 to 04-05) |
-| Composing lambdas, managing state, or wrapping framework classes | [State and Composition Patterns](coding-guidelines/05-state-and-composition-patterns/05-01-higher-order-helpers.md) (Guidelines 05-01 to 05-06) |
-| Formatting or reviewing code style | [Formatting Rules](coding-guidelines/06-formatting/06-01-always-use-braces.md) (Guidelines 06-01 to 06-04) |
+| Writing a new class or function | [Core Architecture](01-core-architecture/01-01-static-classes.md) (Guidelines 01-01 to 01-11) |
+| Adding or modifying delegates, wiring dependencies | [Delegates and Dependency Wiring](02-delegates-and-dependency-wiring/02-01-named-delegates.md) (Guidelines 02-01 to 02-06) |
+| Handling errors, using Result types, or returning optional values | [Error Handling and Absence](03-error-handling/03-01-result-over-exceptions.md) (Guidelines 03-01 to 03-05) |
+| Creating or modifying value objects, or finding a constructor throw guard for a primitive parameter | [Value Objects](04-value-objects/04-01-use-value-objects.md) (Guidelines 04-01 to 04-05) |
+| Composing lambdas, managing state, or wrapping framework classes | [State and Composition Patterns](05-state-and-composition-patterns/05-01-higher-order-helpers.md) (Guidelines 05-01 to 05-06) |
+| Formatting or reviewing code style | [Formatting Rules](06-formatting/06-01-always-use-braces.md) (Guidelines 06-01 to 06-04) |
 
 ---
 
 ## Document Overview
 
-### [01 - Core Architecture](coding-guidelines/01-core-architecture/01-01-static-classes.md)
+### [01 - Core Architecture](01-core-architecture/01-01-static-classes.md)
 **Guidelines 01-01 to 01-11.** Foundational structure: static classes for pure logic, explicit parameters, inline single-use code, descriptive names, toolbox pattern, vertical slice ownership, different reasons for change, explicit over implicit, no wrapper functions, composition over interfaces, return early.
 
-### [02 - Delegates and Dependency Wiring](coding-guidelines/02-delegates-and-dependency-wiring/02-01-named-delegates.md)
+### [02 - Delegates and Dependency Wiring](02-delegates-and-dependency-wiring/02-01-named-delegates.md)
 **Guidelines 02-01 to 02-06.** The complete delegate system: named delegates for single-operation dependencies, named delegates over `Action<T>`/`Func<T>`, interfaces at DI boundaries vs delegates internally, dependency composition with pre-composed capabilities, static class as module (co-located dependencies), delegate suffix convention (`Delegate` suffix).
 
-### [03 - Error Handling and Absence](coding-guidelines/03-error-handling/03-01-result-over-exceptions.md)
+### [03 - Error Handling and Absence](03-error-handling/03-01-result-over-exceptions.md)
 **Guidelines 03-01 to 03-05.** Result types instead of exceptions, `using static` for Result construction, dunet `Match` for exhaustive consumption, `IsFailure` + early return for sequential pipelines, `Option<T>` for domain absence vs `T?` for framework interop, no null checks on DI-injected constructor parameters.
 
-### [04 - Value Objects](coding-guidelines/04-value-objects/04-01-use-value-objects.md)
+### [04 - Value Objects](04-value-objects/04-01-use-value-objects.md)
 **Guidelines 04-01 to 04-05.** Eliminating primitive obsession: constrained primitives as sealed records, value object structure (`Create()` factory, `ToString()` override), unwrap `.Value` at boundaries, no unit tests for trivial validation, value object families via base record.
 
-### [05 - State and Composition Patterns](coding-guidelines/05-state-and-composition-patterns/05-01-higher-order-helpers.md)
+### [05 - State and Composition Patterns](05-state-and-composition-patterns/05-01-higher-order-helpers.md)
 **Guidelines 05-01 to 05-06.** Advanced patterns: higher-order helper functions, behavioral decisions in the consumer, three-bucket rule for lambda binding (bake in / parameter / reader delegate), context record pattern (shared mutable state), immutable state threading (sequential pipelines), thin shell pattern (framework-coupled classes).
 
-### [06 - Formatting Rules](coding-guidelines/06-formatting/06-01-always-use-braces.md)
+### [06 - Formatting Rules](06-formatting/06-01-always-use-braces.md)
 **Guidelines 06-01 to 06-04.** Always use braces, blank line after closing brace, all-or-nothing parameter wrapping, expression body (`=>`) stays on same line.
 
 ---

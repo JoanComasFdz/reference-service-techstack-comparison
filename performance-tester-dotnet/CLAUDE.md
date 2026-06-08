@@ -556,7 +556,7 @@ builder.Services.AddInfrastructure(
 
 ## Code Quality Standards
 
-**See also:** [CODING_GUIDELINES.md](CODING_GUIDELINES.md) for the coding guidelines index and routing table (36 guidelines across 6 focused documents in `coding-guidelines/`).
+**See also:** [CODING_GUIDELINES.md](docs/coding-guidelines/CODING_GUIDELINES.md) for the coding guidelines index and routing table (36 guidelines across 6 focused documents in `docs/coding-guidelines/`).
 
 ### Formatting Rules (enforced by `.editorconfig`)
 
@@ -999,7 +999,7 @@ docker-compose -f scripts/infrastructure/docker-compose.yml up -d
 ### Project-Specific Documentation
 
 - **[README.md](README.md)** - Quick overview, build/test commands
-- **[CODING_GUIDELINES.md](CODING_GUIDELINES.md)** - Coding guidelines index (36 guidelines across 6 documents in `coding-guidelines/`)
+- **[CODING_GUIDELINES.md](docs/coding-guidelines/CODING_GUIDELINES.md)** - Coding guidelines index (36 guidelines across 6 documents in `docs/coding-guidelines/`)
 
 ### External Resources
 

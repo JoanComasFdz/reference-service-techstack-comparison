@@ -1,5 +1,7 @@
 # 01-11. Return Early to Avoid Nesting
 
+> **Scope:** Design principle for human developers and PR reviewers — not subject to automated audit because the combinatorial variety of nesting shapes (with/without `else`, loops, `return`/`continue`/`break`) makes exhaustive pattern enumeration impractical, and deciding whether a specific nesting is worth flattening requires reasoning about readability in context.
+
 Use guard clauses and early returns to handle edge cases at the top of a method. This keeps the main logic at the base indentation level and avoids deeply nested `if`/`else` blocks.
 
 ```csharp

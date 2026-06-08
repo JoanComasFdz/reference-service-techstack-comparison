@@ -1,5 +1,7 @@
 # 01-07. Different Reasons for Change
 
+> **Scope:** Design principle for human developers and PR reviewers — not subject to automated audit because "different reasons for change" requires predicting future requirements, which is inherently a judgment call.
+
 If two things change for different reasons, they belong in different files. Even if code looks similar today, separate it if it has different futures.
 
 ```csharp
