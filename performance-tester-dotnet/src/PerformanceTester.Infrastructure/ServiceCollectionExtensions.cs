@@ -40,22 +40,13 @@ public static class ServiceCollectionExtensions
         // No adapter class — the closure IS the implementation (Guideline 02-01)
         services.AddSingleton<FindServiceProcessIdDelegate>(sp =>
         {
-            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-            var discoveryLogger = loggerFactory.CreateLogger(
-                typeof(ServiceDiscovery).FullName!);
-
-            var finderLogger = platform.Match(
-                linux: _ => loggerFactory.CreateLogger(typeof(LinuxProcessFinder).FullName!),
-                windows: _ => loggerFactory.CreateLogger(typeof(WindowsProcessFinder).FullName!));
-
-            var findProcessOnPort = platform.Match(
-                linux: _ => (FindProcessOnPortDelegate)((p, ct) => LinuxProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)),
-                windows: _ => (FindProcessOnPortDelegate)((p, ct) => WindowsProcessFinder.FindProcessOnPortAsync(p, finderLogger, ct)));
+            var discoveryLogger = sp.GetRequiredService<ILoggerFactory>()
+                .CreateLogger(typeof(ServiceDiscovery).FullName!);
 
             return (port, timeout, ct) => ServiceDiscovery.FindServiceProcessIdAsync(
                 port,
                 timeout,
-                findProcessOnPort,
+                platform,
                 discoveryLogger,
                 ct);
         });

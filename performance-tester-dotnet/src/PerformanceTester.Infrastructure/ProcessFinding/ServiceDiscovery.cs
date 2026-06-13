@@ -19,7 +19,7 @@ internal static class ServiceDiscovery
     public static async Task<Result<ProcessId, string>> FindServiceProcessIdAsync(
         Port port,
         TimeSpan timeout,
-        FindProcessOnPortDelegate findProcessOnPort,
+        SupportedPlatform platform,
         ILogger logger,
         CancellationToken cancellationToken = default)
     {
@@ -28,39 +28,19 @@ internal static class ServiceDiscovery
             port.Value,
             timeout.TotalSeconds);
 
-        var startTime = DateTime.UtcNow;
-        var lastLogTime = DateTime.UtcNow;
+        var result = await Poll.UntilSuccessOrTimeoutAsync(
+            FindOnceAsync,
+            interval: TimeSpan.FromSeconds(1),
+            timeout: timeout,
+            cancellationToken: cancellationToken);
 
-        while (DateTime.UtcNow - startTime < timeout)
+        if (result.IsSuccess)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Check if port is listening before attempting to find process
-            if (IsPortListening(port))
-            {
-                var result = await findProcessOnPort(port, cancellationToken);
-                if (result.IsSuccess)
-                {
-                    logger.LogInformation(
-                        "Found service on port {Port}: PID {ProcessId}",
-                        port.Value,
-                        result.SuccessValue);
-                    return result;
-                }
-            }
-
-            // Log progress every 5 seconds
-            if ((DateTime.UtcNow - lastLogTime).TotalSeconds >= 5)
-            {
-                var elapsed = DateTime.UtcNow - startTime;
-                logger.LogDebug(
-                    "Still searching for service on port {Port} (elapsed: {Elapsed}s)",
-                    port.Value,
-                    (int)elapsed.TotalSeconds);
-                lastLogTime = DateTime.UtcNow;
-            }
-
-            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+            logger.LogInformation(
+                "Found service on port {Port}: PID {ProcessId}",
+                port.Value,
+                result.SuccessValue);
+            return result;
         }
 
         logger.LogWarning(
@@ -68,6 +48,19 @@ internal static class ServiceDiscovery
             port.Value,
             timeout.TotalSeconds);
         return new Failure($"No service found on port {port} within {timeout}");
+
+        // One attempt: is the port listening, and if so, ask the platform to find the process.
+        // The OS dispatch now lives on SupportedPlatform, so this stays platform-agnostic.
+        Task<Result<ProcessId, string>> FindOnceAsync(CancellationToken token)
+        {
+            if (!IsPortListening(port))
+            {
+                return Task.FromResult<Result<ProcessId, string>>(
+                    new Failure($"Port {port} is not listening yet"));
+            }
+
+            return platform.FindProcessOnPortAsync(port, logger, token);
+        }
     }
 
     private static bool IsPortListening(Port port)

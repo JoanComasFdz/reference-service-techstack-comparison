@@ -65,11 +65,7 @@ internal static partial class LinuxProcessFinder
 
             if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
             {
-                var pidString = output.Trim().Split('\n').FirstOrDefault();
-                if (int.TryParse(pidString, out var pid))
-                {
-                    return pid;
-                }
+                return ParsePidFromLsofOutput(output);
             }
 
             return null;
@@ -108,13 +104,7 @@ internal static partial class LinuxProcessFinder
 
             if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
             {
-                // Parse ss output: users:(("processName",pid=12345,fd=3))
-                // Example: LISTEN 0   1   0.0.0.0:8080   0.0.0.0:*   users:(("python3",pid=24940,fd=3))
-                var match = PidRegex().Match(output);
-                if (match.Success && int.TryParse(match.Groups[1].Value, out var pid))
-                {
-                    return pid;
-                }
+                return ParsePidFromSsOutput(output);
             }
 
             return null;
@@ -124,6 +114,20 @@ internal static partial class LinuxProcessFinder
             logger.LogDebug(ex, "ss command failed for port {Port}", port.Value);
             return null;
         }
+    }
+
+    // Pure: parse lsof's PID-per-line output. Private — only the impure finder calls it.
+    private static int? ParsePidFromLsofOutput(string output)
+    {
+        var pidString = output.Trim().Split('\n').FirstOrDefault();
+        return int.TryParse(pidString, out var pid) ? pid : null;
+    }
+
+    // Pure: extract pid=NNN from ss output. Private — only the impure finder calls it.
+    private static int? ParsePidFromSsOutput(string output)
+    {
+        var match = PidRegex().Match(output);
+        return match.Success && int.TryParse(match.Groups[1].Value, out var pid) ? pid : null;
     }
 
     [GeneratedRegex(@"pid=(\d+)", RegexOptions.Compiled)]
