@@ -189,7 +189,6 @@ builder.Services.AddInfrastructure(
 - `IEventPublisher` - CloudEvents publishing to RabbitMQ
 - CloudEvents v1.0 compliance via official `CloudNative.CloudEvents` library
 - Connection pooling (single IConnection, per-operation IChannel)
-- Polly retry policy with exponential backoff
 - Throughput tracking (events/second calculation)
 - 6 integration tests (all passing)
 
@@ -903,7 +902,6 @@ public static class EventConsumingAssertions
 - CloudNative.CloudEvents 2.8.0
 - CloudNative.CloudEvents.SystemTextJson 2.8.0
 - RabbitMQ.Client 7.0.0
-- Polly 8.0.0
 
 **Testing (all test projects):**
 - xUnit 2.6.6
