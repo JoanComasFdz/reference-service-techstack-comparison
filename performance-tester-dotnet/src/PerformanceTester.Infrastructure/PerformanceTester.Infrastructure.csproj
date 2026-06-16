@@ -23,4 +23,8 @@
     <ProjectReference Include="..\PerformanceTester.Functional\PerformanceTester.Functional.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="PerformanceTester.Infrastructure.Tests" />
+  </ItemGroup>
+
 </Project>
