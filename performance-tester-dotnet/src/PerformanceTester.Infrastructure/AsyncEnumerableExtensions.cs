@@ -10,6 +10,9 @@ namespace PerformanceTester.Infrastructure;
 internal static class AsyncEnumerableExtensions
 {
     /// <summary>Yields at most <paramref name="count"/> elements, then stops (disposing the source).</summary>
+    /// <remarks>Hand-rolled to avoid a <c>System.Linq.Async</c> dependency for one trivial operator. If more
+    /// async-LINQ operators are ever needed, swap this for the library's <c>Take</c> (or, on .NET 10+, the
+    /// built-in <c>System.Linq.AsyncEnumerable</c>).</remarks>
     public static async IAsyncEnumerable<T> Take<T>(
         this IAsyncEnumerable<T> source,
         int count)
@@ -32,6 +35,9 @@ internal static class AsyncEnumerableExtensions
     }
 
     /// <summary>Projects each element through an asynchronous selector, sequentially (awaits before pulling the next).</summary>
+    /// <remarks>Hand-rolled to avoid a <c>System.Linq.Async</c> dependency. If more async-LINQ operators are
+    /// ever needed, swap for the library's <c>SelectAwait</c> — but note its selector returns
+    /// <c>ValueTask&lt;T&gt;</c> whereas this takes <c>Task&lt;T&gt;</c>, so the call site needs adapting.</remarks>
     public static async IAsyncEnumerable<TResult> SelectAwait<TSource, TResult>(
         this IAsyncEnumerable<TSource> source,
         Func<TSource, Task<TResult>> selector)
